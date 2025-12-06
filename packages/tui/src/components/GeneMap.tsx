@@ -18,7 +18,7 @@ export function GeneMap({ width = 80 }: GeneMapProps): React.ReactElement {
   const genomeLength = currentPhage?.genomeLength ?? 1;
 
   // Map width for the gene bar (minus borders and labels)
-  const barWidth = width - 4;
+  const barWidth = Math.max(1, width - 4);
 
   // Build the gene bar visualization
   const geneBar = useMemo(() => {

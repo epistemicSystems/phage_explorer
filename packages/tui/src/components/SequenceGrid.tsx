@@ -6,7 +6,7 @@ import {
   getNucleotideColor,
   getAminoAcidColor,
   type GridRow,
-  type ColorPair,
+  type Theme,
 } from '@phage-explorer/core';
 
 interface SequenceGridProps {
@@ -24,7 +24,7 @@ interface ColorSegment {
 
 function groupCellsByColor(
   row: GridRow,
-  theme: ReturnType<typeof usePhageStore>['currentTheme'],
+  theme: Theme,
   viewMode: 'dna' | 'aa',
   diffEnabled: boolean
 ): ColorSegment[] {
@@ -156,8 +156,8 @@ export function SequenceGrid({
                   </Text>
                 ))}
                 {/* Pad row to full width */}
-                {row.cells.length < width && (
-                  <Text>{' '.repeat(width - row.cells.length)}</Text>
+                {row.cells.length < width && width > 0 && (
+                  <Text>{' '.repeat(Math.max(0, width - row.cells.length))}</Text>
                 )}
               </Box>
             );
@@ -165,9 +165,9 @@ export function SequenceGrid({
         )}
 
         {/* Pad with empty rows if needed */}
-        {grid.length < height && (
+        {grid.length < height && width > 0 && (
           Array(height - grid.length).fill(0).map((_, i) => (
-            <Text key={`empty-${i}`}>{' '.repeat(width)}</Text>
+            <Text key={`empty-${i}`}>{' '.repeat(Math.max(0, width))}</Text>
           ))
         )}
       </Box>
