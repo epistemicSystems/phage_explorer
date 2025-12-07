@@ -52,6 +52,7 @@ function getOverlayChar(o: string): string {
     bendability: 'B',
     kmerAnomaly: 'J',
     modules: 'L',
+    hgt: 'H',
     promoter: 'P',
     repeats: 'R',
     pressure: 'V',
@@ -105,7 +106,7 @@ export function Footer(): React.ReactElement {
 
   // Active data overlays
   const dataOverlays = overlays.filter(o =>
-    ['gcSkew', 'complexity', 'bendability', 'promoter', 'repeats', 'kmerAnomaly', 'modules', 'pressure', 'transcriptionFlow'].includes(o)
+    ['gcSkew', 'complexity', 'bendability', 'promoter', 'repeats', 'kmerAnomaly', 'modules', 'pressure', 'transcriptionFlow', 'hgt'].includes(o)
   );
 
   // Build key hints based on experience level

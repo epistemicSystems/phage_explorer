@@ -118,12 +118,28 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
             action: () => openOverlay('modules'),
           },
           {
+            id: 'analysis-bias',
+            label: 'Dinucleotide Bias Decomposition',
+            description: 'PCA of dinucleotide frequencies across phages',
+            icon: '📊',
+            shortcut: 'B1',
+            action: () => openOverlay('biasDecomposition'),
+          },
+          {
             id: 'analysis-phase-portraits',
             label: 'AA Property Phase Portraits',
             description: 'PCA of hydropathy/charge/aromaticity windows',
             icon: '📈',
             shortcut: 'A → PP',
             action: () => openOverlay('phasePortrait'),
+          },
+          {
+            id: 'analysis-crispr',
+            label: 'CRISPR Pressure / Anti-CRISPR',
+            description: 'Spacer hits, PAMs, and Acr candidates (I)',
+            icon: '🛡️',
+            shortcut: 'I',
+            action: () => openOverlay('crispr'),
           },
         ]),
         ...(experienceLevel === 'power'

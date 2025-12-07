@@ -71,7 +71,7 @@ export function HelpOverlay(): React.ReactElement {
       closeOverlay('help');
       return;
     }
-    if (input === '?' || input === 'h' || input === 'H') {
+    if (input === '?') {
       setHelpDetail(helpDetail === 'essential' ? 'detailed' : 'essential');
     }
   });
@@ -121,6 +121,7 @@ export function HelpOverlay(): React.ReactElement {
             { key: 'V', desc: 'Packaging pressure' },
             { key: 'B', desc: 'Bendability', note: 'AT proxy' },
             { key: 'J', desc: 'K-mer anomaly' },
+            { key: 'H', desc: 'HGT passport', note: 'donor islands' },
             { key: 'P', desc: 'Promoter/RBS motifs' },
           ],
         },
@@ -132,6 +133,7 @@ export function HelpOverlay(): React.ReactElement {
             { key: 'W', desc: 'Compare genomes' },
             { key: 'A', desc: 'Analysis menu' },
             { key: 'A → Phase portraits / Shift+P', desc: 'AA property PCA / domain map' },
+            { key: 'A → Bias', desc: 'Dinucleotide PCA across phages' },
             { key: 'Shift+S', desc: 'Simulation hub' },
             { key: ': / Ctrl+P', desc: 'Command palette' },
           ],
@@ -171,6 +173,7 @@ export function HelpOverlay(): React.ReactElement {
           category: 'analysis' as KeyCategory,
           rows: [
             { key: 'L', desc: 'Module coherence' },
+            { key: 'H', desc: 'HGT passport' },
             { key: 'Y', desc: 'Transcription flow' },
             { key: 'R', desc: 'Repeats/palindromes' },
             { key: 'Ctrl+F', desc: 'Fold quickview' },
