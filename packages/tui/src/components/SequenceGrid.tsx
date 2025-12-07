@@ -16,6 +16,9 @@ interface SequenceGridProps {
   height?: number;
   genomeLength?: number;
   kmerOverlay?: KmerAnomalyOverlay | null;
+  showColumnHeaders?: boolean;
+  showMinimap?: boolean;
+  showRowNumbers?: boolean;
 }
 
 // Group consecutive cells with same color for efficient rendering
@@ -74,6 +77,9 @@ export function SequenceGrid({
   height = 15,
   genomeLength,
   kmerOverlay = null,
+  // showColumnHeaders = true,
+  // showMinimap = true,
+  // showRowNumbers = true,
 }: SequenceGridProps): React.ReactElement {
   const theme = usePhageStore(s => s.currentTheme);
   const viewMode = usePhageStore(s => s.viewMode);
