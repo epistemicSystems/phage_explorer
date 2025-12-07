@@ -18,6 +18,9 @@ import type { KmerAnalysis } from './types';
  */
 export function extractKmerSet(sequence: string, k: number): Set<string> {
   const kmers = new Set<string>();
+  if (k < 1 || sequence.length < k) {
+    return kmers;
+  }
   const seq = sequence.toUpperCase();
 
   for (let i = 0; i <= seq.length - k; i++) {
@@ -37,6 +40,9 @@ export function extractKmerSet(sequence: string, k: number): Set<string> {
  */
 export function extractKmerFrequencies(sequence: string, k: number): Map<string, number> {
   const freqs = new Map<string, number>();
+  if (k < 1 || sequence.length < k) {
+    return freqs;
+  }
   const seq = sequence.toUpperCase();
 
   for (let i = 0; i <= seq.length - k; i++) {
@@ -174,6 +180,20 @@ export function analyzeKmers(
   sequenceB: string,
   k: number
 ): KmerAnalysis {
+  if (k < 1) {
+    return {
+      k,
+      uniqueKmersA: 0,
+      uniqueKmersB: 0,
+      sharedKmers: 0,
+      jaccardIndex: 0,
+      containmentAinB: 0,
+      containmentBinA: 0,
+      cosineSimilarity: 0,
+      brayCurtisDissimilarity: 0,
+    };
+  }
+
   // Extract k-mer sets (presence/absence)
   const setA = extractKmerSet(sequenceA, k);
   const setB = extractKmerSet(sequenceB, k);
