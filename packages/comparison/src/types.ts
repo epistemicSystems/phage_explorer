@@ -5,6 +5,8 @@
  * using multiple statistical and bioinformatics metrics.
  */
 
+import type { GeneInfo } from '@phage-explorer/core';
+
 // K-mer analysis results
 export interface KmerAnalysis {
   k: number;                          // K-mer length used
@@ -222,6 +224,41 @@ export interface GenomeComparisonResult {
   codonUsage: CodonUsageComparison;
   aminoAcidUsage: AminoAcidComparison;
   geneContent: GeneContentComparison;
+}
+
+// HGT provenance analysis
+export interface GenomicIsland {
+  start: number;
+  end: number;
+  gc: number;
+  zScore: number;
+  genes: GeneInfo[];
+  hallmarks: string[];
+  donors: DonorCandidate[];
+  amelioration: 'recent' | 'intermediate' | 'ancient' | 'unknown';
+}
+
+export interface DonorCandidate {
+  taxon: string;
+  similarity: number;
+  confidence: 'low' | 'medium' | 'high';
+  evidence: 'kmer';
+}
+
+export interface PassportStamp {
+  island: GenomicIsland;
+  donor: DonorCandidate | null;
+  donorDistribution: DonorCandidate[];
+  amelioration: GenomicIsland['amelioration'];
+  transferMechanism: 'lysogeny' | 'transduction' | 'conjugation' | 'unknown';
+  gcDelta: number;
+  hallmarks: string[];
+}
+
+export interface HGTAnalysis {
+  genomeGC: number;
+  islands: GenomicIsland[];
+  stamps: PassportStamp[];
 }
 
 // Configuration for comparison
