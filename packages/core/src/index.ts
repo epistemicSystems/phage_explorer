@@ -9,3 +9,6 @@ export * from './themes';
 
 // Virtualizer and grid building
 export * from './virtualizer';
+
+// Simulation framework
+export * from './simulation';

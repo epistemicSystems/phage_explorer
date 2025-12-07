@@ -6,12 +6,30 @@ import type {
   ReadingFrame,
   GeneInfo,
   Theme,
+  SimulationId,
+  SimState,
 } from '@phage-explorer/core';
-import { CLASSIC_THEME, getNextTheme, getThemeById } from '@phage-explorer/core';
+import {
+  CLASSIC_THEME,
+  getNextTheme,
+  getThemeById,
+  nextSpeed,
+  prevSpeed,
+} from '@phage-explorer/core';
 import type { GenomeComparisonResult } from '@phage-explorer/comparison';
 
 // Overlay states
-export type OverlayType = 'help' | 'search' | 'goto' | 'aaKey' | 'comparison' | null;
+export type OverlayId =
+  | 'help'
+  | 'search'
+  | 'goto'
+  | 'aaKey'
+  | 'comparison'
+  | 'analysisMenu'
+  | 'simulationMenu'
+  | 'simulationView'
+  | 'complexity'
+  | 'gcSkew';
 
 // Comparison view tab
 export type ComparisonTab = 'summary' | 'kmer' | 'information' | 'correlation' | 'biological' | 'genes';
@@ -59,7 +77,7 @@ export interface PhageExplorerState {
   hoveredAminoAcid: HoveredAminoAcid | null;
 
   // Overlays
-  activeOverlay: OverlayType;
+  overlays: OverlayId[]; // stack, last = top
   searchQuery: string;
   searchResults: PhageSummary[];
 
@@ -77,6 +95,12 @@ export interface PhageExplorerState {
   comparisonLoading: boolean;
   comparisonTab: ComparisonTab;
   comparisonSelectingPhage: 'A' | 'B' | null;
+
+  // Simulation state
+  activeSimulationId: SimulationId | null;
+  simulationState: SimState | null;
+  simulationPaused: boolean;
+  simulationSpeed: number;
 }
 
 // Store actions interface
@@ -115,8 +139,10 @@ export interface PhageExplorerActions {
   cycle3DModelQuality: () => void;
 
   // Overlays
-  setActiveOverlay: (overlay: OverlayType) => void;
-  closeOverlay: () => void;
+  openOverlay: (id: OverlayId) => void;
+  closeOverlay: (id?: OverlayId) => void;
+  toggleOverlay: (id: OverlayId) => void;
+  closeAllOverlays: () => void;
   setSearchQuery: (query: string) => void;
   setSearchResults: (results: PhageSummary[]) => void;
 
@@ -147,6 +173,16 @@ export interface PhageExplorerActions {
   confirmPhageSelection: (index: number) => void;
   cancelPhageSelection: () => void;
   swapComparisonPhages: () => void;
+
+  // Simulation controls
+  launchSimulation: (simId: SimulationId, initialState: SimState) => void;
+  closeSimulation: () => void;
+  updateSimulationState: (state: SimState) => void;
+  toggleSimulationPause: () => void;
+  setSimulationPaused: (paused: boolean) => void;
+  simulationSpeedUp: () => void;
+  simulationSpeedDown: () => void;
+  resetSimulation: (initialState: SimState) => void;
 }
 
 // Combined store type
@@ -173,7 +209,7 @@ const initialState: PhageExplorerState = {
   mouseX: 0,
   mouseY: 0,
   hoveredAminoAcid: null,
-  activeOverlay: null,
+  overlays: [],
   searchQuery: '',
   searchResults: [],
   terminalCols: 80,
@@ -185,6 +221,10 @@ const initialState: PhageExplorerState = {
   comparisonLoading: false,
   comparisonTab: 'summary',
   comparisonSelectingPhage: null,
+  activeSimulationId: null,
+  simulationState: null,
+  simulationPaused: true,
+  simulationSpeed: 1,
 };
 
 // Create the store
@@ -332,7 +372,7 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
       model3DQuality: enteringFullscreen ? 'high' : 'medium',
       model3DPaused: !enteringFullscreen, // Pause when exiting, unpause when entering
       // Close overlays when entering fullscreen to avoid hidden state
-      ...(enteringFullscreen ? { activeOverlay: null, searchQuery: '', searchResults: [] } : {}),
+      ...(enteringFullscreen ? { overlays: [], searchQuery: '', searchResults: [] } : {}),
     });
   },
 
@@ -343,15 +383,6 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
     const nextIndex = (currentIndex + 1) % qualities.length;
     set({ model3DQuality: qualities[nextIndex] });
   },
-
-  // Overlays
-  setActiveOverlay: (overlay) => set({ activeOverlay: overlay }),
-
-  closeOverlay: () => set({
-    activeOverlay: null,
-    searchQuery: '',
-    searchResults: [],
-  }),
 
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSearchResults: (results) => set({ searchResults: results }),
@@ -381,7 +412,7 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
       : currentPhageIndex === 0 ? 1 : 0;
 
     set({
-      activeOverlay: 'comparison',
+      overlays: [...get().overlays.filter(o => o !== 'comparison'), 'comparison'],
       comparisonPhageAIndex: currentPhageIndex,
       comparisonPhageBIndex: Math.min(defaultB, phages.length - 1),
       comparisonResult: null,
@@ -391,7 +422,7 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
   },
 
   closeComparison: () => set({
-    activeOverlay: null,
+    overlays: get().overlays.filter(o => o !== 'comparison'),
     comparisonResult: null,
     comparisonSelectingPhage: null,
   }),
@@ -457,6 +488,82 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
       comparisonResult: null,
     });
   },
+
+  // Overlay manager
+  openOverlay: (id) => {
+    set(state => {
+      const filtered = state.overlays.filter(o => o !== id);
+      const next = [...filtered, id];
+      return { overlays: next.slice(-3) };
+    });
+  },
+
+  closeOverlay: (id) => {
+    set(state => {
+      if (id) {
+        return { overlays: state.overlays.filter(o => o !== id) };
+      }
+      return { overlays: state.overlays.slice(0, -1) };
+    });
+  },
+
+  toggleOverlay: (id) => {
+    const { overlays } = get();
+    if (overlays.includes(id)) {
+      set({ overlays: overlays.filter(o => o !== id) });
+    } else {
+      get().openOverlay(id);
+    }
+  },
+
+  closeAllOverlays: () => set({ overlays: [] }),
+
+  // Simulation controls
+  launchSimulation: (simId, initialState) => {
+    set({
+      activeSimulationId: simId,
+      simulationState: initialState,
+      simulationPaused: false,
+      simulationSpeed: 1,
+    });
+    get().openOverlay('simulationView');
+  },
+
+  closeSimulation: () => {
+    set({
+      activeSimulationId: null,
+      simulationState: null,
+      simulationPaused: true,
+      simulationSpeed: 1,
+    });
+    get().closeOverlay('simulationView');
+  },
+
+  updateSimulationState: (state) => set({ simulationState: state }),
+
+  toggleSimulationPause: () => {
+    const { simulationPaused } = get();
+    set({ simulationPaused: !simulationPaused });
+  },
+
+  setSimulationPaused: (paused) => set({ simulationPaused: paused }),
+
+  simulationSpeedUp: () => {
+    const { simulationSpeed } = get();
+    set({ simulationSpeed: nextSpeed(simulationSpeed) });
+  },
+
+  simulationSpeedDown: () => {
+    const { simulationSpeed } = get();
+    set({ simulationSpeed: prevSpeed(simulationSpeed) });
+  },
+
+  resetSimulation: (initialState) => {
+    set({
+      simulationState: initialState,
+      simulationPaused: true,
+    });
+  },
 }));
 
 // Selector hooks for common derived state
@@ -485,3 +592,13 @@ export const useGridDimensions = () => {
     geneMapHeight,
   };
 };
+
+export const useOverlayStack = () => usePhageStore((s) => s.overlays);
+export const useTopOverlay = () => usePhageStore((s) => s.overlays.at(-1) ?? null);
+
+// Simulation selectors
+export const useActiveSimulation = () => usePhageStore((s) => s.activeSimulationId);
+export const useSimulationState = () => usePhageStore((s) => s.simulationState);
+export const useSimulationPaused = () => usePhageStore((s) => s.simulationPaused);
+export const useSimulationSpeed = () => usePhageStore((s) => s.simulationSpeed);
+export const useIsSimulationActive = () => usePhageStore((s) => s.activeSimulationId !== null);
