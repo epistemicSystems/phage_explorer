@@ -322,8 +322,6 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
       toggle3DModel();
     } else if (input === 'z' || input === 'Z') {
       toggle3DModelFullscreen();
-    } else if (input === 'v' || input === 'V') {
-      toggleOverlay(PRESSURE_ID);
     } else if (input === 'b' || input === 'B') {
       if (!isIntermediate) {
         setError('Bendability overlay unlocks after ~5 minutes or once promoted.');
