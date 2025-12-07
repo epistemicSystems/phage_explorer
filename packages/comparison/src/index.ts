@@ -97,4 +97,4 @@ export {
 } from './comparison-engine';
 
 // HGT provenance tracer
-export { analyzeHGTProvenance } from './hgt-tracer';
+export { analyzeHGTProvenance, type HGTOptions } from './hgt-tracer';

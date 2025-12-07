@@ -110,7 +110,7 @@ function attachGenes(islands: GenomicIsland[], genes: GeneInfo[]): void {
         const text = `${g.name ?? ''} ${g.product ?? ''}`.toLowerCase();
         return HALLMARK_KEYWORDS.some(k => text.includes(k));
       })
-      .map(g => g.name || g.product || g.locusTag || 'unknown');
+      .map(g => g.product?.trim() || g.name || g.locusTag || 'unknown');
   }
 }
 
