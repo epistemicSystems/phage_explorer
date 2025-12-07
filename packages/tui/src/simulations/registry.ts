@@ -14,6 +14,19 @@ import { getDefaultParams, STANDARD_CONTROLS } from '@phage-explorer/core';
 
 // Simple helper to clamp numbers
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+const randomNeighbor = (index: number, size: number): number | null => {
+  const x = index % size;
+  const y = Math.floor(index / size);
+  const dirs = [
+    [1, 0], [-1, 0], [0, 1], [0, -1],
+    [1, 1], [1, -1], [-1, 1], [-1, -1],
+  ];
+  const [dx, dy] = dirs[Math.floor(Math.random() * dirs.length)];
+  const nx = x + dx;
+  const ny = y + dy;
+  if (nx < 0 || ny < 0 || nx >= size || ny >= size) return null;
+  return ny * size + nx;
+};
 
 function makeLysogenySimulation(): Simulation<LysogenyCircuitState> {
   return {
@@ -125,6 +138,8 @@ function makeRibosomeSimulation(): Simulation<RibosomeTrafficState> {
         codonRates,
         proteinsProduced: 0,
         stallEvents: 0,
+        densityHistory: [],
+        productionHistory: [],
       };
     },
     step: (state: RibosomeTrafficState, dt: number): RibosomeTrafficState => {
@@ -162,12 +177,17 @@ function makeRibosomeSimulation(): Simulation<RibosomeTrafficState> {
       const completed = ribosomes.filter(pos => pos >= length).length;
       const active = ribosomes.filter(pos => pos < length);
 
+      const densityHistory = [...state.densityHistory, active.length].slice(-200);
+      const productionHistory = [...state.productionHistory, state.proteinsProduced + completed].slice(-200);
+
       return {
         ...state,
         time: state.time + dt,
         ribosomes: active,
         proteinsProduced: state.proteinsProduced + completed,
         stallEvents,
+        densityHistory,
+        productionHistory,
       };
     },
     getSummary: (state) => `t=${state.time.toFixed(0)} ribosomes=${state.ribosomes.length} proteins=${state.proteinsProduced}`,
@@ -178,17 +198,29 @@ function makePlaqueSimulation(): Simulation<PlaqueAutomataState> {
   return {
     id: 'plaque-automata',
     name: 'Plaque Automata',
-    description: 'Cellular automaton of plaque spread.',
+    description: 'Reaction-diffusion CA: infection, lysis, diffusion, lysogeny.',
     controls: STANDARD_CONTROLS,
     parameters: [
       { id: 'grid', label: 'Grid size', type: 'number', min: 10, max: 50, step: 5, defaultValue: 30 },
+      { id: 'burst', label: 'Burst size', type: 'number', min: 5, max: 300, step: 5, defaultValue: 80 },
+      { id: 'latent', label: 'Latent period (ticks)', type: 'number', min: 2, max: 40, step: 1, defaultValue: 12 },
+      { id: 'diffusion', label: 'Diffusion prob', type: 'number', min: 0.0, max: 0.6, step: 0.05, defaultValue: 0.25 },
+      { id: 'adsorption', label: 'Adsorption prob', type: 'number', min: 0.0, max: 0.6, step: 0.05, defaultValue: 0.2 },
+      { id: 'lysogeny', label: 'Lysogeny prob', type: 'number', min: 0.0, max: 1.0, step: 0.05, defaultValue: 0.0 },
     ],
     init: (_phage, params): PlaqueAutomataState => {
-      const base = getDefaultParams([{ id: 'grid', label: '', type: 'number', defaultValue: 30 }]);
+      const base = getDefaultParams([
+        { id: 'grid', label: '', type: 'number', defaultValue: 30 },
+        { id: 'burst', label: '', type: 'number', defaultValue: 80 },
+        { id: 'latent', label: '', type: 'number', defaultValue: 12 },
+        { id: 'diffusion', label: '', type: 'number', defaultValue: 0.25 },
+        { id: 'adsorption', label: '', type: 'number', defaultValue: 0.2 },
+        { id: 'lysogeny', label: '', type: 'number', defaultValue: 0.0 },
+      ]);
       const merged = { ...base, ...(params ?? {}) } as Record<string, number | boolean | string>;
       const size = Number(merged.grid ?? 30);
       const cells = new Uint8Array(size * size);
-      cells[Math.floor(size * size / 2)] = 4; // seed phage
+      cells[Math.floor(size * size / 2)] = 4; // seed phage at center
       return {
         type: 'plaque-automata',
         time: 0,
@@ -208,18 +240,68 @@ function makePlaqueSimulation(): Simulation<PlaqueAutomataState> {
       let bacteria = state.bacteriaCount;
       let infected = state.infectionCount;
       const size = state.gridSize;
+      const burst = Number(state.params.burst ?? 80);
+      const latent = Number(state.params.latent ?? 12);
+      const diffusion = Number(state.params.diffusion ?? 0.25);
+      const adsorption = Number(state.params.adsorption ?? 0.2);
+      const lysogeny = Number(state.params.lysogeny ?? 0.0);
+
+      // Track infection ages per index
+      const ages: Record<number, number> = {};
+
       for (let i = 0; i < grid.length; i++) {
-        if (grid[i] === 4 && Math.random() < 0.1 * dt) {
-          grid[i] = 2; // infect
-          phage = Math.max(0, phage - 1);
-          infected += 1;
-        } else if (grid[i] === 2 && Math.random() < 0.05 * dt) {
-          grid[i] = 3; // lyse
-          phage += 5;
-          infected = Math.max(0, infected - 1);
-        } else if (grid[i] === 0 && Math.random() < 0.02 * dt) {
-          grid[i] = 1; // bacteria grow back
-          bacteria += 1;
+        const stateVal = grid[i];
+        if (stateVal === 4) {
+          // Free phage: diffuse randomly and attempt adsorption
+          if (Math.random() < diffusion * dt) {
+            const neighbor = randomNeighbor(i, size);
+            if (neighbor !== null && grid[neighbor] === 1 && Math.random() < adsorption) {
+              // infection event
+              grid[neighbor] = 2;
+              ages[neighbor] = 0;
+              phage = Math.max(0, phage - 1);
+              infected += 1;
+            } else {
+              // drift without adsorption
+              grid[i] = 0;
+              grid[neighbor ?? i] = 4;
+            }
+          }
+        } else if (stateVal === 2) {
+          // Infected cell ages, then lyses or lysogenizes
+          const age = (ages[i] ?? 0) + dt;
+          ages[i] = age;
+          if (age >= latent) {
+            // Decide lysis vs lysogeny
+            const becomesLysogen = Math.random() < lysogeny;
+            if (becomesLysogen) {
+              grid[i] = 5; // lysogen state
+            } else {
+              grid[i] = 3; // lysed
+              infected = Math.max(0, infected - 1);
+              // burst
+              const burstCount = Math.max(1, Math.floor(burst));
+              for (let b = 0; b < burstCount; b++) {
+                const nb = randomNeighbor(i, size);
+                if (nb !== null && grid[nb] === 0) {
+                  grid[nb] = 4;
+                  phage += 1;
+                }
+              }
+            }
+          }
+        } else if (stateVal === 0) {
+          // Empty -> bacteria regrowth
+          if (Math.random() < 0.01 * dt) {
+            grid[i] = 1;
+            bacteria += 1;
+          }
+        }
+      }
+      // convert lysogen marker (5) to 1 for display consistency
+      for (let i = 0; i < grid.length; i++) {
+        if (grid[i] === 5) {
+          grid[i] = 1;
         }
       }
       return {
