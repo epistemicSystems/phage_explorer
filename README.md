@@ -4,7 +4,7 @@
 ![Runtime](https://img.shields.io/badge/runtime-Bun%201.1+-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-A Terminal User Interface (TUI) for browsing, visualizing, and analyzing bacteriophage genetic data. Features color-coded DNA/amino acid sequences, rotating 3D ASCII phage models, and instant navigation between genomes.
+A Terminal User Interface (TUI) for browsing, visualizing, and analyzing bacteriophage genetic data. Features color-coded DNA/amino acid sequences, rotating 3D ASCII phage models, and instant navigation between genomes—no browser, no cloud, just a fast local binary.
 
 **One-liner install:**
 ```bash
@@ -13,20 +13,23 @@ curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/phage_explorer/ma
 
 ---
 
-## What are phages, and why do they matter?
+## Phage 101 for engineers (why this field is wild)
 
-- **Bacteriophages (phages)** are viruses that infect bacteria. They are the most abundant biological entities on Earth and shape microbial ecosystems, the ocean carbon cycle, and your own microbiome.
-- **Why people study them**
-  - Medicine: craft phage cocktails to fight antibiotic‑resistant infections.
-  - Biotechnology: enzymes like T7 RNA polymerase and Phi29 polymerase are phage gifts that power PCR, IVT, and genome amplification.
-  - Evolution: phages are modular, recombining “Lego kits” that swap genes and reveal how genomes evolve.
-- **Historical impact:** Classic phage experiments (Hershey–Chase, Luria–Delbrück) established DNA as genetic material and the statistical nature of mutation. Phages helped crack the genetic code and seeded modern molecular biology.
+- **What they are:** Bacteriophages (“phages”) are bacteria‑infecting viruses. They self‑assemble into nanomachines with a head (capsid) that stores DNA/RNA and a tail that injects it like a syringe.
+- **Why they matter today**
+  - *Medicine*: design phage cocktails to beat antibiotic‑resistant infections.
+  - *Biotech*: workhorse enzymes (T7 RNA polymerase, Phi29 DNA pol) are phage gifts used in PCR, in‑vitro transcription, and genome amplification.
+  - *Evolution & ecology*: phages are the most abundant biological entities on Earth. They rewrite bacterial genomes, drive the ocean carbon cycle, and shape your gut microbiome.
+- **Modular by design:** Phage genomes behave like Lego kits—swapping tail fibers, lysis cassettes, and regulatory modules across lineages. That modularity is exactly what Phage Explorer visualizes.
+- **Historical impact:** Foundational experiments (Hershey–Chase blender test for DNA as genetic material; Luria–Delbrück fluctuation test revealing random mutation) used phages. They were also the playground for cracking the genetic code.
 
 ## A 90‑second genetic code primer
 
-- DNA alphabet: A, C, G, T (RNA uses U instead of T).
-- The code is read in **codons**: non‑overlapping triplets of bases.
-- Each codon maps to an amino acid (or a stop signal). Example:
+- DNA alphabet: A, C, G, T (RNA swaps T→U). Proteins are chains of 20 amino acids.
+- Translation reads DNA in **codons**—non‑overlapping triplets of bases. Every three letters → one amino acid.
+- The mapping is fixed and mostly redundant (“degenerate”): several codons can encode the same amino acid. Three codons encode **stop**, and ATG usually marks **start**.
+- Reading frames matter: shift by one base and every downstream codon changes. Phage Explorer lets you flip frames live to see amino acid strings reflow.
+- Quick lookup:
 
 | Codon | Amino acid | Notes |
 |-------|------------|-------|
@@ -36,8 +39,7 @@ curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/phage_explorer/ma
 | TGG | W (Tryptophan) | Unique single-codon amino acid |
 | TAA / TAG / TGA | * (Stop) | Terminates translation |
 
-- **Reading frames matter:** shift the starting base by 1 or 2 and every downstream codon changes. Phage Explorer lets you flip frames and watch amino acid strings update instantly.
-- **Color hints:** Amino acids cluster by chemistry (hydrophobic, polar, acidic, basic, special). Themes use those groups so patterns pop visually while you scroll.
+- **Chemistry buckets:** Amino acids group into hydrophobic, polar, acidic, basic, and “special” (glycine, proline, cysteine, histidine). Themes color by these groups so chemical patterns pop while you scroll.
 
 ---
 
