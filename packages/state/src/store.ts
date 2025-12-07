@@ -27,6 +27,7 @@ export type OverlayId =
   | 'comparison'
   | 'analysisMenu'
   | 'simulationMenu'
+  | 'simulationHub'
   | 'simulationView'
   | 'complexity'
   | 'gcSkew'
