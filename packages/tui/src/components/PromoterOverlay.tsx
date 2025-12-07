@@ -1,0 +1,62 @@
+import React, { useMemo } from 'react';
+import { Box, Text, useInput } from 'ink';
+import { usePhageStore } from '@phage-explorer/state';
+
+const MOTIFS = ['TATAAT', 'TTGACA', 'AGGAGG'];
+
+interface Props {
+  sequence: string;
+}
+
+function findMotifs(seq: string): Array<{ pos: number; motif: string }> {
+  const hits: Array<{ pos: number; motif: string }> = [];
+  for (let i = 0; i < seq.length - 5; i++) {
+    const sub = seq.slice(i, i + 6);
+    if (MOTIFS.includes(sub)) {
+      hits.push({ pos: i + 1, motif: sub }); // 1-based for display
+    }
+  }
+  return hits;
+}
+
+export function PromoterOverlay({ sequence }: Props): React.ReactElement {
+  const theme = usePhageStore(s => s.currentTheme);
+  const closeOverlay = usePhageStore(s => s.closeOverlay);
+  const colors = theme.colors;
+
+  const hits = useMemo(() => findMotifs(sequence.toUpperCase()).slice(0, 12), [sequence]);
+
+  useInput((input, key) => {
+    if (key.escape || input === 'p' || input === 'P') closeOverlay('promoter');
+  });
+
+  return (
+    <Box
+      flexDirection="column"
+      borderStyle="double"
+      borderColor={colors.accent}
+      paddingX={2}
+      paddingY={1}
+      width={68}
+    >
+      <Box justifyContent="space-between" marginBottom={1}>
+        <Text color={colors.accent} bold>PROMOTER / RBS MOTIFS (P KEY)</Text>
+        <Text color={colors.textDim}>ESC/P to close</Text>
+      </Box>
+      {sequence.length === 0 ? (
+        <Text color={colors.textDim}>No sequence loaded</Text>
+      ) : hits.length === 0 ? (
+        <Text color={colors.textDim}>No canonical -10/-35/RBS motifs found (quick scan)</Text>
+      ) : (
+        <>
+          <Text color={colors.textDim}>Showing first {hits.length} hits (pos, motif):</Text>
+          {hits.map(hit => (
+            <Text key={`${hit.pos}-${hit.motif}`} color={colors.text}>
+              {hit.pos.toLocaleString().padStart(8, ' ')}  {hit.motif}
+            </Text>
+          ))}
+        </>
+      )}
+    </Box>
+  );
+}
