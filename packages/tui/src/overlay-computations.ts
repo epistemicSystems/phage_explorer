@@ -126,20 +126,42 @@ export function computePromoterMarks(sequence: string): MarkOverlay {
 export function computeRepeatMarks(sequence: string, minLen = 6): MarkOverlay {
   const marks: number[] = [];
   const seq = sequence.toUpperCase();
-  // naive palindrome finder for short repeats
-  for (let i = 0; i < seq.length - minLen; i++) {
-    for (let len = minLen; len <= minLen + 4 && i + len <= seq.length; len++) {
-      const sub = seq.slice(i, i + len);
-      const revComp = sub.split('').reverse().map((c) => {
-        if (c === 'A') return 'T';
-        if (c === 'T') return 'A';
-        if (c === 'C') return 'G';
-        if (c === 'G') return 'C';
-        return c;
-      }).join('');
-      if (sub === revComp) {
+  const len = seq.length;
+
+  // Pre-compute complement for speed
+  // (Optional, but direct charAt lookup is fast enough)
+
+  for (let i = 0; i <= len - minLen; i++) {
+    // Check lengths 6 to 10
+    // We only need to find the *shortest* palindrome at this position to mark it?
+    // Or longest? The original code marked 'i' if ANY found.
+    // Optimization: Check the palindrome property directly.
+    
+    for (let l = minLen; l <= minLen + 4 && i + l <= len; l++) {
+      let isPalindrome = true;
+      for (let j = 0; j < Math.floor(l / 2); j++) {
+        const startChar = seq[i + j];
+        const endChar = seq[i + l - 1 - j];
+        
+        // Simple complement check without map allocation
+        let expectedEnd = '';
+        if (startChar === 'A') expectedEnd = 'T';
+        else if (startChar === 'T') expectedEnd = 'A';
+        else if (startChar === 'G') expectedEnd = 'C';
+        else if (startChar === 'C') expectedEnd = 'G';
+        else expectedEnd = startChar; // N or other matches self? Or should fail?
+        // Original logic: split().reverse().map(...) used identity for unknown.
+        // map((c) => { if(c=='A')... else return c })
+        
+        if (endChar !== expectedEnd) {
+          isPalindrome = false;
+          break;
+        }
+      }
+
+      if (isPalindrome) {
         marks.push(i);
-        break;
+        break; // Found one at this position, move to next pos
       }
     }
   }
