@@ -62,8 +62,12 @@ export function SimulationView({ onClose }: SimulationViewProps): React.ReactEle
   const simulation = simId ? registry.get(simId as SimulationId) : null;
 
   const initialRef = useRef<SimState | null>(simState);
+  const latestStateRef = useRef<SimState | null>(simState);
   useEffect(() => {
-    if (simState) initialRef.current = simState;
+    if (simState) {
+      initialRef.current = simState;
+      latestStateRef.current = simState;
+    }
   }, [simState]);
 
   // Runner loop
@@ -71,7 +75,11 @@ export function SimulationView({ onClose }: SimulationViewProps): React.ReactEle
     if (!simulation || !simState) return;
     if (paused) return;
     const interval = setInterval(() => {
-      updateState(simulation.step(simState, speed));
+      const current = latestStateRef.current;
+      if (!current) return;
+      const next = simulation.step(current, speed);
+      latestStateRef.current = next;
+      updateState(next);
     }, 120);
     return () => clearInterval(interval);
   }, [simulation, simState, paused, speed, updateState]);
@@ -149,8 +157,26 @@ export function SimulationView({ onClose }: SimulationViewProps): React.ReactEle
         <Text color="#9ca3af">Status: {paused ? 'Paused' : 'Running'} · Speed {speed}x</Text>
       </Box>
 
+      {/* Parameters */}
+      <Box flexDirection="column" marginBottom={1}>
+        <Text color="#9ca3af" dimColor>Parameters</Text>
+        <Box flexDirection="column" gap={0}>
+          {Object.entries(simState.params).map(([key, value]) => (
+            <Text key={key} color="#e5e7eb">
+              {key}: {String(value)}
+            </Text>
+          ))}
+        </Box>
+      </Box>
+
+      {/* Controls */}
+      <Box flexDirection="column" marginBottom={1}>
+        <Text color="#9ca3af" dimColor>Controls</Text>
+        <Text color="#9ca3af" dimColor>Space: Pause/Resume · R: Reset · .: Step · ←/→ or -/+: Speed</Text>
+      </Box>
+
       <Box flexDirection="column" marginTop={1}>
-        <Text color="#9ca3af" dimColor>Space: Pause/Resume · R: Reset · .: Step · ←/→ or -/+ : Speed</Text>
+        <Text color="#9ca3af" dimColor>Esc: Close simulation</Text>
       </Box>
     </Box>
   );
