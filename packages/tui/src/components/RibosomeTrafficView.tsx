@@ -56,10 +56,21 @@ export function RibosomeTrafficView({ state }: RibosomeTrafficViewProps): React.
 
   const slowSites = useMemo(() => {
     const annotated = state.codonRates.map((rate, idx) => ({ rate, idx }));
+    const median =
+      annotated.length === 0
+        ? 0
+        : annotated
+            .map(a => a.rate)
+            .sort((a, b) => a - b)
+            [Math.floor(annotated.length / 2)];
     return annotated
       .sort((a, b) => a.rate - b.rate)
       .slice(0, 3)
-      .map(s => ({ ...s, rate: Number(s.rate.toFixed(2)) }));
+      .map(s => ({
+        ...s,
+        rate: Number(s.rate.toFixed(2)),
+        slowdown: median > 0 ? Number(((median - s.rate) / median).toFixed(2)) : 0,
+      }));
   }, [state.codonRates]);
 
   const densitySpark = useMemo(() => toSpark(state.densityHistory, 40), [state.densityHistory]);
@@ -142,7 +153,7 @@ export function RibosomeTrafficView({ state }: RibosomeTrafficViewProps): React.
         <Text color={colors.accent} bold>Slow sites (top 3)</Text>
         {slowSites.map(s => (
           <Text key={s.idx} color={colors.text}>
-            Codon {s.idx + 1}: rate {s.rate}
+            Codon {s.idx + 1}: rate {s.rate} ({s.slowdown > 0 ? `${(s.slowdown * 100).toFixed(0)}% slower vs median` : 'at/near median'})
           </Text>
         ))}
       </Box>
