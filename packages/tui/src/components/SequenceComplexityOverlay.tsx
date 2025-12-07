@@ -20,6 +20,7 @@ interface WindowStat {
 
 const SPARK = '▁▂▃▄▅▆▇█';
 const complexityCache = new Map<string, ReturnType<typeof summarize>>();
+const MAX_COMPLEXITY_CACHE = 12;
 
 function compressionRatio(seq: string): number {
   if (!seq.length) return 0;
@@ -144,6 +145,10 @@ export function SequenceComplexityOverlay({
 
     const summary = summarize(windows);
     complexityCache.set(cacheKey, summary);
+    if (complexityCache.size > MAX_COMPLEXITY_CACHE) {
+      const firstKey = complexityCache.keys().next().value;
+      complexityCache.delete(firstKey);
+    }
     return summary;
   }, [sequence, phageName]);
 
