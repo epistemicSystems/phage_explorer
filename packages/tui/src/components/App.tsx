@@ -21,6 +21,7 @@ import { SequenceComplexityOverlay } from './SequenceComplexityOverlay';
 import { BendabilityOverlay } from './BendabilityOverlay';
 import { PromoterOverlay } from './PromoterOverlay';
 import { RepeatOverlay } from './RepeatOverlay';
+import { computeAllOverlays } from '../overlay-computations';
 import type { OverlayId } from '@phage-explorer/state';
 
 const ANALYSIS_MENU_ID: OverlayId = 'analysisMenu';
@@ -69,6 +70,7 @@ export function App({ repository }: AppProps): React.ReactElement {
   const toggle3DModelPause = usePhageStore(s => s.toggle3DModelPause);
   const toggle3DModelFullscreen = usePhageStore(s => s.toggle3DModelFullscreen);
   const cycle3DModelQuality = usePhageStore(s => s.cycle3DModelQuality);
+  const setOverlayData = usePhageStore(s => s.setOverlayData);
   const model3DFullscreen = usePhageStore(s => s.model3DFullscreen);
   const openOverlay = usePhageStore(s => s.openOverlay);
   const closeOverlay = usePhageStore(s => s.closeOverlay);
@@ -124,6 +126,8 @@ export function App({ repository }: AppProps): React.ReactElement {
           const length = await repository.getFullGenomeLength(phage.id);
           const seq = await repository.getSequenceWindow(phage.id, 0, length);
           setSequence(seq);
+          // Precompute overlay data for quick toggles
+          setOverlayData(computeAllOverlays(seq));
         }
 
         // Prefetch nearby phages

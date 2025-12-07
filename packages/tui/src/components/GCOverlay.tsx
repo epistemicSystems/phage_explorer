@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { usePhageStore } from '@phage-explorer/state';
+import type { NumericOverlay } from '@phage-explorer/tui/overlay-computations';
 
 const SPARKLINE_BARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
@@ -80,8 +81,22 @@ export function GCOverlay({ sequence }: GCOverlayProps): React.ReactElement {
   const theme = usePhageStore(s => s.currentTheme);
   const closeOverlay = usePhageStore(s => s.closeOverlay);
 
-  const result = useMemo(() => computeCumulativeSkew(sequence.toUpperCase()), [sequence]);
-  const sparkline = useMemo(() => buildSparkline(result.values, 64), [result.values]);
+  const overlayData = usePhageStore(s => s.overlayData.gcSkew) as NumericOverlay | undefined;
+
+  const result = useMemo(() => {
+    if (overlayData && 'values' in overlayData) {
+      // Reconstruct pseudo cumulative from normalized windows for sparkline; we still compute origin/terminus from sequence
+      return computeCumulativeSkew(sequence.toUpperCase());
+    }
+    return computeCumulativeSkew(sequence.toUpperCase());
+  }, [sequence, overlayData]);
+
+  const sparkline = useMemo(() => {
+    if (overlayData && 'values' in overlayData) {
+      return buildSparkline(overlayData.values, 64);
+    }
+    return buildSparkline(result.values, 64);
+  }, [overlayData, result.values]);
 
   useInput((input, key) => {
     if (key.escape || input === 'g' || input === 'G') {
@@ -128,4 +143,3 @@ export function GCOverlay({ sequence }: GCOverlayProps): React.ReactElement {
     </Box>
   );
 }
-

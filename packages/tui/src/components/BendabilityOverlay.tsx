@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { usePhageStore } from '@phage-explorer/state';
+import type { NumericOverlay } from '@phage-explorer/tui/overlay-computations';
 
 const SPARK = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
@@ -42,8 +43,14 @@ interface Props {
 export function BendabilityOverlay({ sequence }: Props): React.ReactElement {
   const theme = usePhageStore(s => s.currentTheme);
   const closeOverlay = usePhageStore(s => s.closeOverlay);
+  const overlayData = usePhageStore(s => s.overlayData.bendability) as NumericOverlay | undefined;
 
-  const data = useMemo(() => computeBendability(sequence.toUpperCase()), [sequence]);
+  const data = useMemo(() => {
+    if (overlayData && 'values' in overlayData) {
+      return { values: overlayData.values };
+    }
+    return computeBendability(sequence.toUpperCase());
+  }, [sequence, overlayData]);
   const line = useMemo(() => sparkline(data.values, 70), [data.values]);
 
   useInput((input, key) => {
