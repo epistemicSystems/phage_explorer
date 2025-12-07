@@ -1,0 +1,74 @@
+:root {
+  color-scheme: dark;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', ui-monospace, Menlo, Monaco,
+    Consolas, 'Liberation Mono', 'Courier New', monospace;
+  background: #0a0f1c;
+  color: #e2e8f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 20% 20%, #11263f, #060912 45%),
+    radial-gradient(circle at 80% 0%, #1b3b5d, transparent 40%),
+    #0a0f1c;
+}
+
+.app-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+.app-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 32px;
+}
+
+.app-title {
+  font-size: 1.75rem;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: #7dd3fc;
+  text-shadow: 0 0 12px rgba(125, 211, 252, 0.35);
+}
+
+.app-subtitle {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+.app-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.92));
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.card h1 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+  color: #a5b4fc;
+  letter-spacing: 0.03em;
+}
+
+.card p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+

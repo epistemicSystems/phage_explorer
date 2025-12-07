@@ -1,0 +1,24 @@
+{
+  "name": "@phage-explorer/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bunx vite dev",
+    "build": "bunx vite build",
+    "preview": "bunx vite preview",
+    "lint": "bunx eslint src --max-warnings=0"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^5.1.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0"
+  }
+}
+
