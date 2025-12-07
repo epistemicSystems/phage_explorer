@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Box } from 'ink';
 import { usePhageStore } from '@phage-explorer/state';
 import { SIMULATION_METADATA } from '@phage-explorer/core';
+import { getSimulationRegistry } from '../simulations/registry';
 import type { MenuCategory } from './ModalMenu';
 import { ModalMenu } from './ModalMenu';
 
@@ -84,6 +85,22 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
             shortcut: 'G',
             action: () => openOverlay('gcSkew'),
           },
+          {
+            id: 'analysis-kmer',
+            label: 'K-mer Anomaly Map',
+            description: 'Detect composition islands via JSD (J)',
+            icon: '🧮',
+            shortcut: 'J',
+            action: () => openOverlay('kmerAnomaly'),
+          },
+          {
+            id: 'analysis-modules',
+            label: 'Module Coherence',
+            description: 'Capsid/tail/lysis stoichiometry check (L)',
+            icon: '🧩',
+            shortcut: 'L',
+            action: () => openOverlay('modules'),
+          },
         ]),
         ...(experienceLevel === 'power'
           ? [{
@@ -130,8 +147,10 @@ export function SimulationMenuOverlay({ onClose }: MenuOverlayProps): React.Reac
   const cycle3DModelQuality = usePhageStore(s => s.cycle3DModelQuality);
   const set3DModelSpeed = usePhageStore(s => s.set3DModelSpeed);
   const openComparison = usePhageStore(s => s.openComparison);
-  const setError = usePhageStore(s => s.setError);
+  const launchSimulation = usePhageStore(s => s.launchSimulation);
+  const currentPhage = usePhageStore(s => s.currentPhage);
   const experienceLevel = usePhageStore(s => s.experienceLevel);
+  const registry = useMemo(() => getSimulationRegistry(), []);
 
   const categories: MenuCategory[] = useMemo(() => [
     {
@@ -142,9 +161,11 @@ export function SimulationMenuOverlay({ onClose }: MenuOverlayProps): React.Reac
         description: sim.description,
         icon: sim.icon,
         action: () => {
-          // Simulations not yet implemented - show placeholder message
-          setError(`${sim.name} coming soon! Simulation framework ready.`);
-          setTimeout(() => setError(null), 3000);
+          const definition = registry.get(sim.id);
+          if (!definition) return;
+          const initial = definition.init(currentPhage ?? null, undefined);
+          launchSimulation(definition.id, initial);
+          onClose();
         },
       })),
     },
@@ -180,7 +201,7 @@ export function SimulationMenuOverlay({ onClose }: MenuOverlayProps): React.Reac
           label: 'Cycle 3D Quality',
           description: 'Switch between low/medium/high/ultra shading',
           icon: '💡',
-          shortcut: 'Q',
+          shortcut: 'R',
           action: cycle3DModelQuality,
         },
         {
@@ -219,7 +240,7 @@ export function SimulationMenuOverlay({ onClose }: MenuOverlayProps): React.Reac
       return false;
     }
     return true;
-  }), [toggle3DModel, toggle3DModelPause, toggle3DModelFullscreen, cycle3DModelQuality, set3DModelSpeed, openComparison, setError, experienceLevel]);
+  }), [toggle3DModel, toggle3DModelPause, toggle3DModelFullscreen, cycle3DModelQuality, set3DModelSpeed, openComparison, launchSimulation, currentPhage, registry, experienceLevel, onClose]);
 
   return (
     <Box>
