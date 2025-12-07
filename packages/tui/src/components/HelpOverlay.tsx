@@ -44,7 +44,7 @@ export function HelpOverlay(): React.ReactElement {
     if (input === '?' || input === 'h' || input === 'H') {
       setHelpDetail(helpDetail === 'essential' ? 'detailed' : 'essential');
     }
-  }, [helpDetail, setHelpDetail, closeOverlay]);
+  });
 
   const overlayRows: HelpRow[] = [
     { key: 'X', desc: 'Sequence complexity (entropy)', note: 'HGT / repeats' },
