@@ -5,6 +5,7 @@ import { usePhageStore } from '@phage-explorer/state';
 export function Footer(): React.ReactElement {
   const theme = usePhageStore(s => s.currentTheme);
   const viewMode = usePhageStore(s => s.viewMode);
+  const overlays = usePhageStore(s => s.overlays);
   const colors = theme.colors;
 
   const keyHints = [
@@ -36,7 +37,21 @@ export function Footer(): React.ReactElement {
         ))}
       </Box>
 
-      <Text color={colors.textDim}>[Q] quit</Text>
+      <Box gap={2} alignItems="center">
+        <Text color={colors.textDim}>
+          Overlays: {overlays.filter(o =>
+            o === 'gcSkew' || o === 'complexity' || o === 'bendability' || o === 'promoter' || o === 'repeats'
+          ).map(o => {
+            if (o === 'gcSkew') return 'G';
+            if (o === 'complexity') return 'X';
+            if (o === 'bendability') return 'B';
+            if (o === 'promoter') return 'P';
+            if (o === 'repeats') return 'R';
+            return o;
+          }).join(' ') || 'none'}
+        </Text>
+        <Text color={colors.textDim}>[Q] quit</Text>
+      </Box>
     </Box>
   );
 }

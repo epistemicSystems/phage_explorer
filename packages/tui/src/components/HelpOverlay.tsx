@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import { usePhageStore } from '@phage-explorer/state';
 
 type HelpRow = { key: string; desc: string; note?: string };
@@ -32,14 +32,26 @@ export function HelpOverlay(): React.ReactElement {
   const model3DFullscreen = usePhageStore(s => s.model3DFullscreen);
   const helpDetail = usePhageStore(s => s.helpDetail);
   const overlays = usePhageStore(s => s.overlays);
+  const setHelpDetail = usePhageStore(s => s.setHelpDetail);
+  const closeOverlay = usePhageStore(s => s.closeOverlay);
   const colors = theme.colors;
 
+  useInput((input, key) => {
+    if (key.escape) {
+      closeOverlay('help');
+      return;
+    }
+    if (input === '?' || input === 'h' || input === 'H') {
+      setHelpDetail(helpDetail === 'essential' ? 'detailed' : 'essential');
+    }
+  }, [helpDetail, setHelpDetail, closeOverlay]);
+
   const overlayRows: HelpRow[] = [
-    { key: 'X', desc: 'Sequence complexity (gzip)', note: 'HGT / repeats' },
+    { key: 'X', desc: 'Sequence complexity (entropy)', note: 'HGT / repeats' },
     { key: 'G', desc: 'GC skew overlay', note: 'origin / terminus' },
-    { key: 'B', desc: 'DNA bendability', note: 'coming soon' },
-    { key: 'P', desc: 'Promoter / RBS strength', note: 'coming soon' },
-    { key: 'R', desc: 'Repeats / palindromes', note: 'coming soon' },
+    { key: 'B', desc: 'DNA bendability (AT proxy)' },
+    { key: 'P', desc: 'Promoter / RBS motifs' },
+    { key: 'R', desc: 'Repeats / palindromes' },
     { key: 'K', desc: 'AA legend (AA view)', note: 'AA only' },
     { key: 'W', desc: 'Comparison overlay', note: 'pairwise' },
   ];
@@ -73,6 +85,9 @@ export function HelpOverlay(): React.ReactElement {
           rows: [
             { key: 'X', desc: 'Complexity (HGT / repeats)' },
             { key: 'G', desc: 'GC skew (origin/terminus)' },
+            { key: 'B', desc: 'Bendability (AT proxy)' },
+            { key: 'P', desc: 'Promoter / RBS motifs' },
+            { key: 'R', desc: 'Repeats / palindromes' },
             { key: 'W', desc: 'Comparison overlay' },
             { key: 'K', desc: 'AA legend (AA view)' },
           ],

@@ -212,4 +212,3 @@ export function SimulationMenuOverlay({ onClose }: MenuOverlayProps): React.Reac
     </Box>
   );
 }
-
