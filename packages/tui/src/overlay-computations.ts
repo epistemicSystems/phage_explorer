@@ -18,6 +18,8 @@ export interface MarkOverlay {
 
 export type OverlayResult = NumericOverlay | MarkOverlay;
 
+export type OverlayData = Partial<Record<OverlayId, OverlayResult>>;
+
 // Utility: normalize array to 0..1
 function normalize(values: number[]): number[] {
   if (values.length === 0) return [];

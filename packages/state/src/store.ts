@@ -16,6 +16,7 @@ import {
   nextSpeed,
   prevSpeed,
 } from '@phage-explorer/core';
+import type { OverlayData, OverlayResult } from '@phage-explorer/tui/overlay-computations';
 import type { GenomeComparisonResult } from '@phage-explorer/comparison';
 
 // Overlay states
@@ -84,7 +85,7 @@ export interface PhageExplorerState {
 
   // Overlays
   overlays: OverlayId[]; // stack, last = top
-  overlayData: Partial<Record<'gcSkew' | 'complexity' | 'bendability' | 'promoter' | 'repeats', unknown>>;
+  overlayData: OverlayData;
   searchQuery: string;
   searchResults: PhageSummary[];
   helpDetail: HelpDetailLevel;
@@ -155,6 +156,7 @@ export interface PhageExplorerActions {
   setSearchResults: (results: PhageSummary[]) => void;
   setHelpDetail: (level: HelpDetailLevel) => void;
   setOverlayData: (data: Partial<Record<'gcSkew' | 'complexity' | 'bendability' | 'promoter' | 'repeats', unknown>>) => void;
+  setOverlayData: (data: OverlayData) => void;
 
   // Terminal
   setTerminalSize: (cols: number, rows: number) => void;
