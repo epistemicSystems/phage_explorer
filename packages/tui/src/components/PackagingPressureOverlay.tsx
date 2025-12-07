@@ -16,6 +16,7 @@ export function PackagingPressureOverlay(): React.ReactElement {
   const colors = theme.colors;
   const phage = usePhageStore(s => s.currentPhage);
   const scroll = usePhageStore(s => s.scrollPosition);
+  const viewMode = usePhageStore(s => s.viewMode);
   const closeOverlay = usePhageStore(s => s.closeOverlay);
 
   const genomeLength = phage?.genomeLength ?? 0;
@@ -24,11 +25,13 @@ export function PackagingPressureOverlay(): React.ReactElement {
     if (!genomeLength || genomeLength <= 0) {
       return { fill: 0, force: 0, pressure: 0, atp: 0 };
     }
-    const fillingFraction = clamp01(scroll / genomeLength);
-    const packedLengthNm = scroll * 0.34;
+    const scrollBp = viewMode === 'aa' ? scroll * 3 : scroll;
+    const clampedBp = Math.max(0, Math.min(genomeLength, scrollBp));
+    const fillingFraction = clamp01(clampedBp / genomeLength);
+    const packedLengthNm = clampedBp * 0.34;
     const force = 5 + 50 * Math.pow(fillingFraction, 3); // pN
     const pressure = Math.min(60, 5 + 55 * fillingFraction); // atm (cap)
-    const atpConsumed = Math.floor(scroll / 2);
+    const atpConsumed = Math.floor(clampedBp / 2);
     return {
       fill: fillingFraction,
       force,

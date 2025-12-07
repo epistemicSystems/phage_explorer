@@ -21,6 +21,7 @@ import { SequenceComplexityOverlay } from './SequenceComplexityOverlay';
 import { BendabilityOverlay } from './BendabilityOverlay';
 import { PromoterOverlay } from './PromoterOverlay';
 import { RepeatOverlay } from './RepeatOverlay';
+import { PackagingPressureOverlay } from './PackagingPressureOverlay';
 import { computeAllOverlays } from '../overlay-computations';
 import { SimulationHubOverlay } from './SimulationHubOverlay';
 import { SimulationView } from './SimulationView';
@@ -40,6 +41,7 @@ const GC_SKEW_ID: OverlayId = 'gcSkew';
 const BENDABILITY_ID: OverlayId = 'bendability';
 const PROMOTER_ID: OverlayId = 'promoter';
 const REPEAT_ID: OverlayId = 'repeats';
+const PRESSURE_ID: OverlayId = 'pressure';
 const KMER_ID: OverlayId = 'kmerAnomaly';
 const MODULES_ID: OverlayId = 'modules';
 const PRESSURE_ID: OverlayId = 'pressure';
@@ -297,21 +299,21 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
       }
       promote('intermediate');
       toggleOverlay(PRESSURE_ID);
-    } else if (input === 'j' || input === 'J') {
-      if (!isIntermediate) {
-        setError('K-mer anomaly unlocks after ~5 minutes or once promoted.');
-        return;
-      }
-      promote('intermediate');
-      toggleOverlay(KMER_ID);
-    } else if (input === 'l' || input === 'L') {
-      if (!isIntermediate) {
-        setError('Module coherence unlocks after ~5 minutes or once promoted.');
-        return;
-      }
-      promote('intermediate');
-      toggleOverlay(MODULES_ID);
-    } else if (input === 'm' || input === 'M') {
+      } else if (input === 'j' || input === 'J') {
+        if (!isIntermediate) {
+          setError('K-mer anomaly unlocks after ~5 minutes or once promoted.');
+          return;
+        }
+        promote('intermediate');
+        toggleOverlay(KMER_ID);
+      } else if (input === 'l' || input === 'L') {
+        if (!isIntermediate) {
+          setError('Module coherence unlocks after ~5 minutes or once promoted.');
+          return;
+        }
+        promote('intermediate');
+        toggleOverlay(MODULES_ID);
+      } else if (input === 'm' || input === 'M') {
       toggle3DModel();
     } else if (input === 'z' || input === 'Z') {
       toggle3DModelFullscreen();
