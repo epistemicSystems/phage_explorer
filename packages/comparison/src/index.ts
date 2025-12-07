@@ -75,17 +75,8 @@ export {
   quickSimilarityEstimate,
 } from './edit-distance';
 
-// Biological metrics
-export {
-  calculateGCContent,
-  estimateANI,
-  analyzeBiologicalMetrics,
-  calculateRSCU,
-  compareCodonUsage,
-  compareAminoAcidUsage,
-  compareGeneContent,
-  compareDinucleotideBias,
-} from './biological-metrics';
+export * from './biological-metrics';
+export * from './synteny';
 
 // Main comparison engine
 export {

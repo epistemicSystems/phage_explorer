@@ -37,6 +37,7 @@ import type { FoldEmbedding } from '@phage-explorer/core';
 import type { OverlayId, ExperienceLevel } from '@phage-explorer/state';
 import { BiasDecompositionOverlay } from './BiasDecompositionOverlay';
 import { CRISPROverlay } from './CRISPROverlay';
+import { SyntenyOverlay } from './SyntenyOverlay';
 
 const ANALYSIS_MENU_ID: OverlayId = 'analysisMenu';
 const SIMULATION_MENU_ID: OverlayId = 'simulationHub';
@@ -53,6 +54,7 @@ const TRANSCRIPTION_ID: OverlayId = 'transcriptionFlow';
 const BIAS_ID: OverlayId = 'biasDecomposition';
 const HGT_ID: OverlayId = 'hgt';
 const CRISPR_ID: OverlayId = 'crispr';
+const SYNTENY_ID: OverlayId = 'synteny';
 
 interface AppProps {
   repository: PhageRepository;
@@ -410,6 +412,13 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
       }
       promote('intermediate');
       toggleOverlay(CRISPR_ID);
+    } else if (key.shift && (input === 'y' || input === 'Y')) {
+      if (!isIntermediate) {
+        setError('Synteny alignment unlocks after ~5 minutes or once promoted.');
+        return;
+      }
+      promote('intermediate');
+      toggleOverlay(SYNTENY_ID);
     }
 
     // Overlays (we already returned early if overlay is active, so just open)
@@ -666,10 +675,20 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
       {activeOverlay === CRISPR_ID && (
         <Box
           position="absolute"
-          marginLeft={Math.floor((terminalCols - 90) / 2)}
-          marginTop={Math.floor((terminalRows - 22) / 2)}
+          marginLeft={Math.floor((terminalCols - 74) / 2)}
+          marginTop={Math.floor((terminalRows - 18) / 2)}
         >
           <CRISPROverlay sequence={sequence} genes={currentPhage?.genes ?? []} />
+        </Box>
+      )}
+
+      {activeOverlay === SYNTENY_ID && (
+        <Box
+          position="absolute"
+          marginLeft={Math.floor((terminalCols - 94) / 2)}
+          marginTop={Math.floor((terminalRows - 24) / 2)}
+        >
+          <SyntenyOverlay repository={repository} />
         </Box>
       )}
 

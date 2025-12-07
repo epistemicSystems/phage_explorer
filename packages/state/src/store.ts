@@ -43,7 +43,8 @@ export type OverlayId =
   | 'commandPalette'
   | 'phasePortrait'
   | 'biasDecomposition'
-  | 'crispr';
+  | 'crispr'
+  | 'synteny';
 
 export type HelpDetailLevel = 'essential' | 'detailed';
 export type ExperienceLevel = 'novice' | 'intermediate' | 'power';

@@ -141,6 +141,14 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
             shortcut: 'I',
             action: () => openOverlay('crispr'),
           },
+          {
+            id: 'analysis-synteny',
+            label: 'Functional Synteny Alignment',
+            description: 'Align gene order via DTW (Shift+Y)',
+            icon: '🔗',
+            shortcut: 'Shift+Y',
+            action: () => openOverlay('synteny'),
+          },
         ]),
         ...(experienceLevel === 'power'
           ? [{
