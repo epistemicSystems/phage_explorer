@@ -111,6 +111,10 @@ export function parseGenBank(genbank: string): NCBISequenceResult {
       inFeatures = false;
       inSequence = true;
       if (currentFeature && currentFeature.type) {
+        // Save pending qualifier for the last feature
+        if (currentQualifierKey && currentQualifierValue) {
+          currentFeature.qualifiers![currentQualifierKey] = currentQualifierValue.replace(/^"|"$/g, '');
+        }
         features.push(currentFeature as NCBIFeature);
       }
       continue;
@@ -221,7 +225,7 @@ function parseLocation(location: string, feature: Partial<NCBIFeature>): void {
     const firstMatch = first.match(/(\d+)/);
     const lastMatch = last.match(/\.\.(\d+)|(\d+)$/);
 
-    if (firstMatch) feature.start = parseInt(firstMatch[1], 10);
+    if (firstMatch) feature.start = Math.max(0, parseInt(firstMatch[1], 10) - 1);
     if (lastMatch) feature.end = parseInt(lastMatch[1] || lastMatch[2], 10);
     return;
   }
@@ -229,7 +233,7 @@ function parseLocation(location: string, feature: Partial<NCBIFeature>): void {
   // Simple range: start..end
   const rangeMatch = location.match(/<?(\d+)\.\.>?(\d+)/);
   if (rangeMatch) {
-    feature.start = parseInt(rangeMatch[1], 10);
+    feature.start = Math.max(0, parseInt(rangeMatch[1], 10) - 1);
     feature.end = parseInt(rangeMatch[2], 10);
     return;
   }
@@ -237,8 +241,8 @@ function parseLocation(location: string, feature: Partial<NCBIFeature>): void {
   // Single position
   const singleMatch = location.match(/^(\d+)$/);
   if (singleMatch) {
-    feature.start = parseInt(singleMatch[1], 10);
-    feature.end = feature.start;
+    feature.start = Math.max(0, parseInt(singleMatch[1], 10) - 1);
+    feature.end = feature.start + 1; // Length 1
   }
 }
 
