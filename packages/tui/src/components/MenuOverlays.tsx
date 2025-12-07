@@ -16,6 +16,7 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
   const toggleDiff = usePhageStore(s => s.toggleDiff);
   const openComparison = usePhageStore(s => s.openComparison);
   const openOverlay = usePhageStore(s => s.openOverlay);
+  const experienceLevel = usePhageStore(s => s.experienceLevel);
 
   const categories: MenuCategory[] = useMemo(() => [
     {
@@ -66,22 +67,34 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
           shortcut: 'W',
           action: openComparison,
         },
-        {
-          id: 'analysis-complexity',
-          label: 'Sequence Complexity Overlay',
-          description: 'Show compression-based complexity sparkline (X)',
-          icon: '🧠',
-          shortcut: 'X',
-          action: () => openOverlay('complexity'),
-        },
-        {
-          id: 'analysis-gcskew',
-          label: 'GC Skew Overlay',
-          description: 'Visualize cumulative GC skew (G)',
-          icon: '🧮',
-          shortcut: 'G',
-          action: () => openOverlay('gcSkew'),
-        },
+        ...(experienceLevel === 'novice' ? [] : [
+          {
+            id: 'analysis-complexity',
+            label: 'Sequence Complexity Overlay',
+            description: 'Show compression-based complexity sparkline (X)',
+            icon: '🧠',
+            shortcut: 'X',
+            action: () => openOverlay('complexity'),
+          },
+          {
+            id: 'analysis-gcskew',
+            label: 'GC Skew Overlay',
+            description: 'Visualize cumulative GC skew (G)',
+            icon: '🧮',
+            shortcut: 'G',
+            action: () => openOverlay('gcSkew'),
+          },
+        ]),
+        ...(experienceLevel === 'power'
+          ? [{
+              id: 'analysis-command-palette',
+              label: 'Command Palette',
+              description: 'Fuzzy commands (Ctrl+P / :)',
+              icon: '⌘',
+              shortcut: 'Ctrl+P',
+              action: () => openOverlay('commandPalette'),
+            }]
+          : []),
       ],
     },
     {
@@ -97,7 +110,7 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
         },
       ],
     },
-  ], [toggleViewMode, cycleReadingFrame, toggleDiff, openOverlay, openComparison, cycleTheme]);
+  ], [toggleViewMode, cycleReadingFrame, toggleDiff, openOverlay, openComparison, cycleTheme, experienceLevel]);
 
   return (
     <Box>
@@ -118,6 +131,7 @@ export function SimulationMenuOverlay({ onClose }: MenuOverlayProps): React.Reac
   const set3DModelSpeed = usePhageStore(s => s.set3DModelSpeed);
   const openComparison = usePhageStore(s => s.openComparison);
   const setError = usePhageStore(s => s.setError);
+  const experienceLevel = usePhageStore(s => s.experienceLevel);
 
   const categories: MenuCategory[] = useMemo(() => [
     {
@@ -166,7 +180,7 @@ export function SimulationMenuOverlay({ onClose }: MenuOverlayProps): React.Reac
           label: 'Cycle 3D Quality',
           description: 'Switch between low/medium/high/ultra shading',
           icon: '💡',
-          shortcut: 'R',
+          shortcut: 'Q',
           action: cycle3DModelQuality,
         },
         {
@@ -200,7 +214,12 @@ export function SimulationMenuOverlay({ onClose }: MenuOverlayProps): React.Reac
         },
       ],
     },
-  ], [toggle3DModel, toggle3DModelPause, toggle3DModelFullscreen, cycle3DModelQuality, set3DModelSpeed, openComparison, setError]);
+  ].filter(cat => {
+    if (cat.name === 'Dynamic Simulations' && experienceLevel === 'novice') {
+      return false;
+    }
+    return true;
+  }), [toggle3DModel, toggle3DModelPause, toggle3DModelFullscreen, cycle3DModelQuality, set3DModelSpeed, openComparison, setError, experienceLevel]);
 
   return (
     <Box>
