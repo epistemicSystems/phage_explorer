@@ -30,6 +30,7 @@ import { ModuleOverlay } from './ModuleOverlay';
 import { FoldQuickview } from './FoldQuickview';
 import type { FoldEmbedding } from '@phage-explorer/core';
 import type { OverlayId, ExperienceLevel } from '@phage-explorer/state';
+import { PackagingPressureOverlay } from './PackagingPressureOverlay';
 
 const ANALYSIS_MENU_ID: OverlayId = 'analysisMenu';
 const SIMULATION_MENU_ID: OverlayId = 'simulationHub';
@@ -41,6 +42,7 @@ const PROMOTER_ID: OverlayId = 'promoter';
 const REPEAT_ID: OverlayId = 'repeats';
 const KMER_ID: OverlayId = 'kmerAnomaly';
 const MODULES_ID: OverlayId = 'modules';
+const PRESSURE_ID: OverlayId = 'pressure';
 
 interface AppProps {
   repository: PhageRepository;
@@ -288,6 +290,13 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
       }
       promote('intermediate');
       toggleOverlay(GC_SKEW_ID);
+    } else if (input === 'v' || input === 'V') {
+      if (!isIntermediate) {
+        setError('Pressure gauge unlocks after ~5 minutes or once promoted.');
+        return;
+      }
+      promote('intermediate');
+      toggleOverlay(PRESSURE_ID);
     } else if (input === 'j' || input === 'J') {
       if (!isIntermediate) {
         setError('K-mer anomaly unlocks after ~5 minutes or once promoted.');
@@ -329,8 +338,6 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
     } else if (key.ctrl && (input === 'f' || input === 'F')) {
       promote('power');
       openOverlay('foldQuickview');
-    } else if (input === 'v' || input === 'V') {
-      toggle3DModelPause();
     } else if (input === 'r' || input === 'R') {
       if (!isIntermediate) {
         setError('Repeat overlay unlocks after ~5 minutes or once promoted.');
@@ -535,6 +542,16 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
           marginTop={Math.floor((terminalRows - 12) / 2)}
         >
           <PromoterOverlay sequence={sequence} />
+        </Box>
+      )}
+
+      {activeOverlay === PRESSURE_ID && (
+        <Box
+          position="absolute"
+          marginLeft={Math.floor((terminalCols - 90) / 2)}
+          marginTop={Math.floor((terminalRows - 14) / 2)}
+        >
+          <PackagingPressureOverlay />
         </Box>
       )}
 
