@@ -122,7 +122,7 @@ export function HelpOverlay(): React.ReactElement {
         rows: [
           { key: 'Mode', desc: viewMode === 'aa' ? 'Amino acids (translated)' : 'DNA (nucleotides)' },
           { key: 'Diff', desc: diffEnabled ? 'Comparing vs reference' : 'Single genome view' },
-          { key: '3D', desc: 'M toggles, O pause/resume, Z fullscreen, Q quality' },
+          { key: '3D', desc: 'M toggles, O pause/resume, Z fullscreen, R quality' },
           { key: 'Overlays', desc: overlays.join(', ') || 'None' },
         ],
       },
@@ -143,10 +143,10 @@ export function HelpOverlay(): React.ReactElement {
       {
         title: '3D & model controls',
         rows: [
-          { key: 'M', desc: 'Toggle 3D model' },
-          { key: 'O', desc: 'Pause/resume model' },
+            { key: 'M', desc: 'Toggle 3D model' },
+            { key: 'O', desc: 'Pause/resume model' },
             { key: 'Z', desc: 'Fullscreen model' },
-            { key: 'Q', desc: 'Cycle model quality' },
+            { key: 'R', desc: 'Cycle model quality' },
         ],
       },
       {

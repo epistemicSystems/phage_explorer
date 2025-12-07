@@ -26,8 +26,13 @@ export function Footer(): React.ReactElement {
     { key: 'D', action: 'diff' },
     { key: 'W', action: 'compare' },
     { key: 'M', action: '3D' },
-    { key: 'O', action: '3D pause' },
-    { key: 'S', action: 'search' },
+    { key: 'V', action: '3D pause' },
+    { key: 'Q', action: '3D quality' },
+    { key: 'G', action: 'GC skew' },
+    { key: 'X', action: 'complexity' },
+    { key: 'J', action: 'k-mer anomaly' },
+    { key: 'L', action: 'modules' },
+    { key: 'S / /', action: 'search' },
     { key: '?', action: 'help' },
   ];
 
@@ -70,7 +75,7 @@ export function Footer(): React.ReactElement {
             modal === 'comparison' ? 'Comparison' : modal
           ) : 'none'}
         </Text>
-        <Text color={colors.textDim}>[Q] quit</Text>
+        <Text color={colors.textDim}>[Ctrl+C] quit</Text>
       </Box>
     </Box>
   );
