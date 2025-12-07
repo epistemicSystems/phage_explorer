@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { usePhageStore } from '@phage-explorer/state';
 import type { Simulation, SimulationId, SimState } from '@phage-explorer/core';
@@ -81,6 +81,8 @@ export function SimulationView({ onClose }: SimulationViewProps): React.ReactEle
 
   const registry = useMemo(() => getSimulationRegistry(), []);
   const simulation = simId ? registry.get(simId as SimulationId) : null;
+  const paramDefs = simulation?.parameters ?? [];
+  const [selectedParam, setSelectedParam] = useState(0);
 
   const initialRef = useRef<SimState | null>(simState);
   const latestStateRef = useRef<SimState | null>(simState);
@@ -129,6 +131,50 @@ export function SimulationView({ onClose }: SimulationViewProps): React.ReactEle
     }
     if (key.rightArrow || input === '+') {
       speedUp();
+      return;
+    }
+    if (input === '[') {
+      setSelectedParam(i => Math.max(0, i - 1));
+      return;
+    }
+    if (input === ']') {
+      setSelectedParam(i => Math.min(Math.max(0, paramDefs.length - 1), i + 1));
+      return;
+    }
+    if ((input === '=' || input === '+') && paramDefs[selectedParam]?.type === 'number') {
+      const meta = paramDefs[selectedParam];
+      if (!meta) return;
+      const step = meta.step ?? 0.05;
+      const min = meta.min ?? -Infinity;
+      const max = meta.max ?? Infinity;
+      const currentVal = Number(latestStateRef.current?.params[meta.id] ?? meta.defaultValue ?? 0);
+      const nextVal = Math.min(max, Math.max(min, currentVal + step));
+      if (latestStateRef.current) {
+        const nextState = {
+          ...latestStateRef.current,
+          params: { ...latestStateRef.current.params, [meta.id]: nextVal },
+        };
+        latestStateRef.current = nextState;
+        updateState(nextState);
+      }
+      return;
+    }
+    if (input === '-' && paramDefs[selectedParam]?.type === 'number') {
+      const meta = paramDefs[selectedParam];
+      if (!meta) return;
+      const step = meta.step ?? 0.05;
+      const min = meta.min ?? -Infinity;
+      const max = meta.max ?? Infinity;
+      const currentVal = Number(latestStateRef.current?.params[meta.id] ?? meta.defaultValue ?? 0);
+      const nextVal = Math.min(max, Math.max(min, currentVal - step));
+      if (latestStateRef.current) {
+        const nextState = {
+          ...latestStateRef.current,
+          params: { ...latestStateRef.current.params, [meta.id]: nextVal },
+        };
+        latestStateRef.current = nextState;
+        updateState(nextState);
+      }
       return;
     }
   });
@@ -180,20 +226,31 @@ export function SimulationView({ onClose }: SimulationViewProps): React.ReactEle
 
       {/* Parameters */}
       <Box flexDirection="column" marginBottom={1}>
-        <Text color="#9ca3af" dimColor>Parameters</Text>
+        <Text color="#9ca3af" dimColor>Parameters [ / ] to select, +/- to tweak</Text>
         <Box flexDirection="column" gap={0}>
-          {Object.entries(simState.params).map(([key, value]) => (
-            <Text key={key} color="#e5e7eb">
-              {key}: {String(value)}
-            </Text>
-          ))}
+          {paramDefs.map((p, idx) => {
+            const val = simState.params[p.id];
+            const selected = idx === selectedParam;
+            return (
+              <Text key={p.id} color={selected ? '#22c55e' : '#e5e7eb'}>
+                {selected ? '▶ ' : '  '}
+                {p.label}: {String(val)}
+                {p.type === 'number' && (p.min !== undefined || p.max !== undefined)
+                  ? ` (${p.min ?? '-∞'}–${p.max ?? '∞'}, step ${p.step ?? 0.05})`
+                  : ''}
+              </Text>
+            );
+          })}
+          {paramDefs.length === 0 && (
+            <Text color="#9ca3af">No adjustable parameters</Text>
+          )}
         </Box>
       </Box>
 
       {/* Controls */}
       <Box flexDirection="column" marginBottom={1}>
         <Text color="#9ca3af" dimColor>Controls</Text>
-        <Text color="#9ca3af" dimColor>Space: Pause/Resume · R: Reset · .: Step · ←/→ or -/+: Speed</Text>
+        <Text color="#9ca3af" dimColor>Space: Pause/Resume · R: Reset · .: Step · ←/→ or -/+: Speed · [/] param select · +/- param tweak</Text>
       </Box>
 
       <Box flexDirection="column" marginTop={1}>
