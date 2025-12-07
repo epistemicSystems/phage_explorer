@@ -178,12 +178,7 @@ export function App({ repository }: AppProps): React.ReactElement {
     if (activeOverlay) {
       if (activeOverlay === 'help') {
         if (input === '?' || input === 'h' || input === 'H') {
-          if (helpDetail === 'essential') {
-            setHelpDetail('detailed' as HelpDetailLevel);
-          } else {
-            closeOverlay('help');
-            setHelpDetail('essential' as HelpDetailLevel);
-          }
+          setHelpDetail(helpDetail === 'essential' ? 'detailed' : 'essential');
         }
         return;
       }
