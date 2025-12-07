@@ -36,6 +36,42 @@ export function RibosomeTrafficView({ state }: RibosomeTrafficViewProps): React.
   const window = 80;
   const footprint = Number(state.params.footprint ?? 9);
 
+  const queueStats = useMemo(() => {
+    if (state.ribosomes.length === 0) {
+      return { longestQueue: 0, queues: 0 };
+    }
+    const sorted = [...state.ribosomes].sort((a, b) => a - b);
+    let longest = 1;
+    let current = 1;
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] - sorted[i - 1] < footprint) {
+        current += 1;
+        longest = Math.max(longest, current);
+      } else {
+        current = 1;
+      }
+    }
+    return { longestQueue: longest, queues: Math.max(1, Math.ceil(sorted.length / longest)) };
+  }, [state.ribosomes, footprint]);
+
+  const slowSites = useMemo(() => {
+    const annotated = state.codonRates.map((rate, idx) => ({ rate, idx }));
+    return annotated
+      .sort((a, b) => a.rate - b.rate)
+      .slice(0, 3)
+      .map(s => ({ ...s, rate: Number(s.rate.toFixed(2)) }));
+  }, [state.codonRates]);
+
+  const densitySpark = useMemo(() => toSpark(state.densityHistory, 40), [state.densityHistory]);
+  const productionSpark = useMemo(() => {
+    if (state.productionHistory.length < 2) return '';
+    const deltas: number[] = [];
+    for (let i = 1; i < state.productionHistory.length; i++) {
+      deltas.push(state.productionHistory[i] - state.productionHistory[i - 1]);
+    }
+    return toSpark(deltas, 40);
+  }, [state.productionHistory]);
+
   const track = useMemo(() => {
     const cells = Array.from({ length: window }, () => '·');
     const rates = Array.from({ length: window }, () => 0);
@@ -93,6 +129,22 @@ export function RibosomeTrafficView({ state }: RibosomeTrafficViewProps): React.
         <Text color={colors.accent} bold>Codon rate sparkline</Text>
         <Text color={colors.text}>{toSpark(state.codonRates, 60)}</Text>
         <Text color={colors.textDim} dimColor>▁ slow — █ fast</Text>
+      </Box>
+
+      <Box marginTop={1} flexDirection="column" gap={0}>
+        <Text color={colors.accent} bold>Queues & throughput</Text>
+        <Text color={colors.text}>
+          Longest queue: {queueStats.longestQueue} ribosomes · Proteins/step spark: {productionSpark || 'n/a'} · Active ribosomes spark: {densitySpark || 'n/a'}
+        </Text>
+      </Box>
+
+      <Box marginTop={1} flexDirection="column">
+        <Text color={colors.accent} bold>Slow sites (top 3)</Text>
+        {slowSites.map(s => (
+          <Text key={s.idx} color={colors.text}>
+            Codon {s.idx + 1}: rate {s.rate}
+          </Text>
+        ))}
       </Box>
     </Box>
   );
