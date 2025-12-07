@@ -32,6 +32,9 @@ export function Header(): React.ReactElement {
   const experienceLevel = usePhageStore(s => s.experienceLevel);
 
   const colors = theme.colors;
+  const muted = colors.textDim;
+  const infoColor = colors.accent;
+  const bgHighlight = colors.borderFocus;
 
   // Create visual experience level indicator
   const levelIndicator = experienceLevel === 'power' ? '★★★' :
@@ -59,7 +62,7 @@ export function Header(): React.ReactElement {
           </Text>
         </Box>
         <Box gap={2}>
-          <Text color={colors.textMuted}>{levelIndicator}</Text>
+          <Text color={muted}>{levelIndicator}</Text>
           <Text color={colors.textDim}>
             <Text color={colors.accent}>[T]</Text> Theme
           </Text>
@@ -80,17 +83,17 @@ export function Header(): React.ReactElement {
             {phage?.name ?? 'Loading...'}
           </Text>
           {phage?.family && (
-            <Text color={colors.textMuted}>
+            <Text color={muted}>
               [{phage.family}]
             </Text>
           )}
         </Box>
         <Box gap={1}>
-          <Text color={colors.textMuted}>Phage</Text>
+          <Text color={muted}>Phage</Text>
           <Text color={colors.primary} bold>
             {phageIndex + 1}
           </Text>
-          <Text color={colors.textMuted}>of</Text>
+          <Text color={muted}>of</Text>
           <Text color={colors.text}>
             {phages.length}
           </Text>
@@ -102,7 +105,7 @@ export function Header(): React.ReactElement {
         {phage && (
           <>
             <Box gap={1}>
-              <Text color={colors.info}>{ICONS.bullet}</Text>
+              <Text color={infoColor}>{ICONS.bullet}</Text>
               <Text color={colors.textDim}>Host:</Text>
               <Text color={colors.text}>{phage.host ?? 'Unknown'}</Text>
             </Box>
@@ -131,17 +134,17 @@ export function Header(): React.ReactElement {
         {/* View mode indicator */}
         <Box gap={1}>
           <Text
-            color={viewMode === 'dna' ? colors.success : colors.textMuted}
+            color={viewMode === 'dna' ? colors.success : muted}
             bold={viewMode === 'dna'}
-            backgroundColor={viewMode === 'dna' ? colors.backgroundAlt : undefined}
+            backgroundColor={viewMode === 'dna' ? bgHighlight : undefined}
           >
             {' DNA '}
           </Text>
-          <Text color={colors.textMuted}>│</Text>
+          <Text color={muted}>│</Text>
           <Text
-            color={viewMode === 'aa' ? colors.accent : colors.textMuted}
+            color={viewMode === 'aa' ? colors.accent : muted}
             bold={viewMode === 'aa'}
-            backgroundColor={viewMode === 'aa' ? colors.backgroundAlt : undefined}
+            backgroundColor={viewMode === 'aa' ? bgHighlight : undefined}
           >
             {' AA '}
           </Text>
@@ -150,15 +153,15 @@ export function Header(): React.ReactElement {
         {/* Reading frame (only shown in AA mode) */}
         {viewMode === 'aa' && (
           <Box gap={1}>
-            <Text color={colors.info}>{ICONS.frame}</Text>
+            <Text color={infoColor}>{ICONS.frame}</Text>
             <Text color={colors.textDim}>Frame:</Text>
             <Box>
               {[0, 1, 2].map(f => (
                 <Text
                   key={f}
-                  color={readingFrame === f ? colors.accent : colors.textMuted}
+                  color={readingFrame === f ? colors.accent : muted}
                   bold={readingFrame === f}
-                  backgroundColor={readingFrame === f ? colors.backgroundAlt : undefined}
+                  backgroundColor={readingFrame === f ? bgHighlight : undefined}
                 >
                   {` ${f + 1} `}
                 </Text>
@@ -178,7 +181,7 @@ export function Header(): React.ReactElement {
 
         {/* Theme indicator */}
         <Box gap={1}>
-          <Text color={colors.textMuted}>{ICONS.diamond}</Text>
+          <Text color={muted}>{ICONS.diamond}</Text>
           <Text color={colors.textDim}>Theme:</Text>
           <Text color={colors.accent} bold>{theme.name}</Text>
         </Box>
