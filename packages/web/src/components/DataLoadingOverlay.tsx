@@ -24,24 +24,30 @@ export function DataLoadingOverlay({
 
   if (error) {
     return (
-      <div style={{
-        position: 'fixed',
-        inset: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.background,
-        zIndex: 9999,
-      }}>
-        <div style={{
-          border: `1px solid ${colors.error}`,
-          padding: '2rem',
-          borderRadius: '8px',
-          textAlign: 'center',
-          backgroundColor: 'rgba(255, 0, 0, 0.1)',
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⚠️</div>
+      <div
+        role="alert"
+        aria-live="assertive"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.background,
+          zIndex: 9999,
+        }}
+      >
+        <div
+          style={{
+            border: `1px solid ${colors.error}`,
+            padding: '2rem',
+            borderRadius: '8px',
+            textAlign: 'center',
+            backgroundColor: 'rgba(255, 0, 0, 0.1)',
+          }}
+        >
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }} aria-hidden="true">⚠️</div>
           <h2 style={{ color: colors.error, marginBottom: '1rem' }}>Database Load Failed</h2>
           <p style={{ color: colors.text, marginBottom: '1.5rem' }}>{error}</p>
           {onRetry && (
@@ -68,16 +74,21 @@ export function DataLoadingOverlay({
   if (!progress) return <div />;
 
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.background,
-      zIndex: 9999,
-    }}>
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.background,
+        zIndex: 9999,
+      }}
+    >
       <div style={{ width: '300px', textAlign: 'center' }}>
         <div style={{ marginBottom: '1rem', fontSize: '1.5rem', color: colors.accent }}>
           PHAGE EXPLORER
@@ -100,6 +111,9 @@ export function DataLoadingOverlay({
 
         <div style={{ color: colors.textDim, fontSize: '0.9rem' }}>
           {progress.message} ({progress.percent}%)
+        </div>
+        <div className="sr-only">
+          Loading database: {progress.message}, {progress.percent}% complete.
         </div>
       </div>
     </div>

@@ -1,9 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import './styles.css';
-
-/** Number of bases to show in the sequence preview */
-const SEQUENCE_PREVIEW_LENGTH = 500;
-
 import { AppShell } from './components/layout/AppShell';
 import OverlayManager from './components/overlays/OverlayManager';
 import { OverlayProvider } from './components/overlays/OverlayProvider';
@@ -15,15 +10,22 @@ import {
   usePendingSequence,
 } from './hooks';
 import { useTheme } from './hooks/useTheme';
+import { useReducedMotion } from './hooks';
 import type { PhageRepository } from './db';
 import {
   initializeStorePersistence,
   usePhageStore,
 } from './store';
+import { useWebPreferences } from './store';
+import './styles.css';
 import { Model3DView } from './components/Model3DView';
+
+/** Number of bases to show in the sequence preview */
+const SEQUENCE_PREVIEW_LENGTH = 500;
 
 export default function App(): JSX.Element {
   const { theme, nextTheme } = useTheme();
+  const reducedMotion = useReducedMotion();
   const {
     repository,
     isLoading,
@@ -33,6 +35,8 @@ export default function App(): JSX.Element {
     load,
     reload,
   } = useDatabase({ autoLoad: true });
+  const highContrast = useWebPreferences((s) => s.highContrast);
+  const setHighContrast = useWebPreferences((s) => s.setHighContrast);
 
   const {
     phages,
@@ -64,6 +68,16 @@ export default function App(): JSX.Element {
   const { mode } = useKeyboardMode();
   const pendingSequence = usePendingSequence();
   const [sequencePreview, setSequencePreview] = useState<string>('');
+  const enableBackgroundEffects = !reducedMotion && !highContrast;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (highContrast) {
+      root.classList.add('high-contrast');
+    } else {
+      root.classList.remove('high-contrast');
+    }
+  }, [highContrast]);
 
   // Initialize persistence once on mount
   useEffect(() => {
@@ -186,15 +200,32 @@ export default function App(): JSX.Element {
       )}
 
       <AppShell
+        enableBackgroundEffects={enableBackgroundEffects}
         header={{
           title: currentPhage?.name ?? 'Phage Explorer',
           subtitle: headerSubtitle,
           mode,
           pendingSequence: pendingSequence ?? undefined,
           children: (
-            <button className="btn" onClick={nextTheme} type="button">
-              Theme: {theme.name}
-            </button>
+            <>
+              <button
+                className="btn"
+                onClick={nextTheme}
+                type="button"
+                aria-label={`Switch theme, current theme ${theme.name}`}
+              >
+                Theme: {theme.name}
+              </button>
+              <button
+                className="btn"
+                onClick={() => setHighContrast(!highContrast)}
+                type="button"
+                aria-pressed={highContrast}
+                aria-label={highContrast ? 'Disable high contrast mode' : 'Enable high contrast mode'}
+              >
+                Contrast: {highContrast ? 'High' : 'Standard'}
+              </button>
+            </>
           ),
         }}
         footer={{

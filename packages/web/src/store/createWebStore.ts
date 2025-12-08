@@ -23,7 +23,7 @@ export { usePhageStore } from '@phage-explorer/state';
 export type { PhageExplorerStore, PhageExplorerState, PhageExplorerActions } from '@phage-explorer/state';
 
 // Version for migration logic
-const STORE_VERSION = 2;
+const STORE_VERSION = 3;
 
 /**
  * Web-specific preferences that persist to localStorage
@@ -36,6 +36,7 @@ export interface WebPreferencesState {
   scanlineIntensity: number;
   glow: boolean;
   tuiMode: boolean;
+  highContrast: boolean;
   // Command history (session only, not persisted)
   commandHistory: Array<{ label: string; at: number }>;
   // Hydration state
@@ -48,6 +49,7 @@ export interface WebPreferencesActions {
   setScanlineIntensity: (intensity: number) => void;
   setGlow: (enabled: boolean) => void;
   setTuiMode: (enabled: boolean) => void;
+  setHighContrast: (enabled: boolean) => void;
   pushCommand: (label: string) => void;
   clearHistory: () => void;
   setHasHydrated: (state: boolean) => void;
@@ -84,6 +86,7 @@ const defaultWebPreferences: WebPreferencesState = {
   scanlineIntensity: 0.15,
   glow: true,
   tuiMode: false,
+  highContrast: false,
   commandHistory: [],
   _hasHydrated: false,
 };
@@ -118,6 +121,16 @@ function migrateWebPrefs(
       scanlineIntensity: state.scanlineIntensity ?? 0.15,
       glow: state.glow ?? true,
       tuiMode: state.tuiMode ?? false,
+      highContrast: state.highContrast ?? false,
+    };
+  }
+
+  if (version < 3) {
+    // Version 2 -> 3: Add highContrast toggle
+    return {
+      ...defaultWebPreferences,
+      ...state,
+      highContrast: state.highContrast ?? false,
     };
   }
 
@@ -142,6 +155,7 @@ export const useWebPreferences = create<WebPreferencesStore>()(
       setScanlineIntensity: (intensity) => set({ scanlineIntensity: intensity }),
       setGlow: (enabled) => set({ glow: enabled }),
       setTuiMode: (enabled) => set({ tuiMode: enabled }),
+      setHighContrast: (enabled) => set({ highContrast: enabled }),
       pushCommand: (label) =>
         set((state) => ({
           commandHistory: [
@@ -162,6 +176,7 @@ export const useWebPreferences = create<WebPreferencesStore>()(
         scanlineIntensity: state.scanlineIntensity,
         glow: state.glow,
         tuiMode: state.tuiMode,
+        highContrast: state.highContrast,
         // commandHistory intentionally not persisted
       }),
       migrate: migrateWebPrefs,

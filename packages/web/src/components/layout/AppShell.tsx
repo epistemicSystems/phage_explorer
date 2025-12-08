@@ -17,14 +17,25 @@ export interface AppShellProps {
   footer?: FooterProps;
   children: React.ReactNode;
   matrixCharSet?: 'dna' | 'amino' | 'binary' | 'matrix' | 'hex';
+  enableBackgroundEffects?: boolean;
 }
 
-export const AppShell: React.FC<AppShellProps> = ({ header, footer, children, matrixCharSet = 'dna' }) => {
+export const AppShell: React.FC<AppShellProps> = ({
+  header,
+  footer,
+  children,
+  matrixCharSet = 'dna',
+  enableBackgroundEffects = true,
+}) => {
   return (
     <div className="app-shell">
       <SkipNavigation />
-      <MatrixRain opacity={0.08} charSet={matrixCharSet} />
-      <CRTOverlay />
+      {enableBackgroundEffects && (
+        <>
+          <MatrixRain opacity={0.08} charSet={matrixCharSet} />
+          <CRTOverlay />
+        </>
+      )}
       <Header {...header} />
       <main id="main-content" className="app-body" role="main">
         {children}

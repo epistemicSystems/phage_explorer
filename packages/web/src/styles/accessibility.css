@@ -34,6 +34,31 @@ a:focus-visible {
   outline: 2px solid var(--color-accent);
 }
 
+.high-contrast,
+:root.high-contrast {
+  color-scheme: dark;
+  --color-primary: #ffffff;
+  --color-secondary: #ffd400;
+  --color-accent: #00ffff;
+  --color-background: #000000;
+  --color-background-alt: #0f0f0f;
+  --color-text: #ffffff;
+  --color-text-dim: #e0e0e0;
+  --color-text-muted: #c0c0c0;
+  --color-border: #ffffff;
+  --color-border-focus: #00ffff;
+  --color-border-light: #555555;
+  --color-badge: #1a1a1a;
+  --color-badge-text: #ffffff;
+  --color-panel-header: #0f0f0f;
+  --color-panel-border: #ffffff;
+  --color-separator: #ffffff;
+  --color-success: #00ff88;
+  --color-warning: #ffd400;
+  --color-error: #ff4d4d;
+  --color-info: #00e5ff;
+}
+
 /* Screen reader only utility */
 .sr-only {
   position: absolute;

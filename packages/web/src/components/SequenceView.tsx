@@ -88,6 +88,7 @@ export function SequenceView({
 
   const viewModeLabel = viewMode === 'dna' ? 'DNA' : 'AA';
   const frameLabel = readingFrame === 0 ? '+1' : readingFrame > 0 ? `+${readingFrame + 1}` : `${readingFrame}`;
+  const descriptionId = 'sequence-view-description';
 
   return (
     <div
@@ -100,6 +101,10 @@ export function SequenceView({
         backgroundColor: colors.background,
         overflow: 'hidden',
       }}
+      role="region"
+      aria-label="Sequence viewer"
+      aria-describedby={descriptionId}
+      aria-live="polite"
     >
       {/* Header */}
       <div
@@ -162,6 +167,8 @@ export function SequenceView({
       <div style={{ flex: 1, minHeight: height, position: 'relative' }}>
         <canvas
           ref={canvasRef}
+          role="img"
+          aria-label="Genome sequence canvas"
           style={{
             width: '100%',
             height: '100%',
@@ -208,6 +215,11 @@ export function SequenceView({
           )}
         </span>
         <span>scroll to navigate</span>
+      </div>
+      <div id={descriptionId} className="sr-only">
+        Sequence view in {viewModeLabel} mode, reading frame {frameLabel}. Showing positions
+        {visibleRange ? ` ${visibleRange.startIndex} to ${visibleRange.endIndex}` : ' not loaded yet'}.
+        Use v to toggle DNA or amino acid view and f to change frame, Home or End to jump to sequence edges, and scroll to navigate.
       </div>
     </div>
   );

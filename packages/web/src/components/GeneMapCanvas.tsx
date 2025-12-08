@@ -32,6 +32,7 @@ export const GeneMapCanvas: React.FC<GeneMapCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredGene, setHoveredGene] = useState<GeneInfo | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const descriptionId = 'gene-map-description';
 
   const { theme } = useTheme();
   const colors = theme.colors;
@@ -164,6 +165,26 @@ export const GeneMapCanvas: React.FC<GeneMapCanvasProps> = ({
     setTooltipPos(null);
   }, []);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const step = Math.max(100, Math.floor(viewportSize / 4));
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setScrollPosition(Math.max(0, scrollPosition - step));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setScrollPosition(Math.min(Math.max(0, genomeLength - viewportSize), scrollPosition + step));
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        setScrollPosition(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        setScrollPosition(Math.max(0, genomeLength - viewportSize));
+      }
+    },
+    [genomeLength, scrollPosition, setScrollPosition, viewportSize]
+  );
+
   // Format position for display
   const formatPosition = (pos: number): string => {
     if (pos >= 1_000_000) return `${(pos / 1_000_000).toFixed(2)}M`;
@@ -183,6 +204,11 @@ export const GeneMapCanvas: React.FC<GeneMapCanvasProps> = ({
         backgroundColor: colors.background,
         overflow: 'hidden',
       }}
+      tabIndex={0}
+      role="region"
+      aria-label="Gene map overview"
+      aria-describedby={descriptionId}
+      onKeyDown={handleKeyDown}
     >
       {/* Scale bar header */}
       <div
@@ -206,6 +232,8 @@ export const GeneMapCanvas: React.FC<GeneMapCanvasProps> = ({
         onClick={handleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
+        role="img"
+        aria-label="Gene map canvas"
         style={{
           width: '100%',
           height,
@@ -263,6 +291,10 @@ export const GeneMapCanvas: React.FC<GeneMapCanvasProps> = ({
           )}
         </div>
       )}
+      <div id={descriptionId} className="sr-only" aria-live="polite">
+        Gene map showing genes across the genome. Current viewport starts at {scrollPosition} base pairs and spans
+        {` ${Math.min(viewportSize, genomeLength)} base pairs.`} Use Left and Right arrows to move, Home to jump to start, and End to jump to the end.
+      </div>
     </div>
   );
 };
