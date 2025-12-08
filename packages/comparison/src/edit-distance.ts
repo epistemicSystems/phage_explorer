@@ -13,9 +13,11 @@
  */
 
 import type { EditDistanceMetrics } from './types';
-import { levenshtein_distance as wasmLevenshtein } from '@phage/wasm-compute';
 
-const wasmReady = typeof wasmLevenshtein === 'function';
+// WASM module not available - use JS-only implementation
+// When WASM is built, this can be re-enabled:
+// import { levenshtein_distance as wasmLevenshtein } from '@phage/wasm-compute';
+const wasmReady = false;
 
 /**
  * Compute Levenshtein distance using dynamic programming.
@@ -28,16 +30,8 @@ export function levenshteinDistance(
   b: string,
   maxLength: number = 10000
 ): { distance: number; isApproximate: boolean } {
-  // Try using Rust implementation first
-  try {
-    // Rust is significantly faster, so we can increase the exact calculation threshold.
-    // 100kb x 100kb is feasible in Wasm/Rust whereas it would choke JS.
-    if (wasmReady && a.length <= 100000 && b.length <= 100000) {
-      return { distance: wasmLevenshtein(a, b), isApproximate: false };
-    }
-  } catch {
-    // Fallback silently to JS implementation
-  }
+  // Note: Rust/WASM implementation would be used here if available
+  // See packages/wasm-compute for building WASM module
 
   return levenshteinDistanceJS(a, b, maxLength);
 }

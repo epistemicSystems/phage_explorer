@@ -1,5 +1,4 @@
 import { jaccardIndex, extractKmerSet } from './kmer-analysis';
-import { min_hash_jaccard } from '@phage/wasm-compute/pkg/wasm_compute.js';
 import type { GeneInfo } from '@phage-explorer/core';
 import type { HGTAnalysis, GenomicIsland, DonorCandidate, PassportStamp } from './types';
 
@@ -126,17 +125,8 @@ function inferDonors(
   for (const [taxon, refSeq] of Object.entries(referenceSketches)) {
     const refSet = extractKmerSet(refSeq, k);
     if (refSet.size === 0) continue;
-    let j = jaccardIndex(islandSet, refSet);
-    if (typeof min_hash_jaccard === 'function') {
-      try {
-        const mh = min_hash_jaccard(islandSeq, refSeq, k, 64);
-        if (Number.isFinite(mh) && mh >= 0) {
-          j = Math.max(j, mh);
-        }
-      } catch {
-        // keep JS-only Jaccard if WASM call fails
-      }
-    }
+    const j = jaccardIndex(islandSet, refSet);
+    // Note: WASM min_hash_jaccard could be used here for better performance if available
     candidates.push({
       taxon,
       similarity: j,
