@@ -19,6 +19,7 @@ import {
 import { useWebPreferences } from './store';
 import './styles.css';
 import { Model3DView } from './components/Model3DView';
+import { SequenceView } from './components/SequenceView';
 
 /** Number of bases to show in the sequence preview */
 const SEQUENCE_PREVIEW_LENGTH = 500;
@@ -54,6 +55,7 @@ export default function App(): JSX.Element {
   const { mode } = useKeyboardMode();
   const pendingSequence = usePendingSequence();
   const [sequencePreview, setSequencePreview] = useState<string>('');
+  const [fullSequence, setFullSequence] = useState<string>('');
   const enableBackgroundEffects = !reducedMotion && !highContrast;
 
   // React 19: useOptimistic for instant visual feedback on phage selection
@@ -88,13 +90,17 @@ export default function App(): JSX.Element {
       setLoadingPhage(true);
       try {
         setSequencePreview('');
+        setFullSequence('');
         const phage = await repo.getPhageByIndex(index);
         if (!phage) return;
         setCurrentPhageIndex(index);
         setCurrentPhage(phage);
-        const windowEnd = Math.min(phage.genomeLength ?? 0, SEQUENCE_PREVIEW_LENGTH);
-        const seq = await repo.getSequenceWindow(phage.id, 0, windowEnd);
-        setSequencePreview(seq);
+        const genomeLength = phage.genomeLength ?? 0;
+        if (genomeLength > 0) {
+          const seq = await repo.getSequenceWindow(phage.id, 0, genomeLength);
+          setFullSequence(seq);
+          setSequencePreview(seq.slice(0, SEQUENCE_PREVIEW_LENGTH));
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load phage';
         setError(message);
@@ -187,6 +193,8 @@ export default function App(): JSX.Element {
     { key: ':', label: 'command' },
     { key: 't', label: 'theme' },
     { key: '?', label: 'help' },
+    { key: 'v/f', label: 'view/frame' },
+    { key: 'Home/End', label: 'jump' },
   ]), []);
 
   // React 19: Dynamic document title
@@ -329,12 +337,19 @@ export default function App(): JSX.Element {
                   Accession: {currentPhage.accession} · Baltimore: {currentPhage.baltimoreGroup ?? 'n/a'}
                 </div>
                 <div className="sequence-preview">
-                  <div className="metric-label">Sequence preview</div>
-                  <pre className="sequence-block">
-                    {sequencePreview
-                      ? sequencePreview
-                      : 'Sequence preview will appear after phage load completes.'}
-                  </pre>
+                  <div className="metric-label" style={{ marginBottom: '0.5rem' }}>Sequence</div>
+                  <SequenceView
+                    sequence={fullSequence}
+                    className="sequence-block"
+                    height={360}
+                  />
+                  {!fullSequence && (
+                    <pre className="sequence-block" style={{ marginTop: '0.5rem' }}>
+                      {sequencePreview
+                        ? sequencePreview
+                        : 'Sequence preview will appear after phage load completes.'}
+                    </pre>
+                  )}
                 </div>
               </div>
             ) : (
