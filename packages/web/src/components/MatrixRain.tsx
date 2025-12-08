@@ -1,78 +1,47 @@
 /**
- * MatrixRain - DNA/Amino Acid Character Rain Effect
+ * Matrix Rain Effect
  *
- * Decorative background animation inspired by The Matrix,
- * using DNA nucleotides and amino acid characters.
+ * Canvas-based digital rain animation.
+ * Supports configurable density, speed, and character sets (DNA, Binary, Matrix).
  */
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
+import { useWebPreferences } from '../store/createWebStore';
 
-interface MatrixRainProps {
-  /** Enable or disable the animation */
-  enabled?: boolean;
-  /** Character density (0.0 - 1.0) */
-  density?: number;
-  /** Fall speed multiplier */
-  speed?: number;
-  /** Whether to show DNA or amino acids */
-  mode?: 'dna' | 'amino' | 'mixed';
-  /** Opacity of the effect (0.0 - 1.0) */
+export interface MatrixRainProps {
+  width?: number;
+  height?: number;
   opacity?: number;
+  className?: string;
 }
 
-const DNA_CHARS = 'ACGT';
-const AMINO_CHARS = 'ARNDCQEGHILKMFPSTWYV*';
-const MIXED_CHARS = DNA_CHARS + AMINO_CHARS;
+const CHAR_SETS = {
+  dna: 'ATGC',
+  binary: '01',
+  matrix: 'ﾊﾐﾋﾑﾒﾍﾛﾝ012345789:・.=*+-<>¦｜',
+  hex: '0123456789ABCDEF',
+};
 
-interface Drop {
-  x: number;
-  y: number;
-  speed: number;
-  chars: string[];
-  brightness: number;
-  length: number;
-}
-
-export function MatrixRain({
-  enabled = true,
-  density = 0.03,
-  speed = 1,
-  mode = 'mixed',
-  opacity = 0.15,
-}: MatrixRainProps): React.ReactElement | null {
-  const { theme } = useTheme();
+export const MatrixRain: React.FC<MatrixRainProps> = ({
+  width,
+  height,
+  opacity = 0.1,
+  className = '',
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
-  const dropsRef = useRef<Drop[]>([]);
+  const { theme } = useTheme();
+  
+  // In a real app, these could be in store or passed as props
+  // For now, we default to 'dna' and moderate settings
+  const density = 1.0; // 0.5 - 2.0
+  const speed = 1.0;   // 0.5 - 3.0
+  const charSet = 'dna';
 
-  const getChars = useCallback(() => {
-    switch (mode) {
-      case 'dna': return DNA_CHARS;
-      case 'amino': return AMINO_CHARS;
-      default: return MIXED_CHARS;
-    }
-  }, [mode]);
-
-  const getRandomChar = useCallback(() => {
-    const chars = getChars();
-    return chars[Math.floor(Math.random() * chars.length)];
-  }, [getChars]);
-
-  const createDrop = useCallback((x: number, startY = -50): Drop => {
-    const length = 5 + Math.floor(Math.random() * 15);
-    return {
-      x,
-      y: startY,
-      speed: (0.5 + Math.random() * 1.5) * speed,
-      chars: Array.from({ length }, () => getRandomChar()),
-      brightness: 0.3 + Math.random() * 0.7,
-      length,
-    };
-  }, [speed, getRandomChar]);
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (reducedMotion) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -80,115 +49,112 @@ export function MatrixRain({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Resize handler
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx.scale(dpr, dpr);
-
-      // Reinitialize drops on resize
-      const columns = Math.floor(rect.width / 20);
-      dropsRef.current = Array.from({ length: columns }, (_, i) =>
-        createDrop(i * 20 + 10, Math.random() * -rect.height)
-      );
+      const w = width || window.innerWidth;
+      const h = height || window.innerHeight;
+      canvas.width = w;
+      canvas.height = h;
+      return { w, h };
     };
 
-    resize();
-    window.addEventListener('resize', resize);
-
+    let { w, h } = resize();
+    
+    // Initialize columns
     const fontSize = 14;
-    const charHeight = fontSize * 1.2;
-    const primaryColor = theme.colors.primary;
+    const columns = Math.ceil(w / fontSize);
+    const drops: number[] = [];
+    
+    // Random start positions
+    for (let i = 0; i < columns; i++) {
+      drops[i] = Math.random() * -(h / fontSize);
+    }
 
-    const animate = () => {
-      const rect = canvas.getBoundingClientRect();
+    const chars = CHAR_SETS[charSet as keyof typeof CHAR_SETS] || CHAR_SETS.dna;
+    const colors = theme.colors;
 
-      // Clear with fade effect
-      ctx.fillStyle = `rgba(${parseInt(theme.colors.background.slice(1, 3), 16)}, ${parseInt(theme.colors.background.slice(3, 5), 16)}, ${parseInt(theme.colors.background.slice(5, 7), 16)}, 0.1)`;
-      ctx.fillRect(0, 0, rect.width, rect.height);
+    let animationId: number;
+    let lastTime = 0;
+    const targetFps = 30;
+    const frameInterval = 1000 / targetFps;
 
-      ctx.font = `${fontSize}px monospace`;
-      ctx.textAlign = 'center';
+    const draw = (time: number) => {
+      const delta = time - lastTime;
+      
+      if (delta >= frameInterval) {
+        lastTime = time - (delta % frameInterval);
 
-      dropsRef.current.forEach((drop, idx) => {
-        // Draw each character in the trail
-        drop.chars.forEach((char, i) => {
-          const y = drop.y - i * charHeight;
-          if (y < 0 || y > rect.height) return;
+        // Fade out
+        ctx.fillStyle = `rgba(${hexToRgb(colors.background)}, 0.05)`;
+        ctx.fillRect(0, 0, w, h);
 
-          // Fade out towards the tail
-          const fadeRatio = 1 - i / drop.length;
-          const alpha = fadeRatio * drop.brightness * opacity;
+        ctx.font = `${fontSize}px monospace`;
+        
+        for (let i = 0; i < drops.length; i++) {
+          // Skip some columns based on density
+          if (i % Math.ceil(2 / density) !== 0) continue;
 
-          if (i === 0) {
-            // Head of the drop is brightest (white/bright color)
-            ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, alpha * 2)})`;
-          } else {
-            // Parse primary color
-            let r = 0, g = 255, b = 0;
-            if (primaryColor.startsWith('#')) {
-              r = parseInt(primaryColor.slice(1, 3), 16);
-              g = parseInt(primaryColor.slice(3, 5), 16);
-              b = parseInt(primaryColor.slice(5, 7), 16);
-            }
-            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+          const text = chars[Math.floor(Math.random() * chars.length)];
+          
+          // Color logic: head is bright, tail is themed
+          const isHead = Math.random() > 0.95;
+          ctx.fillStyle = isHead ? colors.highlight : colors.primary;
+          
+          // Vary opacity
+          ctx.globalAlpha = isHead ? opacity * 1.5 : opacity;
+
+          const x = i * fontSize;
+          const y = drops[i] * fontSize;
+
+          ctx.fillText(text, x, y);
+
+          // Reset drop or move down
+          if (y > h && Math.random() > 0.975) {
+            drops[i] = 0;
           }
-
-          ctx.fillText(char, drop.x, y);
-        });
-
-        // Move drop down
-        drop.y += drop.speed * 2;
-
-        // Randomly change a character
-        if (Math.random() < 0.05) {
-          const changeIdx = Math.floor(Math.random() * drop.chars.length);
-          drop.chars[changeIdx] = getRandomChar();
+          
+          drops[i] += speed;
         }
+        ctx.globalAlpha = 1.0;
+      }
 
-        // Reset drop if it goes off screen
-        if (drop.y - drop.length * charHeight > rect.height) {
-          // Check density
-          if (Math.random() < density) {
-            dropsRef.current[idx] = createDrop(drop.x);
-          } else {
-            drop.y = -drop.length * charHeight;
-          }
-        }
-      });
-
-      animationRef.current = requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(draw);
     };
 
-    animate();
+    animationId = requestAnimationFrame(draw);
+
+    const handleResize = () => {
+      const dims = resize();
+      w = dims.w;
+      h = dims.h;
+      // Re-init drops if needed, or just let them fall
+    };
+
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      window.removeEventListener('resize', resize);
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      cancelAnimationFrame(animationId);
+      window.removeEventListener('resize', handleResize);
     };
-  }, [enabled, density, speed, opacity, theme, createDrop, getRandomChar]);
+  }, [width, height, theme, density, speed, charSet, opacity, reducedMotion]);
 
-  if (!enabled) {
-    return null;
-  }
+  if (reducedMotion) return null;
 
   return (
     <canvas
       ref={canvasRef}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: 'none',
-        zIndex: -1,
-      }}
+      className={`matrix-rain pointer-events-none fixed inset-0 z-0 ${className}`}
+      style={{ opacity }}
     />
   );
+};
+
+// Helper
+function hexToRgb(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
+    : '0, 0, 0';
 }
 
 export default MatrixRain;
