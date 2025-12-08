@@ -41,6 +41,54 @@ export type AnalysisType =
   | 'transcription-flow';
 
 /**
+ * Search task types (SearchOverlay)
+ */
+export type SearchMode = 'sequence' | 'motif' | 'gene' | 'feature' | 'position';
+
+export type StrandOption = 'both' | '+' | '-';
+
+export interface SearchFeature {
+  start: number;
+  end: number;
+  strand?: StrandOption | string | null;
+  name?: string | null;
+  product?: string | null;
+  type?: string | null;
+}
+
+export interface SearchOptions {
+  strand?: StrandOption;
+  caseSensitive?: boolean;
+  mismatches?: number;
+  maxResults?: number;
+}
+
+export interface SearchRequest {
+  mode: SearchMode;
+  query: string;
+  sequence: string;
+  features: SearchFeature[];
+  options?: SearchOptions;
+}
+
+export interface SearchHit {
+  position: number;
+  end?: number;
+  strand: StrandOption;
+  label: string;
+  context?: string;
+  score?: number;
+  matchType?: string;
+  feature?: SearchFeature;
+}
+
+export interface SearchResponse {
+  mode: SearchMode;
+  query: string;
+  hits: SearchHit[];
+}
+
+/**
  * Analysis request
  */
 export interface AnalysisRequest {
@@ -210,6 +258,13 @@ export interface SimulationWorkerAPI {
     description: string;
     parameters: SimParameter[];
   }>;
+}
+
+/**
+ * Search Worker API
+ */
+export interface SearchWorkerAPI {
+  runSearch(request: SearchRequest): Promise<SearchResponse>;
 }
 
 /**

@@ -23,6 +23,13 @@ export type {
   SimStepRequest,
   AnalysisWorkerAPI,
   SimulationWorkerAPI,
+  SearchWorkerAPI,
+  SearchMode,
+  SearchRequest,
+  SearchResponse,
+  SearchHit,
+  SearchFeature,
+  SearchOptions,
   WorkerPoolConfig,
 } from './types';
 
