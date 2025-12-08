@@ -11,3 +11,5 @@ export { LysogenyVisualizer } from './LysogenyVisualizer';
 export { PlaqueVisualizer } from './PlaqueVisualizer';
 export { RibosomeVisualizer } from './RibosomeVisualizer';
 export { EvolutionVisualizer } from './EvolutionVisualizer';
+export { InfectionKineticsVisualizer } from './InfectionKineticsVisualizer';
+export { PackagingMotorVisualizer } from './PackagingMotorVisualizer';
