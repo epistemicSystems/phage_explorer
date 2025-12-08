@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { usePhageStore, type ComparisonTab } from '@phage-explorer/state';
 import type { PhageRepository } from '@phage-explorer/db-runtime';
@@ -10,6 +10,7 @@ import {
   getSimilarityColor,
   type GenomeComparisonResult,
 } from '@phage-explorer/comparison';
+import { Worker } from 'node:worker_threads';
 
 interface ComparisonOverlayProps {
   repository: PhageRepository;
@@ -26,6 +27,8 @@ export function ComparisonOverlay({ repository }: ComparisonOverlayProps): React
   const selectingPhage = usePhageStore(s => s.comparisonSelectingPhage);
   const terminalCols = usePhageStore(s => s.terminalCols);
   const terminalRows = usePhageStore(s => s.terminalRows);
+  const [compareError, setCompareError] = useState<string | null>(null);
+  const [selectionPage, setSelectionPage] = useState(0);
 
   const closeComparison = usePhageStore(s => s.closeComparison);
   const setComparisonResult = usePhageStore(s => s.setComparisonResult);
@@ -47,6 +50,7 @@ export function ComparisonOverlay({ repository }: ComparisonOverlayProps): React
     if (!phageA || !phageB || phageA.id === phageB.id) return;
 
     setComparisonLoading(true);
+    setCompareError(null);
     try {
       // Fetch full data for both phages
       const [fullA, fullB] = await Promise.all([
@@ -65,21 +69,37 @@ export function ComparisonOverlay({ repository }: ComparisonOverlayProps): React
         repository.getSequenceWindow(phageB.id, 0, fullB.genomeLength ?? 0),
       ]);
 
-      // Run comparison
-      const compResult = await compareGenomes(
-        { id: phageA.id, name: phageA.name, accession: phageA.accession },
-        { id: phageB.id, name: phageB.name, accession: phageB.accession },
-        seqA,
-        seqB,
-        fullA.genes,
-        fullB.genes,
-        fullA.codonUsage,
-        fullB.codonUsage
-      );
+      const job = {
+        phageA: { id: phageA.id, name: phageA.name, accession: phageA.accession },
+        phageB: { id: phageB.id, name: phageB.name, accession: phageB.accession },
+        sequenceA: seqA,
+        sequenceB: seqB,
+        genesA: fullA.genes ?? [],
+        genesB: fullB.genes ?? [],
+        codonUsageA: fullA.codonUsage ?? null,
+        codonUsageB: fullB.codonUsage ?? null,
+      };
+
+      let compResult: GenomeComparisonResult;
+      try {
+        compResult = await runComparisonInWorker(job);
+      } catch (workerErr) {
+        compResult = await compareGenomes(
+          job.phageA,
+          job.phageB,
+          job.sequenceA,
+          job.sequenceB,
+          job.genesA,
+          job.genesB,
+          job.codonUsageA,
+          job.codonUsageB
+        );
+        setCompareError(workerErr instanceof Error ? `Worker fallback: ${workerErr.message}` : 'Worker failed; used inline comparison');
+      }
 
       setComparisonResult(compResult);
     } catch (err) {
-      console.error('Comparison failed:', err);
+      setCompareError(err instanceof Error ? err.message : 'Comparison failed');
     } finally {
       setComparisonLoading(false);
     }
@@ -98,13 +118,25 @@ export function ComparisonOverlay({ repository }: ComparisonOverlayProps): React
       // Phage selection mode
       if (key.escape) {
         cancelPhageSelection();
+        setSelectionPage(0);
       } else if (key.upArrow || key.downArrow) {
         // Navigate phage list (handled by number keys for simplicity)
+        const delta = key.upArrow ? -1 : 1;
+        const pages = Math.max(1, Math.ceil(phages.length / 10));
+        setSelectionPage(prev => (prev + delta + pages) % pages);
       } else if (/^[0-9]$/.test(input)) {
-        const idx = parseInt(input, 10);
+        const base = selectionPage * 10;
+        const idx = base + parseInt(input, 10);
         if (idx < phages.length) {
           confirmPhageSelection(idx);
+          setSelectionPage(0);
         }
+      } else if (input === '[' || key.leftArrow) {
+        const pages = Math.max(1, Math.ceil(phages.length / 10));
+        setSelectionPage(prev => (prev - 1 + pages) % pages);
+      } else if (input === ']' || key.rightArrow) {
+        const pages = Math.max(1, Math.ceil(phages.length / 10));
+        setSelectionPage(prev => (prev + 1) % pages);
       }
       return;
     }
@@ -129,6 +161,46 @@ export function ComparisonOverlay({ repository }: ComparisonOverlayProps): React
 
   const overlayWidth = Math.min(90, terminalCols - 4);
   const overlayHeight = Math.min(35, terminalRows - 4);
+
+  const runComparisonInWorker = useCallback(
+    (job: {
+      phageA: { id: number; name: string; accession: string };
+      phageB: { id: number; name: string; accession: string };
+      sequenceA: string;
+      sequenceB: string;
+      genesA: any[];
+      genesB: any[];
+      codonUsageA?: any | null;
+      codonUsageB?: any | null;
+    }): Promise<GenomeComparisonResult> => {
+      return new Promise((resolve, reject) => {
+        try {
+          const worker = new Worker(new URL('../workers/comparison-worker.ts', import.meta.url), {
+            type: 'module',
+          });
+          const cleanup = () => {
+            worker.terminate().catch(() => {});
+          };
+          worker.once('message', (msg: { ok: boolean; result?: GenomeComparisonResult; error?: string }) => {
+            cleanup();
+            if (msg.ok && msg.result) {
+              resolve(msg.result);
+            } else {
+              reject(new Error(msg.error ?? 'Comparison failed'));
+            }
+          });
+          worker.once('error', (err) => {
+            cleanup();
+            reject(err);
+          });
+          worker.postMessage(job);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    },
+    []
+  );
 
   return (
     <Box
@@ -189,14 +261,19 @@ export function ComparisonOverlay({ repository }: ComparisonOverlayProps): React
       {selectingPhage && (
         <Box flexDirection="column" flexGrow={1}>
           <Text color={colors.accent} bold>
-            Select Phage {selectingPhage} (press 0-9 or Esc to cancel):
+            Select Phage {selectingPhage} (press 0-9, [/] to page, Esc to cancel):
           </Text>
           <Box flexDirection="column" marginTop={1}>
-            {phages.slice(0, 10).map((p, i) => (
+            {phages.slice(selectionPage * 10, selectionPage * 10 + 10).map((p, i) => (
               <Text key={p.id} color={colors.text}>
                 [{i}] {p.name} ({p.genomeLength?.toLocaleString()} bp)
               </Text>
             ))}
+            {phages.length > 10 && (
+              <Text color={colors.textDim}>
+                Page {selectionPage + 1}/{Math.max(1, Math.ceil(phages.length / 10))}
+              </Text>
+            )}
           </Box>
         </Box>
       )}
@@ -204,6 +281,11 @@ export function ComparisonOverlay({ repository }: ComparisonOverlayProps): React
       {/* Results Content */}
       {!loading && !selectingPhage && result && (
         <Box flexDirection="column" flexGrow={1} overflowY="hidden">
+          {compareError && (
+            <Box marginBottom={1}>
+              <Text color={colors.warning}>Comparison error: {compareError}</Text>
+            </Box>
+          )}
           {tab === 'summary' && <SummaryTab result={result} colors={colors} />}
           {tab === 'kmer' && <KmerTab result={result} colors={colors} />}
           {tab === 'information' && <InformationTab result={result} colors={colors} />}
