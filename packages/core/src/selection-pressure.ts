@@ -1,4 +1,4 @@
-import { translateCodon, CODON_TABLE } from '../codons';
+import { translateCodon, CODON_TABLE } from './codons';
 
 export interface SelectionWindow {
   start: number;

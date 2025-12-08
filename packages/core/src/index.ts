@@ -20,6 +20,7 @@ export * from './phase-portraits';
 export * from './analysis/cgr';
 export * from './analysis/cgr-compare';
 export * from './analysis/dot-plot';
+export * from './bias-decomposition';
 
 // Functional module coherence
 export * from './module-coherence';
