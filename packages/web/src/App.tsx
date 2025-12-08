@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { useTheme, getNucleotideClass, useHotkey, useKeyboardMode, usePendingSequence, useReducedMotion } from './hooks';
+import { useTheme, getNucleotideClass, useHotkey, useKeyboardMode, usePendingSequence, useReducedMotion, useFileSystem } from './hooks';
 import { AppShell, Tooltip } from './components';
 import { HotkeyCategories } from './keyboard/types';
 import { OverlayProvider, OverlayManager, useOverlay, RecentCommands } from './components/overlays';
@@ -12,11 +12,11 @@ const PhageExplorerContent: React.FC = () => {
   const { toggle } = useOverlay();
   const pendingSequence = usePendingSequence();
   const [lastAction, setLastAction] = useState<string>('');
-  const { experienceLevel, setExperienceLevel, pushCommand } = useWebPreferences((s) => ({
+  const { experienceLevel, setExperienceLevel } = useWebPreferences((s) => ({
     experienceLevel: s.experienceLevel as ExperienceLevel,
     setExperienceLevel: s.setExperienceLevel,
-    pushCommand: s.pushCommand,
   }));
+  const { openFile, isSupported: fsSupported } = useFileSystem();
 
   const experienceLevels = useMemo<ExperienceLevel[]>(() => ['novice', 'intermediate', 'power'], []);
   const prefersReducedMotion = useReducedMotion();
@@ -77,9 +77,21 @@ const PhageExplorerContent: React.FC = () => {
 
   const handleExperienceChange = useCallback((level: ExperienceLevel) => {
     setExperienceLevel(level);
-    pushCommand(`Experience set to ${level}`);
     setLastAction(`Experience set to ${level}`);
-  }, [setExperienceLevel, pushCommand]);
+  }, [setExperienceLevel]);
+
+  const handleOpenFile = useCallback(async () => {
+    if (!fsSupported) {
+      setLastAction('File System API not supported');
+      return;
+    }
+    const file = await openFile();
+    if (file) {
+      setLastAction(`Opened local file: ${file.name} (${file.size} bytes)`);
+    } else {
+      setLastAction('File open cancelled');
+    }
+  }, [openFile, fsSupported]);
 
   const handleUp = useCallback(() => {
     setLastAction('Navigate Up');
@@ -100,6 +112,12 @@ const PhageExplorerContent: React.FC = () => {
   // Theme hotkey
   useHotkey({ key: 't' }, 'Cycle theme', handleThemeCycle, {
     category: HotkeyCategories.THEMES,
+    modes: ['NORMAL'],
+  });
+
+  // Open file hotkey
+  useHotkey({ key: 'o', modifiers: { ctrl: true } }, 'Open local file', handleOpenFile, {
+    category: HotkeyCategories.GENERAL,
     modes: ['NORMAL'],
   });
 
@@ -190,9 +208,15 @@ const PhageExplorerContent: React.FC = () => {
         pendingSequence,
         children: (
           <>
-                      <div className="flex gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                                                <Tooltip content="Cycle color theme (T)">
-                                                  <button className="btn" onClick={handleThemeCycle}>
+                                <div className="flex gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                                  {fsSupported && (
+                                    <Tooltip content="Open local file (Ctrl+O)">
+                                      <button className="btn" onClick={handleOpenFile}>
+                                        <span className="key-hint">^O</span> Open
+                                      </button>
+                                    </Tooltip>
+                                  )}
+                                  <Tooltip content="Cycle color theme (T)">                                                  <button className="btn" onClick={handleThemeCycle}>
                                                     <span className="key-hint">t</span> Theme
                                                   </button>
                                                 </Tooltip>
