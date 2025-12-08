@@ -44,8 +44,8 @@ export type OverlayId =
   | 'phasePortrait'
   | 'biasDecomposition'
   | 'crispr'
-  | 'structureConstraints'
   | 'synteny'
+  | 'logo'
   | 'tropism';
 
 export type HelpDetailLevel = 'essential' | 'detailed';
@@ -104,6 +104,7 @@ export interface PhageExplorerState {
   helpDetail: HelpDetailLevel;
   experienceLevel: ExperienceLevel;
   sessionStart: number;
+  recentCommands: string[];
 
   // Terminal dimensions
   terminalCols: number;
@@ -176,6 +177,7 @@ export interface PhageExplorerActions {
   setOverlayData: (data: OverlayData) => void;
   setExperienceLevel: (level: ExperienceLevel) => void;
   promoteExperienceLevel: (level: ExperienceLevel) => void;
+  addRecentCommand: (id: string) => void;
 
   // Terminal
   setTerminalSize: (cols: number, rows: number) => void;
@@ -250,6 +252,7 @@ const initialState: PhageExplorerState = {
   helpDetail: 'essential',
   experienceLevel: 'novice',
   sessionStart: Date.now(),
+  recentCommands: [],
   terminalCols: 80,
   terminalRows: 24,
   error: null,
@@ -575,6 +578,12 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
         return { experienceLevel: level };
       }
       return {};
+    });
+  },
+  addRecentCommand: (id) => {
+    set(state => {
+      const deduped = [id, ...state.recentCommands.filter(c => c !== id)];
+      return { recentCommands: deduped.slice(0, 10) };
     });
   },
 

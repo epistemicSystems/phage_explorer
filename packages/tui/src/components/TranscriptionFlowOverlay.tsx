@@ -7,6 +7,7 @@ import {
   detectTerminators,
   type PromoterHit,
   type TerminatorHit,
+  computeRegulatoryConstellation,
 } from '@phage-explorer/core';
 
 const BARS = ' ▂▃▄▅▆▇█';
@@ -41,6 +42,7 @@ export function TranscriptionFlowOverlay({ sequence, genomeLength }: Props): Rea
   const { values, peaks } = useMemo(() => simulateTranscriptionFlow(seq), [seq]);
   const promoters = useMemo<PromoterHit[]>(() => detectPromoters(seq), [seq]);
   const terminators = useMemo<TerminatorHit[]>(() => detectTerminators(seq), [seq]);
+  const constellation = useMemo(() => computeRegulatoryConstellation(seq), [seq]);
   const motifsSummary = useMemo(() => {
     const summary = new Map<string, number>();
     for (const p of promoters) {
@@ -106,9 +108,21 @@ export function TranscriptionFlowOverlay({ sequence, genomeLength }: Props): Rea
               </Text>
             )}
           </Box>
+          <Box flexDirection="column" marginTop={1}>
+            <Text color={colors.primary} bold>Spacing / co-occurrence</Text>
+            {constellation.edges.length === 0 ? (
+              <Text color={colors.textDim}>No strong promoter→terminator pairings detected.</Text>
+            ) : (
+              constellation.edges.slice(0, 5).map(edge => (
+                <Text key={`${edge.source}-${edge.target}`} color={colors.text}>
+                  ▸ {edge.label} · {edge.distance.toLocaleString()} bp · weight {edge.weight.toFixed(2)}
+                </Text>
+              ))
+            )}
+          </Box>
           <Box marginTop={1}>
             <Text color={colors.textDim} dimColor>
-              Heuristic model: promoters seed flow, palindromic repeats/terminators attenuate. Future: spacing-aware operon scoring.
+              Heuristic model: promoters seed flow, palindromic repeats/terminators attenuate. Now shows spacing-weighted co-occurrence edges.
             </Text>
           </Box>
         </>

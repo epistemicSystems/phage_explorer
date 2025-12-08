@@ -1,7 +1,11 @@
 // Quick overlay computations for GC skew, complexity, bendability, promoters, repeats.
 // These are lightweight, computed once per loaded phage sequence.
 
-import { detectPromoters } from '@phage-explorer/core';
+import {
+  detectPromoters,
+  computeRegulatoryConstellation,
+  type RegulatoryConstellation,
+} from '@phage-explorer/core';
 
 export type OverlayId =
   | 'gcSkew'
@@ -44,6 +48,7 @@ export interface KmerAnomalyOverlay extends NumericOverlay {
 export type OverlayResult = NumericOverlay | MarkOverlay | KmerAnomalyOverlay;
 
 export type OverlayData = Partial<Record<OverlayId, OverlayResult>>;
+export type ConstellationData = RegulatoryConstellation;
 
 // Utility: normalize array to 0..1
 function normalize(values: number[]): number[] {
@@ -291,4 +296,8 @@ export function computeAllOverlays(sequence: string): Record<OverlayId, OverlayR
     repeats: computeRepeatMarks(sequence),
     kmerAnomaly: computeKmerAnomaly(sequence),
   };
+}
+
+export function computeConstellations(sequence: string): RegulatoryConstellation {
+  return computeRegulatoryConstellation(sequence);
 }

@@ -5,6 +5,7 @@ import { SIMULATION_METADATA } from '@phage-explorer/core';
 import { getSimulationRegistry } from '../simulations/registry';
 import type { MenuCategory } from './ModalMenu';
 import { ModalMenu } from './ModalMenu';
+import type { OverlayId } from '@phage-explorer/state';
 
 interface MenuOverlayProps {
   onClose: () => void;
@@ -17,6 +18,8 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
   const toggleDiff = usePhageStore(s => s.toggleDiff);
   const openComparison = usePhageStore(s => s.openComparison);
   const openOverlay = usePhageStore(s => s.openOverlay);
+  const helpDetail = usePhageStore(s => s.helpDetail);
+  const setHelpDetail = usePhageStore(s => s.setHelpDetail);
 
   const categories: MenuCategory[] = useMemo(() => [
     {
@@ -72,15 +75,16 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
           action: openComparison,
           minLevel: 'intermediate',
         },
-          {
-            id: 'analysis-complexity',
-            label: 'Sequence Complexity Overlay',
-            description: 'Show compression-based complexity sparkline (X)',
-            icon: '🧠',
-            shortcut: 'X',
-            action: () => openOverlay('complexity'),
-            minLevel: 'intermediate',
-          },
+        // Quick overlays grouped
+        {
+          id: 'analysis-complexity',
+          label: 'Sequence Complexity Overlay',
+          description: 'Show compression-based complexity sparkline (X)',
+          icon: '🧠',
+          shortcut: 'X',
+          action: () => openOverlay('complexity'),
+          minLevel: 'intermediate',
+        },
           {
             id: 'analysis-transcription',
             label: 'Transcription Flow Overlay',
@@ -104,37 +108,55 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
             label: 'GC Skew Overlay',
             description: 'Visualize cumulative GC skew (G)',
             icon: '🧮',
-            shortcut: 'G',
-            action: () => openOverlay('gcSkew'),
-            minLevel: 'intermediate',
-          },
+          shortcut: 'G',
+          action: () => openOverlay('gcSkew'),
+          minLevel: 'intermediate',
+        },
           {
             id: 'analysis-kmer',
             label: 'K-mer Anomaly Map',
             description: 'Detect composition islands via JSD (J)',
             icon: '🧮',
-            shortcut: 'J',
-            action: () => openOverlay('kmerAnomaly'),
-            minLevel: 'power',
-          },
-          {
-            id: 'analysis-modules',
-            label: 'Module Coherence',
+          shortcut: 'J',
+          action: () => openOverlay('kmerAnomaly'),
+          minLevel: 'power',
+        },
+        {
+          id: 'analysis-cgr',
+          label: 'CGR Fractal Fingerprint',
+          description: 'Chaos Game Representation of k-mer space (C)',
+          icon: '🌀',
+          shortcut: 'C',
+          action: () => openOverlay('cgr'),
+          minLevel: 'intermediate',
+        },
+        {
+          id: 'analysis-modules',
+          label: 'Module Coherence',
             description: 'Capsid/tail/lysis stoichiometry check (L)',
             icon: '🧩',
-            shortcut: 'L',
-            action: () => openOverlay('modules'),
-            minLevel: 'power',
-          },
-          {
-            id: 'analysis-structure-constraints',
-            label: 'Structure Constraints',
-            description: 'Fragility scan for capsid/tail proteins',
-            icon: '🧱',
-            shortcut: 'SC',
-            action: () => openOverlay('structureConstraints'),
-            minLevel: 'power',
-          },
+          shortcut: 'L',
+          action: () => openOverlay('modules'),
+          minLevel: 'power',
+        },
+        {
+          id: 'analysis-tropism',
+          label: 'Tail Fiber Tropism',
+          description: 'Receptor atlas per tail fiber (E)',
+          icon: '🧲',
+          shortcut: 'E',
+          action: () => openOverlay('tropism' as OverlayId),
+          minLevel: 'intermediate',
+        },
+        {
+          id: 'analysis-structure-constraints',
+          label: 'Structure Constraints',
+          description: 'Fragility scan for capsid/tail proteins',
+          icon: '🧱',
+          shortcut: 'SC',
+          action: () => openOverlay('structureConstraints'),
+          minLevel: 'power',
+        },
           {
             id: 'analysis-bias',
             label: 'Dinucleotide Bias Decomposition',
@@ -158,28 +180,48 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
             label: 'CRISPR Pressure / Anti-CRISPR',
             description: 'Spacer hits, PAMs, and Acr candidates (I)',
             icon: '🛡️',
-            shortcut: 'I',
-            action: () => openOverlay('crispr'),
-            minLevel: 'power',
-          },
-          {
-            id: 'analysis-synteny',
-            label: 'Functional Synteny Alignment',
-            description: 'Align gene order via DTW (Shift+Y)',
-            icon: '🔗',
-            shortcut: 'Shift+Y',
-            action: () => openOverlay('synteny'),
-            minLevel: 'power',
-          },
-          {
-            id: 'analysis-command-palette',
-            label: 'Command Palette',
-            description: 'Fuzzy commands (Ctrl+P / :)',
-            icon: '⌘',
-            shortcut: 'Ctrl+P',
-            action: () => openOverlay('commandPalette'),
-            minLevel: 'power',
-          },
+          shortcut: 'I',
+          action: () => openOverlay('crispr'),
+          minLevel: 'power',
+        },
+        {
+          id: 'analysis-synteny',
+          label: 'Functional Synteny Alignment',
+          description: 'Align gene order via DTW (Shift+Y)',
+          icon: '🔗',
+          shortcut: 'Shift+Y',
+          action: () => openOverlay('synteny'),
+          minLevel: 'power',
+        },
+        {
+          id: 'analysis-dotplot',
+          label: 'Self-Homology Dot Plot',
+          description: 'Detect direct/inverted repeats and palindromes',
+          icon: '◼',
+          shortcut: 'A→DP',
+          action: () => openOverlay('dotPlot'),
+          minLevel: 'intermediate',
+        },
+        {
+          id: 'analysis-command-palette',
+          label: 'Command Palette',
+          description: 'Fuzzy commands (Ctrl+P / :)',
+          icon: '⌘',
+          shortcut: 'Ctrl+P',
+          action: () => openOverlay('commandPalette'),
+          minLevel: 'power',
+        },
+        {
+          id: 'analysis-help',
+          label: 'Toggle Help Detail',
+          description: 'Switch help overlay between essentials/detailed',
+          icon: '❔',
+          shortcut: '?',
+          action: () => setHelpDetail(
+            helpDetail === 'essential' ? 'detailed' : 'essential'
+          ),
+          minLevel: 'novice',
+        },
       ],
     },
     {

@@ -13,6 +13,8 @@ interface RankedCommand extends CommandItem {
   score: number;
 }
 
+const RECENT_LIMIT = 6;
+
 function scoreCommand(query: string, cmd: CommandItem): number {
   if (!query.trim()) return 0;
   const q = query.toLowerCase();
@@ -89,6 +91,8 @@ export function CommandPalette({ onClose }: CommandPaletteProps): React.ReactEle
   const openComparison = usePhageStore(s => s.openComparison);
   const setError = usePhageStore(s => s.setError);
   const experienceLevel = usePhageStore(s => s.experienceLevel);
+  const recentCommands = usePhageStore(s => s.recentCommands);
+  const addRecentCommand = usePhageStore(s => s.addRecentCommand);
   const toggle3DModel = usePhageStore(s => s.toggle3DModel);
   const toggle3DModelPause = usePhageStore(s => s.toggle3DModelPause);
   const toggle3DModelFullscreen = usePhageStore(s => s.toggle3DModelFullscreen);
@@ -169,15 +173,38 @@ export function CommandPalette({ onClose }: CommandPaletteProps): React.ReactEle
     experienceLevel,
   ]);
 
-  const commands = getCommands();
+  const commands = useMemo(() => {
+    const all = getCommands();
+    return all.filter(cmd => {
+      if (!cmd.minLevel) return true;
+      if (cmd.minLevel === 'intermediate' && experienceLevel === 'novice') return false;
+      if (cmd.minLevel === 'power' && experienceLevel !== 'power') return false;
+      return true;
+    });
+  }, [experienceLevel]);
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const ranked = useMemo(
-    () => rankCommands(query, commands),
-    [query, commands]
-  );
+  const recents = useMemo(() => {
+    if (!recentCommands.length) return [];
+    const items = recentCommands
+      .map(id => commands.find(c => c.id === id))
+      .filter((c): c is CommandItem => Boolean(c));
+    const deduped: CommandItem[] = [];
+    for (const c of items) {
+      if (!deduped.find(d => d.id === c.id)) deduped.push(c);
+    }
+    return deduped.slice(0, RECENT_LIMIT).map(c => ({ ...c, score: 0 })) as RankedCommand[];
+  }, [commands, recentCommands]);
+
+  const ranked = useMemo(() => {
+    const main = rankCommands(query, commands);
+    if (query.trim()) return main;
+    const ids = new Set(recents.map(r => r.id));
+    const remainder = main.filter(r => !ids.has(r.id));
+    return [...recents, ...remainder];
+  }, [query, commands, recents]);
 
   const safeIndex = Math.min(selectedIndex, Math.max(ranked.length - 1, 0));
 
@@ -197,6 +224,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps): React.ReactEle
     if (key.return && ranked[safeIndex]) {
       const chosen = ranked[safeIndex];
       chosen.action();
+      addRecentCommand(chosen.id);
       onClose();
     }
   });

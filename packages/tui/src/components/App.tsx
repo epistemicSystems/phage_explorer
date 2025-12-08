@@ -39,16 +39,7 @@ import type { KmerAnomalyOverlay as KmerOverlayType } from '../overlay-computati
 import { ModuleOverlay } from './ModuleOverlay';
 import { FoldQuickview } from './FoldQuickview';
 import { HGTOverlay } from './HGTOverlay';
-import { analyzeHGTProvenance, analyzeTailFiberTropism } from '@phage-explorer/comparison';
-import type { StructuralConstraintReport } from '@phage-explorer/core';
-import { analyzeStructuralConstraints } from '@phage-explorer/core';
-import type { FoldEmbedding } from '@phage-explorer/core';
-import type { OverlayId, ExperienceLevel } from '@phage-explorer/state';
-import { BiasDecompositionOverlay } from './BiasDecompositionOverlay';
-import { CRISPROverlay } from './CRISPROverlay';
-import { SyntenyOverlay } from './SyntenyOverlay';
-import { TropismOverlay } from './TropismOverlay';
-import { StructureConstraintOverlay } from './StructureConstraintOverlay';
+import { analyzeHGTProvenance } from '@phage-explorer/comparison';
 
 const ANALYSIS_MENU_ID: OverlayId = 'analysisMenu';
 const SIMULATION_MENU_ID: OverlayId = 'simulationHub';
@@ -67,7 +58,7 @@ const HGT_ID: OverlayId = 'hgt';
 const CRISPR_ID: OverlayId = 'crispr';
 const SYNTENY_ID: OverlayId = 'synteny';
 const TROPISM_ID: OverlayId = 'tropism';
-const STRUCTURE_ID: OverlayId = 'structureConstraints';
+const NONB_ID: OverlayId = 'nonB';
 
 interface AppProps {
   repository: PhageRepository;
@@ -558,12 +549,17 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
     } else if (input === 'd' || input === 'D') {
       toggleDiff();
     } else if (input === 'g' || input === 'G') {
-      if (!isIntermediate) {
-        setError('Advanced overlays unlock after ~5 minutes or once promoted.');
-        return;
+      if (key.shift) {
+        promote('intermediate');
+        toggleOverlay(NONB_ID);
+      } else {
+        if (!isIntermediate) {
+          setError('Advanced overlays unlock after ~5 minutes or once promoted.');
+          return;
+        }
+        promote('intermediate');
+        toggleOverlay(GC_SKEW_ID);
       }
-      promote('intermediate');
-      toggleOverlay(GC_SKEW_ID);
     } else if (input === 'y' || input === 'Y') {
       if (!isIntermediate) {
         setError('Transcription flow unlocks after ~5 minutes or once promoted.');
@@ -946,6 +942,26 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
         </Box>
       )}
 
+      {activeOverlay === DOTPLOT_ID && (
+        <Box
+          position="absolute"
+          marginLeft={Math.floor((terminalCols - 92) / 2)}
+          marginTop={Math.floor((terminalRows - 28) / 2)}
+        >
+          <DotPlotOverlay sequence={sequence} />
+        </Box>
+      )}
+
+      {activeOverlay === NONB_ID && (
+        <Box
+          position="absolute"
+          marginLeft={Math.floor((terminalCols - 80) / 2)}
+          marginTop={Math.floor((terminalRows - 20) / 2)}
+        >
+          <NonBDNAOverlay sequence={sequence} />
+        </Box>
+      )}
+
       {activeOverlay === CRISPR_ID && (
         <Box
           position="absolute"
@@ -1012,7 +1028,10 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
           marginLeft={Math.floor((terminalCols - 90) / 2)}
           marginTop={Math.floor((terminalRows - 22) / 2)}
         >
-          <StructureConstraintOverlay data={structureReport} />
+          <StructureConstraintOverlay
+            proteinReport={structureReport}
+            windows={overlayData.structureConstraints as any}
+          />
         </Box>
       )}
 
