@@ -161,6 +161,10 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       setLoadState('error');
       setError('No structure available for this phage');
       setAtomCount(null);
+      // Remove from scene before disposing to avoid rendering disposed geometry
+      if (structureRef.current && sceneRef.current) {
+        sceneRef.current.remove(structureRef.current);
+      }
       disposeGroup(structureRef.current);
       structureRef.current = null;
       return;
