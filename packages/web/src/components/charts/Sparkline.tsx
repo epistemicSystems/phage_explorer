@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { useTheme } from '../../theme/themes';
+import { useTheme } from '../../hooks/useTheme';
 
 export type SparklineVariant = 'line' | 'dots' | 'wave' | 'bar';
 
