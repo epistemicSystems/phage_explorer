@@ -123,9 +123,9 @@ export function PhageList({
   );
 
   // Register navigation hotkeys
+  // Note: j/k are registered in App.tsx for global navigation with data loading
+  // Only register keys that aren't handled globally
   useHotkeys([
-    { combo: { key: 'j' }, description: 'Next phage', action: handleNext, modes: ['NORMAL'] },
-    { combo: { key: 'k' }, description: 'Previous phage', action: handlePrev, modes: ['NORMAL'] },
     { combo: { key: 'ArrowDown' }, description: 'Next phage', action: handleNext, modes: ['NORMAL'] },
     { combo: { key: 'ArrowUp' }, description: 'Previous phage', action: handlePrev, modes: ['NORMAL'] },
     { combo: { sequence: ['g', 'g'] }, description: 'Go to first', action: handleFirst, modes: ['NORMAL'] },

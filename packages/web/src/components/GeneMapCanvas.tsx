@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { usePhageStore, type GeneInfo } from '@phage-explorer/state';
+import { usePhageStore } from '@phage-explorer/state';
+import type { GeneInfo } from '@phage-explorer/core';
 import { useTheme } from '../hooks/useTheme';
 import { GeneMapRenderer } from '../rendering/GeneMapRenderer';
 

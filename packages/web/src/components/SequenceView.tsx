@@ -48,8 +48,6 @@ export function SequenceView({
   const {
     canvasRef,
     visibleRange,
-    scrollPosition,
-    scrollToPosition,
     scrollToStart,
     scrollToEnd,
   } = useSequenceGrid({
@@ -66,11 +64,6 @@ export function SequenceView({
       setScrollPosition(range.startIndex);
     },
   });
-
-  // Sync scroll position with store
-  useEffect(() => {
-    setScrollPosition(scrollPosition);
-  }, [scrollPosition, setScrollPosition]);
 
   // Toggle view mode (DNA/AA)
   const toggleViewMode = useCallback(() => {
