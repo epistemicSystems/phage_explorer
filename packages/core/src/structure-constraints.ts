@@ -1,6 +1,10 @@
 import type { GeneInfo, AminoAcid } from './types';
 import { translateSequence } from './codons';
 
+// Lightweight structural fragility heuristics for capsid/tail proteins.
+// Intent: provide fast, no-dependency scoring to highlight fragile regions and
+// risky mutations, not to replace detailed structural models.
+
 export interface ResidueConstraint {
   position: number;
   aa: AminoAcid;
