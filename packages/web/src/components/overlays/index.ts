@@ -38,6 +38,7 @@ export { RepeatsOverlay } from './RepeatsOverlay';
 export { TranscriptionFlowOverlay } from './TranscriptionFlowOverlay';
 export { RecentCommands } from './RecentCommands';
 export { SearchOverlay } from './SearchOverlay';
+export { TropismOverlay } from './TropismOverlay';
 
 // Layer 2 Advanced Overlays
 export { KmerAnomalyOverlay } from './KmerAnomalyOverlay';
