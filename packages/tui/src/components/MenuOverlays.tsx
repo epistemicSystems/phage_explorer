@@ -17,7 +17,6 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
   const toggleDiff = usePhageStore(s => s.toggleDiff);
   const openComparison = usePhageStore(s => s.openComparison);
   const openOverlay = usePhageStore(s => s.openOverlay);
-  const experienceLevel = usePhageStore(s => s.experienceLevel);
 
   const categories: MenuCategory[] = useMemo(() => [
     {
@@ -125,6 +124,15 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
             icon: '🧩',
             shortcut: 'L',
             action: () => openOverlay('modules'),
+            minLevel: 'power',
+          },
+          {
+            id: 'analysis-structure-constraints',
+            label: 'Structure Constraints',
+            description: 'Fragility scan for capsid/tail proteins',
+            icon: '🧱',
+            shortcut: 'SC',
+            action: () => openOverlay('structureConstraints'),
             minLevel: 'power',
           },
           {

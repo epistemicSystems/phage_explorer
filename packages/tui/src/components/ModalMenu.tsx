@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { usePhageStore } from '@phage-explorer/state';
@@ -78,12 +78,18 @@ function rankItems(query: string, categories: MenuCategory[]): RankedItem[] {
   return ranked.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
 }
 
+function levelBadge(item: RankedItem): string | null {
+  if (!item.minLevel || item.minLevel === 'novice') return null;
+  return item.minLevel === 'power' ? '◆' : '◇';
+}
+
 function renderItem(
   item: RankedItem,
   isSelected: boolean,
   theme: Theme
 ): React.ReactElement {
   const colors = theme.colors;
+  const badge = levelBadge(item);
   return (
     <Box key={item.id} flexDirection="column" paddingX={1}>
       <Box>
@@ -92,6 +98,12 @@ function renderItem(
           {item.icon ? `${item.icon} ` : ''}
           {item.label}
         </Text>
+        {badge && (
+          <Text color={colors.warning} dimColor>
+            {' '}
+            {badge}
+          </Text>
+        )}
         {item.shortcut && (
           <Text color={colors.textDim} dimColor>
             {' '}
@@ -122,6 +134,11 @@ export function ModalMenu({
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // Reset selection when query changes to keep highlight in view
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [query]);
 
   const ranked = useMemo(
     () => {
