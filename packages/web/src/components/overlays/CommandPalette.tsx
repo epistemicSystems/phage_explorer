@@ -15,7 +15,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { useWebPreferences } from '../../store/createWebStore';
-import { formatFasta, downloadString, copyToClipboard } from '../../utils/export';
+import { formatFasta, downloadString, copyToClipboard, buildSequenceClipboardPayload } from '../../utils/export';
 import { usePhageStore } from '@phage-explorer/state';
 
 // Experience levels for progressive disclosure
@@ -265,19 +265,24 @@ export function CommandPalette({ commands: customCommands, context: propContext 
     },
     {
       id: 'export:copy',
-      label: 'Copy Sequence to Clipboard',
+      label: 'Copy Sequence (rich clipboard)',
       category: 'Export',
       action: () => {
-        const { diffReferenceSequence } = usePhageStore.getState();
-        if (diffReferenceSequence) {
-          copyToClipboard(diffReferenceSequence)
-            .then(() => alert('Sequence copied to clipboard!'))
-            .catch(() => alert('Failed to copy.'));
-          close();
+        const { currentPhage, diffReferenceSequence } = usePhageStore.getState();
+        const seq = diffReferenceSequence;
+        if (!seq) {
+          alert('No sequence loaded to copy.');
+          return;
         }
+        const header = currentPhage ? `${currentPhage.name} | ${currentPhage.accession}` : 'phage-sequence';
+        const payload = buildSequenceClipboardPayload({ header, sequence: seq, wrap: 80 });
+        copyToClipboard(payload.text, payload.html)
+          .then(() => alert('Sequence copied (text + HTML).'))
+          .catch(() => alert('Failed to copy sequence.'));
+        close();
       },
       minLevel: 'novice',
-      contexts: ['has-phage'] // Changed context to has-phage for simplicity
+      contexts: ['has-phage'] // Sequence availability implied by context
     },
     {
       id: 'export:json',

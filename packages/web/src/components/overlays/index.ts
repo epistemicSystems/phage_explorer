@@ -30,6 +30,7 @@ export * from './BendabilityOverlay';
 export { PromoterOverlay } from './PromoterOverlay';
 export { RepeatsOverlay } from './RepeatsOverlay';
 export { TranscriptionFlowOverlay } from './TranscriptionFlowOverlay';
+export { RecentCommands } from './RecentCommands';
 
 // Layer 2 Advanced Overlays
 export { KmerAnomalyOverlay } from './KmerAnomalyOverlay';
