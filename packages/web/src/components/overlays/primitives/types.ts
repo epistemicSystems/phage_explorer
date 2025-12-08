@@ -51,3 +51,24 @@ export interface ScatterInteraction {
   clientY: number;
 }
 
+export interface ArcNode {
+  id: string;
+  label?: string;
+  weight?: number;
+}
+
+export interface ArcLink {
+  source: string;
+  target: string;
+  value: number;
+  color?: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface ArcInteraction {
+  link: ArcLink;
+  index: number;
+  clientX: number;
+  clientY: number;
+}
+
