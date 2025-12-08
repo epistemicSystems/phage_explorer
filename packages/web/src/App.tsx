@@ -12,11 +12,10 @@ const PhageExplorerContent: React.FC = () => {
   const { toggle } = useOverlay();
   const pendingSequence = usePendingSequence();
   const [lastAction, setLastAction] = useState<string>('');
-  const { experienceLevel, setExperienceLevel, pushCommand, commandHistory } = useWebPreferences((s) => ({
+  const { experienceLevel, setExperienceLevel, pushCommand } = useWebPreferences((s) => ({
     experienceLevel: s.experienceLevel as ExperienceLevel,
     setExperienceLevel: s.setExperienceLevel,
     pushCommand: s.pushCommand,
-    commandHistory: s.commandHistory,
   }));
 
   const experienceLevels = useMemo<ExperienceLevel[]>(() => ['novice', 'intermediate', 'power'], []);
@@ -178,34 +177,36 @@ const PhageExplorerContent: React.FC = () => {
         mode,
         pendingSequence,
         children: (
-          <div className="flex gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <button className="btn" onClick={handleThemeCycle}>
-              <span className="key-hint">t</span> Theme
-            </button>
-            <div className="flex gap-1" style={{ alignItems: 'center' }}>
-              <span className="text-dim" style={{ fontSize: '0.85rem' }}>Experience</span>
-              {experienceLevels.map((level) => {
-                const active = level === experienceLevel;
-                return (
-                  <button
-                    key={level}
-                    className="badge"
-                    onClick={() => handleExperienceChange(level)}
-                    style={{
-                      border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                      background: active ? 'var(--color-accent)' : 'var(--color-badge)',
-                      color: active ? '#000' : 'var(--color-badge-text)',
-                      textTransform: 'capitalize',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {level}
-                  </button>
-                );
-              })}
+          <>
+            <div className="flex gap-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className="btn" onClick={handleThemeCycle}>
+                <span className="key-hint">t</span> Theme
+              </button>
+              <div className="flex gap-1" style={{ alignItems: 'center' }}>
+                <span className="text-dim" style={{ fontSize: '0.85rem' }}>Experience</span>
+                {experienceLevels.map((level) => {
+                  const active = level === experienceLevel;
+                  return (
+                    <button
+                      key={level}
+                      className="badge"
+                      onClick={() => handleExperienceChange(level)}
+                      style={{
+                        border: `1px solid ${active ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                        background: active ? 'var(--color-accent)' : 'var(--color-badge)',
+                        color: active ? '#000' : 'var(--color-badge-text)',
+                        textTransform: 'capitalize',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {level}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-          <RecentCommands />
+            <RecentCommands />
+          </>
         ),
       }}
     >
