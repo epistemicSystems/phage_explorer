@@ -12,9 +12,16 @@ import {
   Group,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { loadStructure } from '../visualization/structure-loader';
+import {
+  buildBallAndStick,
+  buildSurfaceImpostor,
+  buildTubeFromTraces,
+  loadStructure,
+  type LoadedStructure,
+} from '../visualization/structure-loader';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
+type RenderMode = 'ball' | 'cartoon' | 'ribbon' | 'surface';
 
 interface Model3DViewProps {
   phage: PhageFull | null;
@@ -26,6 +33,16 @@ const qualityPixelRatio: Record<string, number> = {
   high: 1.3,
   ultra: 1.6,
 };
+
+const chainPalette = [
+  '#3b82f6',
+  '#a855f7',
+  '#22c55e',
+  '#f97316',
+  '#ec4899',
+  '#14b8a6',
+  '#eab308',
+];
 
 function disposeGroup(group: Group | null): void {
   if (!group) return;
@@ -54,11 +71,13 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
   const animationRef = useRef<number | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const structureDataRef = useRef<LoadedStructure | null>(null);
 
   const show3DModel = usePhageStore(s => s.show3DModel);
   const paused = usePhageStore(s => s.model3DPaused);
   const speed = usePhageStore(s => s.model3DSpeed);
   const quality = usePhageStore(s => s.model3DQuality);
+  const [renderMode, setRenderMode] = useState<RenderMode>('ball');
 
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [progress, setProgress] = useState<number>(0);
@@ -66,6 +85,43 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
   const [atomCount, setAtomCount] = useState<number | null>(null);
 
   const pdbId = useMemo(() => phage?.pdbIds?.[0] ?? null, [phage?.pdbIds]);
+
+  const rebuildStructure = (mode: RenderMode) => {
+    const data = structureDataRef.current;
+    const scene = sceneRef.current;
+    if (!data || !scene) return;
+
+    if (structureRef.current) {
+      scene.remove(structureRef.current);
+      disposeGroup(structureRef.current);
+      structureRef.current = null;
+    }
+
+    let group: Group | null = null;
+    const chainColors = data.chains.map((_, idx) => chainPalette[idx % chainPalette.length]);
+
+    switch (mode) {
+      case 'ball':
+        group = buildBallAndStick(data.atoms, data.bonds, 0.5, 0.12);
+        break;
+      case 'cartoon':
+        group = buildTubeFromTraces(data.backboneTraces, 0.5, 10, '#38bdf8', 1, chainColors);
+        break;
+      case 'ribbon':
+        group = buildTubeFromTraces(data.backboneTraces, 0.3, 6, '#c084fc', 0.9, chainColors);
+        break;
+      case 'surface':
+        group = buildSurfaceImpostor(data.atoms, 1.6);
+        break;
+      default:
+        group = buildBallAndStick(data.atoms, data.bonds, 0.5, 0.12);
+    }
+
+    if (group) {
+      structureRef.current = group;
+      scene.add(group);
+    }
+  };
 
   // Initialize scene + renderer
   useEffect(() => {
@@ -130,6 +186,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       controls.dispose();
       renderer.dispose();
       disposeGroup(structureRef.current);
+      structureDataRef.current = null;
       rendererRef.current = null;
       sceneRef.current = null;
       controlsRef.current = null;
@@ -178,29 +235,24 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
     setError(null);
 
     loadStructure(pdbId, controller.signal)
-      .then(({ group, center, radius, atomCount }) => {
+      .then((data) => {
         const scene = sceneRef.current;
         const camera = cameraRef.current;
         const controls = controlsRef.current;
         if (!scene || !camera || !controls) return;
 
-        // Swap out existing structure
-        if (structureRef.current) {
-          scene.remove(structureRef.current);
-        }
-        disposeGroup(structureRef.current);
-        structureRef.current = group;
-        scene.add(group);
+        structureDataRef.current = data;
+        rebuildStructure(renderMode);
 
         // Frame camera
-        const dist = radius * 3;
-        camera.position.copy(center.clone().add(new Vector3(dist, dist * 0.8, dist)));
-        camera.near = Math.max(0.1, radius * 0.01);
-        camera.far = Math.max(5000, radius * 4);
+        const dist = data.radius * 3;
+        camera.position.copy(data.center.clone().add(new Vector3(dist, dist * 0.8, dist)));
+        camera.near = Math.max(0.1, data.radius * 0.01);
+        camera.far = Math.max(5000, data.radius * 4);
         camera.updateProjectionMatrix();
-        controls.target.copy(center);
+        controls.target.copy(data.center);
         controls.update();
-        setAtomCount(atomCount);
+        setAtomCount(data.atomCount);
         setProgress(100);
         setLoadState('ready');
       })
@@ -212,6 +264,12 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
 
     return () => controller.abort();
   }, [pdbId, show3DModel]);
+
+  useEffect(() => {
+    if (loadState === 'ready') {
+      rebuildStructure(renderMode);
+    }
+  }, [renderMode, loadState]);
 
   const stateLabel = loadState === 'ready'
     ? 'Loaded'
@@ -229,6 +287,22 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
           <span className="badge">{stateLabel}</span>
           {atomCount !== null && <span className="badge subtle">{atomCount} atoms</span>}
         </div>
+      </div>
+
+      <div className="toolbar" style={{ display: 'flex', gap: '8px', padding: '8px 0' }}>
+        {(['ball', 'cartoon', 'ribbon', 'surface'] as RenderMode[]).map(mode => (
+          <button
+            key={mode}
+            type="button"
+            className={`btn ${renderMode === mode ? 'active' : ''}`}
+            onClick={() => setRenderMode(mode)}
+          >
+            {mode === 'ball' && 'Ball-Stick'}
+            {mode === 'cartoon' && 'Cartoon'}
+            {mode === 'ribbon' && 'Ribbon'}
+            {mode === 'surface' && 'Surface'}
+          </button>
+        ))}
       </div>
 
       <div

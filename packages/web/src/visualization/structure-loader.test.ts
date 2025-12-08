@@ -11,8 +11,9 @@ describe('structure loader parsers', () => {
 
     const atoms = parsePDB(pdb);
     expect(atoms.length).toBe(3);
-    expect(atoms[0].element).toBe('N');
+    expect(atoms[0]).toMatchObject({ element: 'N', chainId: 'A', resSeq: 1, atomName: 'N' });
     expect(atoms[2].element).toBe('O');
+    expect(atoms[2].chainId).toBe('B');
   });
 
   it('parses minimal mmCIF atom_site loop', () => {
@@ -31,7 +32,7 @@ ATOM 2 O 4.0 5.0 6.0
 
     const atoms = parseMMCIF(cif);
     expect(atoms.length).toBe(2);
-    expect(atoms[0]).toMatchObject({ x: 1, y: 2, z: 3, element: 'C' });
+    expect(atoms[0]).toMatchObject({ x: 1, y: 2, z: 3, element: 'C', atomName: 'C' });
     expect(atoms[1].element).toBe('O');
   });
 });
