@@ -9,6 +9,7 @@ import { Header, type HeaderProps } from './Header';
 import { Footer, type FooterProps } from './Footer';
 import { SkipNavigation } from './SkipNavigation';
 import { CRTOverlay } from './CRTOverlay';
+import { MatrixRain } from '../MatrixRain';
 
 interface AppShellProps {
   header?: HeaderProps;
@@ -20,6 +21,7 @@ export const AppShell: React.FC<AppShellProps> = ({ header, footer, children }) 
   return (
     <div className="app-shell">
       <SkipNavigation />
+      <MatrixRain opacity={0.08} />
       <CRTOverlay />
       <Header {...header} />
       <main id="main-content" className="app-body" role="main">
