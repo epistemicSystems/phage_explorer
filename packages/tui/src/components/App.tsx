@@ -39,7 +39,23 @@ import type { KmerAnomalyOverlay as KmerOverlayType } from '../overlay-computati
 import { ModuleOverlay } from './ModuleOverlay';
 import { FoldQuickview } from './FoldQuickview';
 import { HGTOverlay } from './HGTOverlay';
-import { analyzeHGTProvenance } from '@phage-explorer/comparison';
+import { TropismOverlay } from './TropismOverlay';
+import { DotPlotOverlay } from './DotPlotOverlay';
+import { NonBDNAOverlay } from './NonBDNAOverlay';
+import { CRISPROverlay } from './CRISPROverlay';
+import { SyntenyOverlay } from './SyntenyOverlay';
+import { LogoOverlay } from './LogoOverlay';
+import { StructureConstraintOverlay } from './StructureConstraintOverlay';
+import { analyzeHGTProvenance, analyzeTailFiberTropism } from '@phage-explorer/comparison';
+import { analyzeStructuralConstraints } from '@phage-explorer/core';
+import type { StructuralConstraintReport, FoldEmbedding } from '@phage-explorer/core';
+import type { OverlayId, ExperienceLevel } from '@phage-explorer/state';
+import type { FoldEmbedding } from '@phage-explorer/core';
+import type { OverlayId, ExperienceLevel } from '@phage-explorer/state';
+import { BiasDecompositionOverlay } from './BiasDecompositionOverlay';
+import { CRISPROverlay } from './CRISPROverlay';
+import { SyntenyOverlay } from './SyntenyOverlay';
+import { LogoOverlay } from './LogoOverlay';
 
 const ANALYSIS_MENU_ID: OverlayId = 'analysisMenu';
 const SIMULATION_MENU_ID: OverlayId = 'simulationHub';
@@ -59,6 +75,7 @@ const CRISPR_ID: OverlayId = 'crispr';
 const SYNTENY_ID: OverlayId = 'synteny';
 const TROPISM_ID: OverlayId = 'tropism';
 const NONB_ID: OverlayId = 'nonB';
+const LOGO_ID: OverlayId = 'logo';
 
 interface AppProps {
   repository: PhageRepository;
@@ -654,6 +671,13 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
       }
       promote('intermediate');
       toggleOverlay(SYNTENY_ID);
+    } else if (key.shift && (input === 'l' || input === 'L')) {
+      if (!isIntermediate) {
+        setError('Sequence logos unlock after ~5 minutes or once promoted.');
+        return;
+      }
+      promote('intermediate');
+      toggleOverlay(LOGO_ID);
     }
 
     // Overlays (we already returned early if overlay is active, so just open)
@@ -979,6 +1003,16 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
           marginTop={Math.floor((terminalRows - 24) / 2)}
         >
           <SyntenyOverlay repository={repository} />
+        </Box>
+      )}
+
+      {activeOverlay === LOGO_ID && (
+        <Box
+          position="absolute"
+          marginLeft={Math.floor((terminalCols - 84) / 2)}
+          marginTop={Math.floor((terminalRows - 24) / 2)}
+        >
+          <LogoOverlay />
         </Box>
       )}
 

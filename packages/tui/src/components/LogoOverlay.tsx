@@ -1,7 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { usePhageStore } from '@phage-explorer/state';
-import { computeSequenceLogo, LogoColumn } from '@phage-explorer/core';
+import { computeSequenceLogo } from '@phage-explorer/core';
+import type { LogoColumn } from '@phage-explorer/core';
+
+interface LogoOverlayProps {
+  sequence: string;
+}
 
 // Mock alignment data generator (since we don't have multi-sequence alignment in state yet)
 function generateMockAlignment(consensus: string, depth = 10): string[] {
@@ -23,11 +28,10 @@ function generateMockAlignment(consensus: string, depth = 10): string[] {
   return alignment;
 }
 
-export function LogoOverlay(): React.ReactElement {
+export function LogoOverlay({ sequence }: LogoOverlayProps): React.ReactElement {
   const theme = usePhageStore(s => s.currentTheme);
   const colors = theme.colors;
   const closeOverlay = usePhageStore(s => s.closeOverlay);
-  const sequence = usePhageStore(s => s.sequence); // Current single sequence
   const scrollPos = usePhageStore(s => s.scrollPosition);
 
   // For demonstration, we'll generate a "local consensus" around the current view

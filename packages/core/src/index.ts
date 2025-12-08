@@ -19,6 +19,7 @@ export * from './phase-portraits';
 // Bias decomposition
 export * from './analysis/cgr';
 export * from './analysis/cgr-compare';
+export * from './analysis/anomaly';
 export * from './analysis/dot-plot';
 export * from './bias-decomposition';
 
