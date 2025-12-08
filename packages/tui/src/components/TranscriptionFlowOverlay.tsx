@@ -1,7 +1,13 @@
 import React, { useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { usePhageStore } from '@phage-explorer/state';
-import { simulateTranscriptionFlow } from '@phage-explorer/core';
+import {
+  simulateTranscriptionFlow,
+  detectPromoters,
+  detectTerminators,
+  type PromoterHit,
+  type TerminatorHit,
+} from '@phage-explorer/core';
 
 const BARS = ' ▂▃▄▅▆▇█';
 
@@ -33,6 +39,15 @@ export function TranscriptionFlowOverlay({ sequence, genomeLength }: Props): Rea
 
   const seq = sequence || '';
   const { values, peaks } = useMemo(() => simulateTranscriptionFlow(seq), [seq]);
+  const promoters = useMemo<PromoterHit[]>(() => detectPromoters(seq), [seq]);
+  const terminators = useMemo<TerminatorHit[]>(() => detectTerminators(seq), [seq]);
+  const motifsSummary = useMemo(() => {
+    const summary = new Map<string, number>();
+    for (const p of promoters) {
+      summary.set(p.motif, (summary.get(p.motif) ?? 0) + 1);
+    }
+    return Array.from(summary.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [promoters]);
   const line = useMemo(() => sparkline(values), [values]);
 
   useInput((input, key) => {
@@ -80,9 +95,20 @@ export function TranscriptionFlowOverlay({ sequence, genomeLength }: Props): Rea
               ))
             )}
           </Box>
+          <Box flexDirection="column" marginTop={1}>
+            <Text color={colors.accent} bold>Motif hits</Text>
+            <Text color={colors.textDim}>
+              Promoters/RBS: {promoters.length.toLocaleString()} · Terminators: {terminators.length.toLocaleString()}
+            </Text>
+            {motifsSummary.length > 0 && (
+              <Text color={colors.textDim}>
+                Top motifs: {motifsSummary.map(([m, c]) => `${m}(${c})`).join(', ')}
+              </Text>
+            )}
+          </Box>
           <Box marginTop={1}>
             <Text color={colors.textDim} dimColor>
-              Heuristic model: promoters seed flow, palindromic repeats attenuate. Future: σ-factor presets, terminator prediction.
+              Heuristic model: promoters seed flow, palindromic repeats/terminators attenuate. Future: spacing-aware operon scoring.
             </Text>
           </Box>
         </>

@@ -10,6 +10,7 @@ export interface MenuItem {
   description?: string;
   icon?: string;
   shortcut?: string;
+  hotkey?: string; // single-key hint for display (e.g., "A→1")
   action: () => void;
   minLevel?: 'novice' | 'intermediate' | 'power';
   keepOpen?: boolean;
@@ -26,6 +27,7 @@ interface ModalMenuProps {
   onClose: () => void;
   width?: number;
   height?: number;
+  footerHint?: string;
 }
 
 interface RankedItem extends MenuItem {
@@ -42,7 +44,7 @@ const LEVEL_ORDER = {
 function scoreItem(query: string, item: MenuItem): number {
   if (!query.trim()) return 0;
   const q = query.toLowerCase();
-  const haystack = `${item.label} ${item.description ?? ''} ${item.shortcut ?? ''}`.toLowerCase();
+  const haystack = `${item.label} ${item.description ?? ''} ${item.shortcut ?? ''} ${item.hotkey ?? ''}`.toLowerCase();
 
   // Basic scoring: prefix match > substring match
   if (haystack.startsWith(q)) return 3;
@@ -104,10 +106,11 @@ function renderItem(
             {badge}
           </Text>
         )}
-        {item.shortcut && (
+        {(item.shortcut || item.hotkey) && (
           <Text color={colors.textDim} dimColor>
             {' '}
-            [{item.shortcut}]
+            {item.shortcut ? `[${item.shortcut}]` : ''}
+            {item.hotkey ? ` (${item.hotkey})` : ''}
           </Text>
         )}
       </Box>
@@ -127,6 +130,7 @@ export function ModalMenu({
   onClose,
   width = 70,
   height = 18,
+  footerHint = 'ESC close · ↑↓ navigate · PgUp/PgDn page · Enter run · type to filter',
 }: ModalMenuProps): React.ReactElement {
   const theme = usePhageStore(s => s.currentTheme);
   const experienceLevel = usePhageStore(s => s.experienceLevel);
@@ -189,7 +193,7 @@ export function ModalMenu({
   });
 
   // Determine viewport for items (leave space for header/search/footer)
-  const itemsVisible = Math.max(5, height - 6);
+  const itemsVisible = Math.max(5, height - 8);
   const start = Math.max(0, safeIndex - Math.floor(itemsVisible / 2));
   const end = Math.min(start + itemsVisible, ranked.length);
   const visibleItems = ranked.slice(start, end);
@@ -234,7 +238,7 @@ export function ModalMenu({
       {/* Footer */}
       <Box marginTop={1} justifyContent="space-between">
         <Text color={colors.textDim} dimColor>
-          ↑/↓ navigate · PgUp/PgDn page · Enter to run
+          {footerHint}
         </Text>
         <Text color={colors.textDim} dimColor>
           Categories: {categories.map(c => c.name).join(' · ')}

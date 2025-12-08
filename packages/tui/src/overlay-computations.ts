@@ -1,6 +1,8 @@
 // Quick overlay computations for GC skew, complexity, bendability, promoters, repeats.
 // These are lightweight, computed once per loaded phage sequence.
 
+import { detectPromoters } from '@phage-explorer/core';
+
 export type OverlayId =
   | 'gcSkew'
   | 'complexity'
@@ -42,101 +44,6 @@ export interface KmerAnomalyOverlay extends NumericOverlay {
 export type OverlayResult = NumericOverlay | MarkOverlay | KmerAnomalyOverlay;
 
 export type OverlayData = Partial<Record<OverlayId, OverlayResult>>;
-
-// --- Regulatory motif detection helpers (lightweight PWMs / heuristics) ---
-// PWMs adapted from canonical sigma factor motifs; scores are relative and normalized later.
-const SIGMA70_MINUS35 = 'TTGACA';
-const SIGMA70_MINUS10 = 'TATAAT';
-const SIGMA32_MINUS35 = 'TTGAAA';
-const SIGMA32_MINUS10 = 'CCCCAT';
-const SIGMA54_CORE = 'TGGCACG';
-
-interface PromoterHit {
-  pos: number;
-  strength: number; // 0..1
-  motif: string;
-}
-
-interface TerminatorHit {
-  pos: number;
-  efficiency: number; // 0..1
-  motif: string;
-}
-
-const RBS_PATTERN = /AGGAGG|GGAGG|AGGA|GGAG/gi;
-
-function scoreExact(seq: string, motif: string): number {
-  let score = 0;
-  for (let i = 0; i < motif.length; i++) {
-    if (seq[i] === motif[i]) score += 1;
-  }
-  return score / motif.length;
-}
-
-export function detectPromoters(sequence: string): PromoterHit[] {
-  const upper = sequence.toUpperCase();
-  const hits: PromoterHit[] = [];
-  for (let i = 0; i <= upper.length - 6; i++) {
-    const window6 = upper.slice(i, i + 6);
-    const window7 = upper.slice(i, i + 7);
-
-    const score70_35 = scoreExact(window6, SIGMA70_MINUS35);
-    const score70_10 = scoreExact(window6, SIGMA70_MINUS10);
-    const score32_35 = scoreExact(window6, SIGMA32_MINUS35);
-    const score32_10 = scoreExact(window6, SIGMA32_MINUS10);
-    const score54 = scoreExact(window7, SIGMA54_CORE);
-
-    if (score70_35 > 0.75 || score70_10 > 0.75) {
-      hits.push({ pos: i, strength: Math.max(score70_35, score70_10), motif: 'σ70' });
-    }
-    if (score32_35 > 0.75 || score32_10 > 0.75) {
-      hits.push({ pos: i, strength: Math.max(score32_35, score32_10) * 0.9, motif: 'σ32' });
-    }
-    if (score54 > 0.8) {
-      hits.push({ pos: i, strength: score54 * 0.85, motif: 'σ54' });
-    }
-  }
-
-  // RBS (Shine-Dalgarno) as promoter-adjacent signal
-  for (const match of upper.matchAll(RBS_PATTERN)) {
-    if (match.index === undefined) continue;
-    hits.push({ pos: match.index, strength: 0.6 + 0.1 * match[0].length, motif: 'RBS' });
-  }
-
-  // Normalize strengths to 0..1
-  const max = Math.max(0.001, ...hits.map(h => h.strength));
-  return hits
-    .map(h => ({ ...h, strength: Math.min(1, h.strength / max) }))
-    .sort((a, b) => a.pos - b.pos);
-}
-
-export function detectTerminators(sequence: string): TerminatorHit[] {
-  const upper = sequence.toUpperCase();
-  const hits: TerminatorHit[] = [];
-
-  const revComp = (s: string) =>
-    s
-      .split('')
-      .reverse()
-      .map(c => (c === 'A' ? 'T' : c === 'T' ? 'A' : c === 'C' ? 'G' : c === 'G' ? 'C' : c))
-      .join('');
-
-  for (let i = 0; i <= upper.length - 12; i++) {
-    const stem = upper.slice(i, i + 6);
-    const loop = upper.slice(i + 6, i + 10);
-    const tail = upper.slice(i + 10, i + 14);
-    const isStem = stem === revComp(stem);
-    const polyU = /^T{2,4}$/.test(tail); // DNA T == RNA U
-    if (isStem && polyU) {
-      const gcContent = stem.split('').filter(c => c === 'G' || c === 'C').length / stem.length;
-      const loopPenalty = /(GG|CC)/.test(loop) ? 0.2 : 0;
-      const eff = Math.min(1, 0.6 + 0.3 * gcContent - loopPenalty);
-      hits.push({ pos: i, efficiency: eff, motif: 'terminator' });
-    }
-  }
-
-  return hits.sort((a, b) => a.pos - b.pos);
-}
 
 // Utility: normalize array to 0..1
 function normalize(values: number[]): number[] {
