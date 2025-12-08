@@ -30,6 +30,20 @@ export interface TerminatorHit {
   motif: string;
 }
 
+export interface RegulatoryEdge {
+  source: number;
+  target: number;
+  distance: number;
+  weight: number; // 0..1
+  label: string;
+}
+
+export interface RegulatoryConstellation {
+  promoters: PromoterHit[];
+  terminators: TerminatorHit[];
+  edges: RegulatoryEdge[];
+}
+
 function scoreExact(seq: string, motif: string): number {
   let score = 0;
   for (let i = 0; i < motif.length; i++) {
@@ -138,4 +152,69 @@ export function simulateTranscriptionFlow(seq: string, window = 200): Transcript
     .slice(0, 3);
 
   return { values, peaks };
+}
+
+/**
+ * Compute co-occurrence edges between promoters and terminators to capture spacing relationships.
+ * Edges are scored higher when distances fall in plausible operon ranges (50-250 bp) and when
+ * promoter strength / terminator efficiency are high.
+ */
+export function computeRegulatoryConstellation(seq: string): RegulatoryConstellation {
+  const promoters = detectPromoters(seq);
+  const terminators = detectTerminators(seq);
+  const edges: RegulatoryEdge[] = [];
+
+  const idealMin = 50;
+  const idealMax = 250;
+
+  for (const p of promoters) {
+    for (const t of terminators) {
+      if (t.pos <= p.pos) continue; // downstream only
+      const dist = t.pos - p.pos;
+      // Score based on distance closeness to ideal range
+      let distScore = 0;
+      if (dist >= idealMin && dist <= idealMax) {
+        const mid = (idealMin + idealMax) / 2;
+        const span = (idealMax - idealMin) / 2;
+        distScore = 1 - Math.min(1, Math.abs(dist - mid) / span);
+      } else {
+        distScore = Math.max(0, 1 - Math.abs(dist - idealMax) / (idealMax * 2));
+      }
+      const weight = Math.min(1, (p.strength * 0.6 + (t.efficiency ?? 0.5) * 0.4) * distScore);
+      if (weight > 0.15) {
+        edges.push({
+          source: p.pos,
+          target: t.pos,
+          distance: dist,
+          weight,
+          label: `${p.motif}→term`,
+        });
+      }
+    }
+  }
+
+  // Also link promoter-promoter clusters (divergent / tandem) if close
+  for (let i = 0; i < promoters.length; i++) {
+    for (let j = i + 1; j < promoters.length; j++) {
+      const dist = Math.abs(promoters[j].pos - promoters[i].pos);
+      if (dist > 400) continue;
+      const weight = Math.min(1, 0.5 + 0.5 * (1 - dist / 400));
+      edges.push({
+        source: promoters[i].pos,
+        target: promoters[j].pos,
+        distance: dist,
+        weight,
+        label: 'promoter cluster',
+      });
+    }
+  }
+
+  // Normalize weights to 0..1
+  const maxW = Math.max(0.001, ...edges.map(e => e.weight));
+  const normEdges = edges
+    .map(e => ({ ...e, weight: Math.min(1, e.weight / maxW) }))
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 25);
+
+  return { promoters, terminators, edges: normEdges };
 }

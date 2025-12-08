@@ -19,6 +19,7 @@ export * from './phase-portraits';
 // Bias decomposition
 export * from './analysis/cgr';
 export * from './analysis/cgr-compare';
+export * from './analysis/dot-plot';
 
 // Functional module coherence
 export * from './module-coherence';
@@ -40,3 +41,6 @@ export * from './transcription';
 
 // Selection pressure analysis
 export * from './selection-pressure';
+
+// Sequence Logo analysis
+export * from './analysis/sequence-logo';
