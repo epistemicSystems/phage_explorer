@@ -44,6 +44,8 @@ export { AALegend } from './AALegend';
 export { ComparisonOverlay } from './ComparisonOverlay';
 export { PackagingPressureOverlay } from './PackagingPressureOverlay';
 export { CGROverlay } from './CGROverlay';
+export { HilbertOverlay } from './HilbertOverlay';
+export { VirionStabilityOverlay } from './VirionStabilityOverlay';
 
 // Layer 2 Advanced Overlays
 export { KmerAnomalyOverlay } from './KmerAnomalyOverlay';

@@ -63,6 +63,26 @@ const ANALYSIS_ITEMS: AnalysisItem[] = [
     category: 'Sequence Analysis',
     requiresLevel: 'intermediate',
   },
+  {
+    id: 'virion-stability',
+    overlayId: 'stability',
+    label: 'Virion Stability',
+    description: 'Capsid robustness vs temperature / salt',
+    icon: '🛡️',
+    shortcut: 'Alt+V',
+    category: 'Sequence Analysis',
+    requiresLevel: 'intermediate',
+  },
+  {
+    id: 'hilbert',
+    overlayId: 'hilbert',
+    label: 'Hilbert Curve',
+    description: 'Space-filling curve view of genome composition',
+    icon: '🌀',
+    shortcut: 'H',
+    category: 'Sequence Analysis',
+    requiresLevel: 'intermediate',
+  },
 
   // Gene Features
   {
