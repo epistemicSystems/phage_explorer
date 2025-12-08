@@ -7,6 +7,7 @@ export interface GelCanvasProps {
   lanes: GelLane[];
   padding?: number;
   background?: string;
+  backgroundColor?: string;
   ariaLabel?: string;
 }
 
@@ -16,6 +17,7 @@ export function GelCanvas({
   lanes,
   padding = 16,
   background = '#0b1224',
+  backgroundColor,
   ariaLabel = 'gel electrophoresis',
 }: GelCanvasProps): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -23,13 +25,16 @@ export function GelCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width = width;
-    canvas.height = height;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = background;
+    ctx.fillStyle = backgroundColor ?? background;
     ctx.fillRect(0, 0, width, height);
 
     const laneWidth = (width - padding * 2) / Math.max(1, lanes.length);
@@ -49,7 +54,7 @@ export function GelCanvas({
         ctx.fillRect(x0, y, usableWidth, Math.max(2, 6 * alpha));
       }
     });
-  }, [background, height, lanes, padding, width]);
+  }, [background, backgroundColor, height, lanes, padding, width]);
 
   return (
     <canvas

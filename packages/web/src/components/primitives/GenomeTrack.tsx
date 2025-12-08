@@ -7,6 +7,7 @@ export interface GenomeTrackProps {
   genomeLength: number;
   tracks: Track[];
   padding?: number;
+  backgroundColor?: string;
   ariaLabel?: string;
 }
 
@@ -46,6 +47,7 @@ export function GenomeTrack({
   genomeLength,
   tracks,
   padding = 16,
+  backgroundColor = '#0b1220',
   ariaLabel = 'genome track',
 }: GenomeTrackProps): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -59,12 +61,17 @@ export function GenomeTrack({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width = width;
-    canvas.height = height;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, width, height);
     const laneHeight = Math.max(12, (height - padding * 2) / Math.max(1, tracks.length));
 
     tracks.forEach((track, idx) => {
@@ -81,7 +88,7 @@ export function GenomeTrack({
         ctx.fillText(track.label, padding, y - laneHeight / 2 + 10);
       }
     });
-  }, [height, padding, scale, tracks, width]);
+  }, [backgroundColor, height, padding, scale, tracks, width]);
 
   return (
     <canvas
