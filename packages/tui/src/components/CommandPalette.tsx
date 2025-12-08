@@ -120,6 +120,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps): React.ReactEle
             { id: 'kmer', label: 'K-mer anomaly', description: 'Highlight composition shifts', keywords: ['kmer', 'anomaly'], action: () => toggleOverlay('kmerAnomaly') },
             { id: 'modules', label: 'Module coherence', description: 'Capsid/tail/lysis module view', keywords: ['module', 'stoichiometry'], action: () => toggleOverlay('modules') },
             { id: 'pressure', label: 'Packaging pressure gauge', description: 'Estimate capsid filling pressure', keywords: ['pressure', 'packing'], action: () => toggleOverlay('pressure') },
+            { id: 'structure-constraints', label: 'Structure constraints', description: 'Fragility scan for capsid/tail proteins', keywords: ['structure', 'capsid', 'tail'], action: () => toggleOverlay('structureConstraints') },
             { id: 'phase-portraits', label: 'AA property phase portraits', description: 'PCA of hydropathy/charge/aromaticity trajectories', keywords: ['phase', 'portrait', 'protein', 'property'], action: () => toggleOverlay('phasePortrait') },
             { id: 'bias-decomposition', label: 'Dinucleotide bias decomposition', description: 'PCA on dinucleotide frequencies across phages', keywords: ['bias', 'dinucleotide', 'pca'], action: () => toggleOverlay('biasDecomposition') },
           ];

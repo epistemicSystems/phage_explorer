@@ -1,153 +1,4 @@
 import type { GeneInfo, AminoAcid } from './types';
-
-export interface ConstraintWindow {
-  start: number;
-  end: number;
-  fragility: number; // 0..1, higher = more fragile
-  burial: number; // 0..1, higher = more buried/stable proxy
-  stress: number; // 0..1, higher = more likely structural stress
-  notes: string[];
-}
-
-export interface StructuralConstraintResult {
-  windows: ConstraintWindow[];
-  hotspots: ConstraintWindow[];
-}
-
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-
-function longestATRun(seq: string): number {
-  let best = 0;
-  let current = 0;
-  for (const ch of seq) {
-    if (ch === 'A' || ch === 'T') {
-      current += 1;
-      best = Math.max(best, current);
-    } else {
-      current = 0;
-    }
-  }
-  return best;
-}
-
-function palindromicCount(seq: string, minLen: number, maxLen: number): number {
-  let count = 0;
-  const upper = seq.toUpperCase();
-  for (let i = 0; i <= upper.length - minLen; i++) {
-    for (let l = minLen; l <= maxLen && i + l <= upper.length; l++) {
-      let ok = true;
-      for (let j = 0; j < l / 2; j++) {
-        const a = upper[i + j];
-        const b = upper[i + l - 1 - j];
-        const complement = a === 'A' ? 'T' : a === 'T' ? 'A' : a === 'G' ? 'C' : 'G';
-        if (b !== complement) {
-          ok = false;
-          break;
-        }
-      }
-      if (ok) {
-        count += 1;
-        break; // mark once per position
-      }
-    }
-  }
-  return count;
-}
-
-function normalizeArray(values: number[]): number[] {
-  if (values.length === 0) return [];
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  if (max === min) return values.map(() => 0.5);
-  return values.map(v => (v - min) / (max - min));
-}
-
-export function computeStructuralConstraints(
-  sequence: string,
-  genes: GeneInfo[] = [],
-  window = 1200,
-  step = 600
-): StructuralConstraintResult {
-  if (!sequence) {
-    return { windows: [], hotspots: [] };
-  }
-
-  const lengths: number[] = [];
-  const gcScores: number[] = [];
-  const atRuns: number[] = [];
-  const palCounts: number[] = [];
-  const edgeProximity: number[] = [];
-  const windows: ConstraintWindow[] = [];
-
-  const geneEdges = genes.flatMap(g => [g.startPos, g.endPos]).filter(n => typeof n === 'number');
-
-  for (let start = 0; start < sequence.length; start += step) {
-    const slice = sequence.slice(start, start + window);
-    const len = slice.length;
-    if (!len) continue;
-    const upper = slice.toUpperCase();
-
-    let gc = 0;
-    for (const ch of upper) {
-      if (ch === 'G' || ch === 'C') gc += 1;
-    }
-    const gcFrac = gc / len;
-    const longestAT = longestATRun(upper);
-    const palCount = palindromicCount(upper, 6, 12);
-
-    const midpoint = start + len / 2;
-    const nearestEdge = geneEdges.length
-      ? Math.min(...geneEdges.map(e => Math.abs(e - midpoint)))
-      : len;
-    const edgeScore = Math.exp(-nearestEdge / 800); // closer to gene edges -> higher
-
-    lengths.push(len);
-    gcScores.push(gcFrac);
-    atRuns.push(longestAT);
-    palCounts.push(palCount);
-    edgeProximity.push(edgeScore);
-
-    windows.push({
-      start,
-      end: Math.min(sequence.length, start + len),
-      fragility: 0, // filled after normalization
-      burial: 0,
-      stress: 0,
-      notes: [],
-    });
-  }
-
-  const gcNorm = normalizeArray(gcScores);
-  const atNorm = normalizeArray(atRuns);
-  const palNorm = normalizeArray(palCounts);
-  const edgeNorm = normalizeArray(edgeProximity);
-
-  windows.forEach((w, idx) => {
-    const burial = clamp01(1 - atNorm[idx] * 0.6 + gcNorm[idx] * 0.4);
-    const stress = clamp01(palNorm[idx] * 0.5 + edgeNorm[idx] * 0.5);
-    const fragility = clamp01(
-      atNorm[idx] * 0.45 + palNorm[idx] * 0.35 + edgeNorm[idx] * 0.2 + (1 - gcNorm[idx]) * 0.1
-    );
-
-    const notes: string[] = [];
-    if (atNorm[idx] > 0.6) notes.push('AT-rich stretch (bendable)');
-    if (palNorm[idx] > 0.6) notes.push('Palindromic/flip-prone');
-    if (edgeNorm[idx] > 0.6) notes.push('Near gene boundary');
-    if (gcNorm[idx] < 0.35) notes.push('Low GC (less stable)');
-
-    w.fragility = fragility;
-    w.burial = burial;
-    w.stress = stress;
-    w.notes = notes;
-  });
-
-  const hotspots = windows
-    .slice()
-    .sort((a, b) => b.fragility - a.fragility)
-    .slice(0, 5);
-
-  return { windows, hotspots };
-}
 import { translateSequence } from './codons';
 
 export interface ResidueConstraint {
@@ -183,7 +34,7 @@ const VOLUME: Record<AminoAcid, number> = {
   T: 116.1, W: 227.8, Y: 193.6, V: 140.0, '*': 0, X: 120.0,
 };
 
-function normalizeScalar(value: number, min: number, max: number): number {
+function normalize(value: number, min: number, max: number): number {
   if (max === min) return 0.5;
   return Math.min(1, Math.max(0, (value - min) / (max - min)));
 }
@@ -217,8 +68,8 @@ function computeResidueFragility(sequence: string): ResidueConstraint[] {
     const aa = sequence[i] as AminoAcid;
     const hydro = HYDROPHOBICITY[aa] ?? -1;
     const vol = VOLUME[aa] ?? 120;
-    const hydrophobicityScore = normalizeScalar(hydro, minHydro, maxHydro); // higher = hydrophobic
-    const volumeScore = normalizeScalar(vol, minVol, maxVol);
+    const hydrophobicityScore = normalize(hydro, minHydro, maxHydro); // higher = hydrophobic
+    const volumeScore = normalize(vol, minVol, maxVol);
 
     // Penalize gly/proline for structural kinks, boost charged/hydrophilic as more flexible
     const isGly = aa === 'G';

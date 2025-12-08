@@ -40,12 +40,15 @@ import { ModuleOverlay } from './ModuleOverlay';
 import { FoldQuickview } from './FoldQuickview';
 import { HGTOverlay } from './HGTOverlay';
 import { analyzeHGTProvenance, analyzeTailFiberTropism } from '@phage-explorer/comparison';
+import type { StructuralConstraintReport } from '@phage-explorer/core';
+import { analyzeStructuralConstraints } from '@phage-explorer/core';
 import type { FoldEmbedding } from '@phage-explorer/core';
 import type { OverlayId, ExperienceLevel } from '@phage-explorer/state';
 import { BiasDecompositionOverlay } from './BiasDecompositionOverlay';
 import { CRISPROverlay } from './CRISPROverlay';
 import { SyntenyOverlay } from './SyntenyOverlay';
 import { TropismOverlay } from './TropismOverlay';
+import { StructureConstraintOverlay } from './StructureConstraintOverlay';
 
 const ANALYSIS_MENU_ID: OverlayId = 'analysisMenu';
 const SIMULATION_MENU_ID: OverlayId = 'simulationHub';
@@ -64,6 +67,7 @@ const HGT_ID: OverlayId = 'hgt';
 const CRISPR_ID: OverlayId = 'crispr';
 const SYNTENY_ID: OverlayId = 'synteny';
 const TROPISM_ID: OverlayId = 'tropism';
+const STRUCTURE_ID: OverlayId = 'structureConstraints';
 
 interface AppProps {
   repository: PhageRepository;
@@ -106,6 +110,7 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
   const error = usePhageStore(s => s.error);
   const setError = usePhageStore(s => s.setError);
   const overlayData = usePhageStore(s => s.overlayData);
+  const [structureReport, setStructureReport] = useState<StructuralConstraintReport | null>(null);
   const currentError = usePhageStore(s => s.error);
   const diffEnabled = usePhageStore(s => s.diffEnabled);
   const diffReferencePhageId = usePhageStore(s => s.diffReferencePhageId);
@@ -223,6 +228,7 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
     const loadPhage = async () => {
       setLoadingPhage(true);
       setAnalysisProgress('Loading sequence...');
+      setStructureReport(null);
       try {
         const phage = await repository.getPhageByIndex(currentPhageIndex);
         setCurrentPhage(phage);
@@ -237,8 +243,9 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
           const seqHash = hashSeq(seq);
           const cache = overlayCacheRef.current.get(phage.id);
           
-          if (cache && cache.length === length && cache.hash === seqHash && cache.refVersion === referenceVersionRef.current) {
+         if (cache && cache.length === length && cache.hash === seqHash && cache.refVersion === referenceVersionRef.current) {
              setOverlayData(cache.data);
+             setStructureReport(cache.data[STRUCTURE_ID] as StructuralConstraintReport ?? null);
              setAnalysisProgress('');
              setLoadingPhage(false);
           } else {
@@ -255,6 +262,11 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
              { id: 'repeats', label: 'Repeats', fn: () => computeRepeatMarks(seq) },
              { id: 'kmerAnomaly', label: 'K-mer Anomaly', fn: () => computeKmerAnomaly(seq) },
              { id: 'hgt', label: 'HGT Analysis', fn: () => analyzeHGTProvenance(seq, phage.genes ?? [], referenceSketchesRef.current) },
+             {
+               id: STRUCTURE_ID,
+               label: 'Structural constraints',
+               fn: () => analyzeStructuralConstraints(seq, phage.genes ?? []),
+             },
              {
                id: 'tropism',
                label: 'Tail Fiber Tropism',
@@ -283,6 +295,9 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
                
                const result = job.fn();
                partialData[job.id] = result;
+               if (job.id === STRUCTURE_ID) {
+                 setStructureReport(result as StructuralConstraintReport);
+               }
                setOverlayData({ ...partialData });
              }
              
@@ -584,6 +599,9 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
       }
       promote('intermediate');
       toggleOverlay(HGT_ID);
+    } else if (input === 'u' || input === 'U') {
+      promote('intermediate');
+      toggleOverlay(STRUCTURE_ID);
     } else if (input === 'm' || input === 'M') {
       toggle3DModel();
     } else if (input === 'z' || input === 'Z') {
@@ -985,6 +1003,16 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
           marginTop={Math.floor((terminalRows - 16) / 2)}
         >
           <KmerAnomalyOverlay />
+        </Box>
+      )}
+
+      {activeOverlay === STRUCTURE_ID && (
+        <Box
+          position="absolute"
+          marginLeft={Math.floor((terminalCols - 90) / 2)}
+          marginTop={Math.floor((terminalRows - 22) / 2)}
+        >
+          <StructureConstraintOverlay data={structureReport} />
         </Box>
       )}
 
