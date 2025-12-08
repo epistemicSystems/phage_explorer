@@ -38,7 +38,7 @@ export default function App(): JSX.Element {
   const highContrast = useWebPreferences((s) => s.highContrast);
   const setHighContrast = useWebPreferences((s) => s.setHighContrast);
 
-  // Use individual selectors to avoid React 18 getSnapshot caching issues
+  // Use individual selectors to avoid getSnapshot caching issues
   const phages = usePhageStore((s) => s.phages);
   const currentPhageIndex = usePhageStore((s) => s.currentPhageIndex);
   const currentPhage = usePhageStore((s) => s.currentPhage);
@@ -317,7 +317,7 @@ export default function App(): JSX.Element {
                   <div>
                     <div className="metric-label">GC content</div>
                     <div className="metric-value">
-                      {currentPhage.gcContent !== null ? `${currentPhage.gcContent.toFixed(2)}%` : '—'}
+                      {currentPhage.gcContent != null ? `${currentPhage.gcContent.toFixed(2)}%` : '—'}
                     </div>
                   </div>
                   <div>
