@@ -9,6 +9,9 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import type { Theme, ViewMode, ReadingFrame } from '@phage-explorer/core';
 import { CanvasSequenceGridRenderer, type VisibleRange } from '../rendering';
 
+/** Post-processing pipeline type (placeholder for future WebGL effects) */
+type PostProcessPipeline = unknown;
+
 export interface UseSequenceGridOptions {
   theme: Theme;
   sequence: string;
