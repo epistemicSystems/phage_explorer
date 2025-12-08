@@ -200,39 +200,57 @@ export class GeneMapRenderer {
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'top';
 
-    const labelY = 34;
-    const minSpacing = 60; // Minimum pixels between labels
-    let lastLabelX = -minSpacing;
-
-    // Sort genes by position to ensure we process them in order
+    const height = this.height;
+    const rowPadding = 6;
+    // Two label rows anchored from bottom to avoid overflow on short canvases
+    const rows = [
+      Math.max(rowPadding, height - 14),
+      Math.max(rowPadding, height - 26),
+    ];
+    const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
     const sortedGenes = [...genes].sort((a, b) => a.startPos - b.startPos);
 
     for (const gene of sortedGenes) {
-      // Only label named genes or significant ones
       if (!gene.name && !gene.locusTag) continue;
-      
-      // Skip small genes if cluttered
-      if ((gene.endPos - gene.startPos) < 100) continue;
+      if ((gene.endPos - gene.startPos) < 80) continue;
+
+      const label = (gene.name || gene.locusTag || '').trim();
+      if (!label) continue;
 
       const centerPos = (gene.startPos + gene.endPos) / 2;
       const x = centerPos * scale;
+      const textWidth = this.ctx.measureText(label).width;
+      const pad = 4;
+      const w = textWidth + pad;
+      const h = 12;
 
-      // Check for overlap with previous label
-      if (x - lastLabelX < minSpacing) continue;
+      // Try each row until no overlap
+      let placedBox: { x: number; y: number; w: number; h: number } | null = null;
+      for (const y of rows) {
+        const box = { x: x - w / 2, y, w, h };
+        const overlaps = placed.some(p =>
+          !(box.x + box.w < p.x || p.x + p.w < box.x || box.y + box.h < p.y || p.y + p.h < box.y)
+        );
+        if (!overlaps) {
+          placedBox = box;
+          break;
+        }
+      }
 
-      const label = gene.name || gene.locusTag || '';
-      
-      // Draw tick mark
+      if (!placedBox) continue;
+
+      // Tick mark
       this.ctx.strokeStyle = this.theme.colors.border;
       this.ctx.beginPath();
-      this.ctx.moveTo(x, labelY - 4);
-      this.ctx.lineTo(x, labelY);
+      this.ctx.moveTo(x, placedBox.y - 3);
+      this.ctx.lineTo(x, placedBox.y);
       this.ctx.stroke();
 
-      // Draw label
-      this.ctx.fillText(label, x, labelY + 2);
-      
-      lastLabelX = x;
+      // Label
+      this.ctx.fillStyle = this.theme.colors.textMuted;
+      this.ctx.fillText(label, x, placedBox.y);
+
+      placed.push(placedBox);
     }
   }
 
