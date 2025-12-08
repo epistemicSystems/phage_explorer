@@ -36,6 +36,7 @@ export interface GridRenderState {
   readingFrame: ReadingFrame;
   diffSequence: string | null;
   diffEnabled: boolean;
+  diffMask: Uint8Array | null;
 }
 
 const DEFAULT_CELL_WIDTH = 16;
@@ -170,6 +171,7 @@ export class CanvasSequenceGridRenderer {
       readingFrame,
       diffSequence: null,
       diffEnabled: false,
+      diffMask: null,
     };
 
     // Update scroller for new sequence length
@@ -184,10 +186,11 @@ export class CanvasSequenceGridRenderer {
   /**
    * Enable diff mode with reference sequence
    */
-  setDiffMode(refSequence: string | null, enabled: boolean): void {
+  setDiffMode(refSequence: string | null, enabled: boolean, diffMask?: Uint8Array | null): void {
     if (this.currentState) {
       this.currentState.diffSequence = refSequence;
       this.currentState.diffEnabled = enabled;
+      this.currentState.diffMask = diffMask ?? null;
       this.needsFullRedraw = true;
       this.scheduleRender();
     }
@@ -242,7 +245,7 @@ export class CanvasSequenceGridRenderer {
 
     const startTime = performance.now();
     const ctx = this.backCtx ?? this.ctx;
-    const { sequence, viewMode, diffSequence, diffEnabled } = this.currentState;
+    const { sequence, viewMode, diffSequence, diffEnabled, diffMask } = this.currentState;
 
     // Get visible range from scroller
     const range = this.scroller.getVisibleRange();
@@ -256,7 +259,7 @@ export class CanvasSequenceGridRenderer {
     }
 
     // Render visible characters
-    this.renderVisibleRange(ctx, range, layout, sequence, viewMode, diffSequence, diffEnabled);
+    this.renderVisibleRange(ctx, range, layout, sequence, viewMode, diffSequence, diffEnabled, diffMask);
 
     // Apply scanline effect
     if (this.scanlines && !this.reducedMotion) {
@@ -294,7 +297,8 @@ export class CanvasSequenceGridRenderer {
     sequence: string,
     viewMode: ViewMode,
     diffSequence: string | null,
-    diffEnabled: boolean
+    diffEnabled: boolean,
+    diffMask: Uint8Array | null
   ): void {
     const { cellWidth, cellHeight } = this;
     const { offsetY, startRow, endRow } = range;
@@ -315,22 +319,36 @@ export class CanvasSequenceGridRenderer {
         const x = col * cellWidth;
         const char = sequence[i];
 
-        // Check for diff highlighting
-        const isDiff = diffEnabled && diffSequence && diffSequence[i] !== char;
+        let diffCode = 0;
+        if (diffEnabled) {
+          if (diffMask && diffMask.length === sequence.length) {
+            diffCode = diffMask[i] ?? 0;
+          } else if (diffSequence) {
+            diffCode = diffSequence[i] && diffSequence[i] !== char ? 1 : 0;
+          }
+        }
 
-        if (isDiff) {
-          // Draw diff background
-          ctx.fillStyle = this.theme.colors.diffHighlight;
+        if (diffCode > 0) {
+          switch (diffCode) {
+            case 1:
+              ctx.fillStyle = this.theme.colors.diffHighlight ?? '#facc15'; // substitution
+              break;
+            case 2:
+              ctx.fillStyle = '#22c55e'; // insertion relative to A
+              break;
+            case 3:
+              ctx.fillStyle = '#ef4444'; // deletion from A
+              break;
+            default:
+              ctx.fillStyle = this.theme.colors.diffHighlight ?? '#facc15';
+          }
           ctx.fillRect(x, rowY, cellWidth, cellHeight);
-
-          // Draw character on diff background
           ctx.font = `bold ${14}px 'JetBrains Mono', monospace`;
           ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(char, x + cellWidth / 2, rowY + cellHeight / 2);
         } else {
-          // Use glyph atlas for normal rendering
           drawMethod(ctx, char, x, rowY, cellWidth, cellHeight);
         }
       }

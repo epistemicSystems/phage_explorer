@@ -16,17 +16,29 @@ interface SequenceViewProps {
   sequence: string;
   /** Optional diff reference sequence */
   diffSequence?: string | null;
+  /** Optional per-position diff mask (0=match,1=sub,2=ins,3=del) */
+  diffMask?: Uint8Array | null;
+  /** Sorted list of diff positions for navigation */
+  diffPositions?: number[];
+  /** Override diff enabled flag (defaults to store) */
+  diffEnabledOverride?: boolean;
   /** Custom class name */
   className?: string;
   /** Height of the canvas */
   height?: number | string;
+  /** Expose navigation helpers */
+  onControlsReady?: (controls: { jumpToDiff: (direction: 'next' | 'prev') => number | null }) => void;
 }
 
 export function SequenceView({
   sequence,
   diffSequence = null,
+  diffMask = null,
+  diffPositions = [],
+  diffEnabledOverride,
   className = '',
   height = 300,
+  onControlsReady,
 }: SequenceViewProps): React.ReactElement {
   const { theme } = useTheme();
   const colors = theme.colors;
@@ -38,7 +50,8 @@ export function SequenceView({
   const setViewMode = usePhageStore((s) => s.setViewMode);
   const setReadingFrame = usePhageStore((s) => s.setReadingFrame);
   const setScrollPosition = usePhageStore((s) => s.setScrollPosition);
-  const diffEnabled = usePhageStore((s) => s.diffEnabled);
+  const storeDiffEnabled = usePhageStore((s) => s.diffEnabled);
+  const diffEnabled = diffEnabledOverride ?? storeDiffEnabled;
 
   // Web preferences
   const scanlines = useWebPreferences((s) => s.scanlines);
@@ -50,6 +63,7 @@ export function SequenceView({
     visibleRange,
     scrollToStart,
     scrollToEnd,
+    jumpToDiff,
   } = useSequenceGrid({
     theme,
     sequence,
@@ -57,6 +71,8 @@ export function SequenceView({
     readingFrame,
     diffSequence,
     diffEnabled,
+    diffMask,
+    diffPositions,
     scanlines,
     glow,
     reducedMotion,
@@ -64,6 +80,12 @@ export function SequenceView({
       setScrollPosition(range.startIndex);
     },
   });
+
+  useEffect(() => {
+    if (onControlsReady) {
+      onControlsReady({ jumpToDiff });
+    }
+  }, [jumpToDiff, onControlsReady]);
 
   // Toggle view mode (DNA/AA)
   const toggleViewMode = useCallback(() => {

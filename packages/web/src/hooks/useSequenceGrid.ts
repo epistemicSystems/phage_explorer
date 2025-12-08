@@ -6,6 +6,7 @@
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
+import type React from 'react';
 import type { Theme, ViewMode, ReadingFrame } from '@phage-explorer/core';
 import { CanvasSequenceGridRenderer, type VisibleRange } from '../rendering';
 
@@ -19,6 +20,8 @@ export interface UseSequenceGridOptions {
   readingFrame?: ReadingFrame;
   diffSequence?: string | null;
   diffEnabled?: boolean;
+  diffMask?: Uint8Array | null;
+  diffPositions?: number[];
   scanlines?: boolean;
   glow?: boolean;
   postProcess?: PostProcessPipeline;
@@ -39,6 +42,8 @@ export interface UseSequenceGridResult {
   scrollToStart: () => void;
   /** Scroll to end */
   scrollToEnd: () => void;
+  /** Jump to next/previous diff; returns target index or null if none */
+  jumpToDiff: (direction: 'next' | 'prev') => number | null;
   /** Get index at viewport coordinates */
   getIndexAtPoint: (x: number, y: number) => number | null;
   /** Force re-render */
@@ -53,6 +58,8 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     readingFrame = 0,
     diffSequence = null,
     diffEnabled = false,
+    diffMask = null,
+    diffPositions = [],
     scanlines = true,
     glow = false,
     postProcess,
@@ -120,8 +127,8 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
 
   // Update diff mode
   useEffect(() => {
-    rendererRef.current?.setDiffMode(diffSequence, diffEnabled);
-  }, [diffSequence, diffEnabled]);
+    rendererRef.current?.setDiffMode(diffSequence, diffEnabled, diffMask ?? null);
+  }, [diffSequence, diffEnabled, diffMask]);
 
   // Notify visible range changes
   useEffect(() => {
@@ -173,6 +180,31 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     rendererRef.current?.markDirty();
   }, []);
 
+  const jumpToDiff = useCallback(
+    (direction: 'next' | 'prev'): number | null => {
+      if (!diffPositions || diffPositions.length === 0) return null;
+      const current = rendererRef.current?.getScrollPosition() ?? 0;
+      const sorted = diffPositions;
+      if (direction === 'next') {
+        const target = sorted.find((pos) => pos > current);
+        const selected = target ?? sorted[0];
+        scrollToPosition(selected);
+        return selected;
+      }
+      // prev
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        if (sorted[i] < current) {
+          scrollToPosition(sorted[i]);
+          return sorted[i];
+        }
+      }
+      const fallback = sorted[sorted.length - 1];
+      scrollToPosition(fallback);
+      return fallback;
+    },
+    [diffPositions, scrollToPosition]
+  );
+
   return {
     canvasRef,
     visibleRange,
@@ -180,6 +212,7 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     scrollToPosition,
     scrollToStart,
     scrollToEnd,
+    jumpToDiff,
     getIndexAtPoint,
     refresh,
   };
