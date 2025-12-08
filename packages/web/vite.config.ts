@@ -22,6 +22,21 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
+    sourcemap: true,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-state': ['zustand', 'immer'],
+          'vendor-worker': ['comlink'],
+          'phage-core': ['@phage-explorer/core'],
+          'phage-state': ['@phage-explorer/state'],
+          // Group remaining smaller dependencies
+          'vendor-utils': [], 
+        },
+      },
+    },
   },
 });
 
