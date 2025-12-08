@@ -16,7 +16,7 @@ import { KeyboardPrimer } from './KeyboardPrimer';
 export function WelcomeModal(): React.ReactElement | null {
   const { theme } = useTheme();
   const colors = theme.colors;
-  const { close, isOpen } = useOverlay();
+  const { close, isOpen, open } = useOverlay();
   
   // Store actions
   const hasSeenWelcome = useWebPreferences(s => s.hasSeenWelcome);
@@ -50,6 +50,12 @@ export function WelcomeModal(): React.ReactElement | null {
   const handleFinish = () => {
     setHasSeenWelcome(true);
     close('welcome');
+  };
+
+  const handleTour = () => {
+    setHasSeenWelcome(true);
+    close('welcome');
+    setTimeout(() => open('tour'), 100);
   };
 
   const LevelCard = ({ level, title, desc, icon }: { level: ExperienceLevel, title: string, desc: string, icon: string }) => (
@@ -189,6 +195,22 @@ export function WelcomeModal(): React.ReactElement | null {
                 }}
               >
                 Back
+              </button>
+            )}
+            {step === 'primer' && (
+              <button
+                onClick={handleTour}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  borderRadius: '4px',
+                  border: `1px solid ${colors.accent}`,
+                  background: 'transparent',
+                  color: colors.accent,
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Take Tour
               </button>
             )}
             <button
