@@ -148,6 +148,57 @@ export function calculateRSCU(codonCounts: Record<string, number>): Record<strin
   return rscu;
 }
 
+// Derive codon preference weights for CAI (frequency / max per amino acid)
+function deriveCodonWeights(codonCounts: Record<string, number>): Record<string, number> {
+  const aaToCodons: Record<string, string[]> = {};
+  for (const [codon, aa] of Object.entries(CODON_TABLE)) {
+    if (!aaToCodons[aa]) aaToCodons[aa] = [];
+    aaToCodons[aa].push(codon);
+  }
+
+  const weights: Record<string, number> = {};
+  for (const codons of Object.values(aaToCodons)) {
+    const maxCount = Math.max(...codons.map(c => codonCounts[c] ?? 0), 0);
+    for (const codon of codons) {
+      const count = codonCounts[codon] ?? 0;
+      const weight = maxCount > 0 ? count / maxCount : 0;
+      weights[codon] = Math.max(weight, 1e-6); // avoid zeros for log
+    }
+  }
+  return weights;
+}
+
+// CAI computed from codon count distributions (geometric mean of weights)
+function computeCAIFromCounts(
+  targetCounts: Record<string, number>,
+  referenceCounts: Record<string, number>
+): number {
+  const weights = deriveCodonWeights(referenceCounts);
+  const totalCodons = Object.values(targetCounts).reduce((sum, c) => sum + c, 0);
+  if (totalCodons === 0) return 0;
+
+  let logSum = 0;
+  for (const [codon, count] of Object.entries(targetCounts)) {
+    if (count <= 0) continue;
+    logSum += count * Math.log(weights[codon] ?? 1e-6);
+  }
+
+  return Math.exp(logSum / totalCodons);
+}
+
+function cosineSimilarity(vecA: number[], vecB: number[]): number {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < vecA.length; i++) {
+    dot += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom > 0 ? dot / denom : 0;
+}
+
 /**
  * Compare codon usage between two sequences.
  */
@@ -175,18 +226,7 @@ export function compareCodonUsage(
   }
   euclidean = Math.sqrt(euclidean);
 
-  // Cosine similarity
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < codons.length; i++) {
-    dotProduct += vecA[i] * vecB[i];
-    normA += vecA[i] * vecA[i];
-    normB += vecB[i] * vecB[i];
-  }
-  const cosSim = (Math.sqrt(normA) * Math.sqrt(normB)) > 0
-    ? dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
-    : 0;
+  const cosSim = cosineSimilarity(vecA, vecB);
 
   // Chi-square test
   const totalA = Object.values(codonCountsA).reduce((a, b) => a + b, 0);
@@ -217,6 +257,16 @@ export function compareCodonUsage(
   // P-value from chi-square (rough approximation)
   const chiSquarePValue = chiSquareCdf(chiSquare, df);
 
+  // CAI (cross-adaptation): evaluate A with B preferences and vice versa
+  const caiA = computeCAIFromCounts(codonCountsA, codonCountsB);
+  const caiB = computeCAIFromCounts(codonCountsB, codonCountsA);
+  const weightA = deriveCodonWeights(codonCountsA);
+  const weightB = deriveCodonWeights(codonCountsB);
+  const caiCorrelation = cosineSimilarity(
+    codons.map(c => weightA[c]),
+    codons.map(c => weightB[c])
+  );
+
   // Find most different codons (guard against division by zero)
   const safeTotal = (t: number) => t > 0 ? t : 1;
   const differences: CodonDifference[] = codons.map(codon => ({
@@ -236,9 +286,9 @@ export function compareCodonUsage(
     chiSquareStatistic: chiSquare,
     chiSquarePValue,
     degreesOfFreedom: df,
-    caiA: 0, // Would require reference set
-    caiB: 0,
-    caiCorrelation: cosSim, // Using RSCU cosine as proxy
+    caiA,
+    caiB,
+    caiCorrelation,
     topDifferentCodons: differences.slice(0, 10),
   };
 }

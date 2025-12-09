@@ -98,10 +98,10 @@ export interface CodonUsageComparison {
   chiSquarePValue: number;            // P-value
   degreesOfFreedom: number;
 
-  // CAI - Codon Adaptation Index similarity
-  caiA: number;                       // CAI for sequence A (using A's preferences)
-  caiB: number;                       // CAI for sequence B (using B's preferences)
-  caiCorrelation: number;             // Correlation of codon preferences
+  // CAI - Codon Adaptation Index (cross-adaptation)
+  caiA: number;                       // CAI of sequence A using B's codon preference weights
+  caiB: number;                       // CAI of sequence B using A's codon preference weights
+  caiCorrelation: number;             // Cosine similarity of codon preference weights
 
   // Most different codons
   topDifferentCodons: CodonDifference[];

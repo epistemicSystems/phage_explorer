@@ -204,6 +204,7 @@ export const ComparisonOverlay: React.FC<ComparisonOverlayProps> = ({ repository
     if (!comparisonResult) {
       return <div className="text-dim">Select two phages and run comparison.</div>;
     }
+    const formatPct = (value: number, digits = 2) => `${value.toFixed(digits)}%`;
     const summary = comparisonResult.summary;
     if (comparisonTab === 'summary') {
       return (
@@ -232,10 +233,227 @@ export const ComparisonOverlay: React.FC<ComparisonOverlayProps> = ({ repository
             </div>
           </div>
           <ul className="insights">
-            {summary.insights.map((insight) => (
-              <li key={insight.text}>{insight.text}</li>
+            {summary.insights.map((insight, idx) => (
+              <li key={`${insight.category}-${idx}`}>
+                <strong>{insight.category}:</strong> {insight.message}{' '}
+                <span className="text-dim">({insight.significance})</span>
+              </li>
             ))}
           </ul>
+        </div>
+      );
+    }
+    if (comparisonTab === 'kmer') {
+      return (
+        <div className="panel">
+          <div className="panel-header">
+            <h3>K-mer comparison</h3>
+            <span className="text-dim">Sizes: {comparisonResult.kmerAnalysis.map(k => k.k).join(', ')}</span>
+          </div>
+          <div className="table">
+            <div className="table-row table-head">
+              <div>k</div>
+              <div>Jaccard</div>
+              <div>Contain A∈B</div>
+              <div>Contain B∈A</div>
+              <div>Cosine</div>
+              <div>Shared</div>
+              <div>Unique A/B</div>
+            </div>
+            {comparisonResult.kmerAnalysis.map((row) => (
+              <div className="table-row" key={row.k}>
+                <div>{row.k}</div>
+                <div>{formatPct(row.jaccardIndex * 100)}</div>
+                <div>{formatPct(row.containmentAinB * 100)}</div>
+                <div>{formatPct(row.containmentBinA * 100)}</div>
+                <div>{formatPct(row.cosineSimilarity * 100)}</div>
+                <div>{row.sharedKmers.toLocaleString()}</div>
+                <div>
+                  {row.uniqueKmersA.toLocaleString()} / {row.uniqueKmersB.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (comparisonTab === 'information') {
+      const info = comparisonResult.informationTheory;
+      return (
+        <div className="panel">
+          <div className="panel-header">
+            <h3>Information theory</h3>
+            <span className="text-dim">Mutual information & divergence</span>
+          </div>
+          <div className="metrics-grid">
+            <div className="metric-card">
+              <div className="metric-label">Normalized MI</div>
+              <div className="metric-value">{formatPct(info.normalizedMI * 100)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Mutual information</div>
+              <div className="metric-value">{info.mutualInformation.toFixed(3)} bits</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">JSD</div>
+              <div className="metric-value">{info.jensenShannonDivergence.toFixed(3)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">KL A→B / B→A</div>
+              <div className="metric-value">
+                {info.kullbackLeiblerAtoB.toFixed(3)} / {info.kullbackLeiblerBtoA.toFixed(3)}
+              </div>
+            </div>
+          </div>
+          <p className="text-dim">
+            Entropy A/B: {info.entropyA.toFixed(3)} / {info.entropyB.toFixed(3)} · Joint: {info.jointEntropy.toFixed(3)}
+          </p>
+        </div>
+      );
+    }
+    if (comparisonTab === 'correlation') {
+      const corr = comparisonResult.rankCorrelation;
+      return (
+        <div className="panel">
+          <div className="panel-header">
+            <h3>Rank correlation</h3>
+            <span className="text-dim">Codon frequency concordance</span>
+          </div>
+          <div className="metrics-grid">
+            <div className="metric-card">
+              <div className="metric-label">Spearman ρ</div>
+              <div className="metric-value">{corr.spearmanRho.toFixed(3)}</div>
+              <div className="text-dim">Strength: {corr.spearmanStrength}</div>
+              <div className="text-dim">p={corr.spearmanPValue.toExponential(2)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Kendall τ</div>
+              <div className="metric-value">{corr.kendallTau.toFixed(3)}</div>
+              <div className="text-dim">Strength: {corr.kendallStrength}</div>
+              <div className="text-dim">p={corr.kendallPValue.toExponential(2)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Hoeffding D</div>
+              <div className="metric-value">{corr.hoeffdingD.toFixed(4)}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (comparisonTab === 'biological') {
+      const bio = comparisonResult.biological;
+      const codon = comparisonResult.codonUsage;
+      const aa = comparisonResult.aminoAcidUsage;
+      return (
+        <div className="panel">
+          <div className="panel-header">
+            <h3>Biological metrics</h3>
+            <span className="text-dim">ANI, GC, lengths, codon & amino acid usage</span>
+          </div>
+          <div className="metrics-grid">
+            <div className="metric-card">
+              <div className="metric-label">ANI</div>
+              <div className="metric-value">{formatPct(bio.aniScore)}</div>
+              <div className="text-dim">Method: {bio.aniMethod}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">GC content</div>
+              <div className="metric-value">
+                {bio.gcContentA.toFixed(2)}% / {bio.gcContentB.toFixed(2)}%
+              </div>
+              <div className="text-dim">Δ {bio.gcDifference.toFixed(2)}%</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Genome length</div>
+              <div className="metric-value">
+                {bio.lengthA.toLocaleString()} / {bio.lengthB.toLocaleString()}
+              </div>
+              <div className="text-dim">Ratio {bio.lengthRatio.toFixed(2)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Codon usage</div>
+              <div className="metric-value">{formatPct(codon.rscuCosineSimilarity * 100)}</div>
+              <div className="text-dim">CAI A/B: {codon.caiA.toFixed(3)} / {codon.caiB.toFixed(3)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">AA similarity</div>
+              <div className="metric-value">{formatPct(aa.cosineSimilarity * 100)}</div>
+              <div className="text-dim">Hydrophobic: {formatPct(aa.hydrophobicSimilarity * 100)}</div>
+            </div>
+          </div>
+          <div className="panel">
+            <div className="panel-header">
+              <h4>Top codon differences</h4>
+              <span className="text-dim">Largest RSCU deltas</span>
+            </div>
+            <div className="table">
+              <div className="table-row table-head">
+                <div>Codon</div>
+                <div>AA</div>
+                <div>RSCU Δ</div>
+                <div>Freq A/B</div>
+              </div>
+              {codon.topDifferentCodons.slice(0, 6).map((c) => (
+                <div className="table-row" key={c.codon}>
+                  <div>{c.codon}</div>
+                  <div>{c.aminoAcid}</div>
+                  <div>{c.difference.toFixed(3)}</div>
+                  <div>
+                    {c.frequencyA.toFixed(3)} / {c.frequencyB.toFixed(3)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (comparisonTab === 'genes') {
+      const genes = comparisonResult.geneContent;
+      return (
+        <div className="panel">
+          <div className="panel-header">
+            <h3>Gene content</h3>
+            <span className="text-dim">Shared vs unique gene counts</span>
+          </div>
+          <div className="metrics-grid">
+            <div className="metric-card">
+              <div className="metric-label">Total genes</div>
+              <div className="metric-value">
+                {genes.genesA} / {genes.genesB}
+              </div>
+              <div className="text-dim">Density: {genes.geneDensityA.toFixed(2)} / {genes.geneDensityB.toFixed(2)} per kb</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Shared names</div>
+              <div className="metric-value">{genes.sharedGeneNames}</div>
+              <div className="text-dim">Jaccard: {formatPct(genes.geneNameJaccard * 100)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Unique A / B</div>
+              <div className="metric-value">
+                {genes.uniqueToA} / {genes.uniqueToB}
+              </div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Avg length</div>
+              <div className="metric-value">
+                {genes.avgGeneLengthA.toFixed(0)} / {genes.avgGeneLengthB.toFixed(0)} bp
+              </div>
+            </div>
+          </div>
+          <div className="table" style={{ marginTop: '0.5rem' }}>
+            <div className="table-row table-head">
+              <div>Shared genes (top)</div>
+              <div>Unique to A</div>
+              <div>Unique to B</div>
+            </div>
+            <div className="table-row">
+              <div>{genes.topSharedGenes.slice(0, 6).join(', ') || '—'}</div>
+              <div>{genes.uniqueAGenes.slice(0, 6).join(', ') || '—'}</div>
+              <div>{genes.uniqueBGenes.slice(0, 6).join(', ') || '—'}</div>
+            </div>
+          </div>
         </div>
       );
     }
