@@ -18,9 +18,9 @@ dist/
 packages/wasm-compute/target/
 packages/tui/
 
-# Database files
-*.db
-phage.db
+# Database files (exclude root, but keep packages/web/public/phage.db for deployment)
+/phage.db
+!packages/web/public/phage.db
 
 # Documentation (not needed for deploy)
 *.md
