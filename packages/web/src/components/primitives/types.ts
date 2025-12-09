@@ -86,3 +86,28 @@ export interface GelLane {
   bands: GelBand[];
 }
 
+// GenomeTrack interaction types
+export interface GenomeTrackSegment {
+  start: number;
+  end: number;
+  label?: string;
+  color?: string;
+  height?: number;
+  data?: unknown;
+}
+
+export interface GenomeTrackInteraction {
+  position: number;
+  segment: GenomeTrackSegment | null;
+  clientX: number;
+  clientY: number;
+}
+
+// ArcDiagram interaction types
+export interface ArcInteraction {
+  link: ArcLink;
+  index: number;
+  clientX: number;
+  clientY: number;
+}
+

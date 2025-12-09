@@ -21,6 +21,7 @@ import { HilbertOverlay } from './HilbertOverlay';
 import { VirionStabilityOverlay } from './VirionStabilityOverlay';
 import { PhasePortraitOverlay } from './PhasePortraitOverlay';
 import { BiasDecompositionOverlay } from './BiasDecompositionOverlay';
+import { HGTOverlay } from './HGTOverlay';
 import { CommandPalette } from './CommandPalette';
 
 interface OverlayManagerProps {
@@ -44,6 +45,7 @@ export function OverlayManager({ repository, currentPhage }: OverlayManagerProps
       <HilbertOverlay repository={repository} currentPhage={currentPhage} />
       <PhasePortraitOverlay repository={repository} currentPhage={currentPhage} />
       <BiasDecompositionOverlay repository={repository} currentPhage={currentPhage} />
+      <HGTOverlay repository={repository} currentPhage={currentPhage} />
       <CommandPalette />
     </>
   );
