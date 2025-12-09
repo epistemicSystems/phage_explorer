@@ -20,6 +20,88 @@ const AMINO_ACIDS = [
 ] as const;
 type AminoAcid = (typeof AMINO_ACIDS)[number];
 
+// Micro bitmap font definitions (packed bits per row, left-to-right)
+// 4x6 for nucleotides (very small cells)
+const MICRO_FONT_4x6: Record<Nucleotide, number[]> = {
+  A: [0b0110, 0b1001, 0b1111, 0b1001, 0b1001, 0b0000],
+  C: [0b0111, 0b1000, 0b1000, 0b1000, 0b0111, 0b0000],
+  G: [0b0111, 0b1000, 0b1011, 0b1001, 0b0111, 0b0000],
+  T: [0b1111, 0b0100, 0b0100, 0b0100, 0b0100, 0b0000],
+  N: [0b1001, 0b1101, 0b1011, 0b1001, 0b1001, 0b0000],
+};
+
+// 5x7 pixel font for amino acids and misc symbols
+const MICRO_FONT_5x7: Record<AminoAcid | Nucleotide | '*', number[]> = {
+  A: [0b01110, 0b10001, 0b11111, 0b10001, 0b10001, 0b00000, 0b00000],
+  B: [0b11110, 0b10001, 0b11110, 0b10001, 0b11110, 0b00000, 0b00000], // use for N as needed
+  C: [0b01110, 0b10001, 0b10000, 0b10001, 0b01110, 0b00000, 0b00000],
+  D: [0b11100, 0b10010, 0b10001, 0b10010, 0b11100, 0b00000, 0b00000],
+  E: [0b11111, 0b10000, 0b11110, 0b10000, 0b11111, 0b00000, 0b00000],
+  F: [0b11111, 0b10000, 0b11110, 0b10000, 0b10000, 0b00000, 0b00000],
+  G: [0b01110, 0b10000, 0b10111, 0b10001, 0b01110, 0b00000, 0b00000],
+  H: [0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b00000, 0b00000],
+  I: [0b11111, 0b00100, 0b00100, 0b00100, 0b11111, 0b00000, 0b00000],
+  K: [0b10001, 0b10010, 0b11100, 0b10010, 0b10001, 0b00000, 0b00000],
+  L: [0b10000, 0b10000, 0b10000, 0b10000, 0b11111, 0b00000, 0b00000],
+  M: [0b10001, 0b11011, 0b10101, 0b10001, 0b10001, 0b00000, 0b00000],
+  N: [0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b00000, 0b00000],
+  P: [0b11110, 0b10001, 0b11110, 0b10000, 0b10000, 0b00000, 0b00000],
+  Q: [0b01110, 0b10001, 0b10001, 0b10101, 0b01110, 0b00100, 0b00000],
+  R: [0b11110, 0b10001, 0b11110, 0b10010, 0b10001, 0b00000, 0b00000],
+  S: [0b01111, 0b10000, 0b01110, 0b00001, 0b11110, 0b00000, 0b00000],
+  T: [0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00000, 0b00000],
+  V: [0b10001, 0b10001, 0b10001, 0b01010, 0b00100, 0b00000, 0b00000],
+  W: [0b10001, 0b10001, 0b10101, 0b11011, 0b10001, 0b00000, 0b00000],
+  Y: [0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00000, 0b00000],
+  X: [0b10001, 0b01010, 0b00100, 0b01010, 0b10001, 0b00000, 0b00000],
+  '*': [0b00100, 0b10101, 0b01110, 0b10101, 0b00100, 0b00000, 0b00000],
+  // Provide nucleotide variants for reuse in 5x7 sizes
+  G5: [0b01110, 0b10000, 0b10111, 0b10001, 0b01110, 0b00000, 0b00000],
+  C5: [0b01110, 0b10001, 0b10000, 0b10001, 0b01110, 0b00000, 0b00000],
+  T5: [0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00000, 0b00000],
+  A5: [0b01110, 0b10001, 0b11111, 0b10001, 0b10001, 0b00000, 0b00000],
+  N5: [0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b00000, 0b00000],
+};
+
+// Micro-font bitmaps for tiny cells (pixel-perfect)
+// Nucleotides use 4x6 glyphs; amino acids use 5x7 glyphs.
+const MICRO_NUCLEOTIDE_FONT: Record<Nucleotide, number[]> = {
+  A: [0b0110, 0b1001, 0b1111, 0b1001, 0b1001, 0b0000],
+  C: [0b0111, 0b1000, 0b1000, 0b1000, 0b0111, 0b0000],
+  G: [0b0111, 0b1000, 0b1011, 0b1001, 0b0111, 0b0000],
+  T: [0b1111, 0b0100, 0b0100, 0b0100, 0b0100, 0b0000],
+  N: [0b1001, 0b1101, 0b1011, 0b1001, 0b1001, 0b0000],
+};
+
+const MICRO_AMINO_FONT: Record<AminoAcid, number[]> = {
+  A: [0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001],
+  C: [0b01110, 0b10001, 0b10000, 0b10000, 0b10000, 0b10001, 0b01110],
+  D: [0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110],
+  E: [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111],
+  F: [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000],
+  G: [0b01110, 0b10001, 0b10000, 0b10111, 0b10001, 0b10001, 0b01110],
+  H: [0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001, 0b10001],
+  I: [0b01110, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110],
+  K: [0b10001, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010, 0b10001],
+  L: [0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111],
+  M: [0b10001, 0b11011, 0b10101, 0b10101, 0b10001, 0b10001, 0b10001],
+  N: [0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001],
+  P: [0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000],
+  Q: [0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b10010, 0b01101],
+  R: [0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001],
+  S: [0b01110, 0b10001, 0b01000, 0b00100, 0b00010, 0b10001, 0b01110],
+  T: [0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100],
+  V: [0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100],
+  W: [0b10001, 0b10001, 0b10001, 0b10101, 0b10101, 0b10101, 0b01010],
+  Y: [0b10001, 0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100],
+  X: [0b10001, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001, 0b10001],
+  '*': [0b00100, 0b10101, 0b01110, 0b00100, 0b01110, 0b10101, 0b00100],
+};
+
+const MICRO_NUCLEOTIDE_SIZE = { width: 4, height: 6 };
+const MICRO_AMINO_SIZE = { width: 5, height: 7 };
+const MICRO_TEXT_MAX_CELL = 8;
+
 export interface GlyphMetrics {
   width: number;
   height: number;
@@ -52,8 +134,49 @@ const DEFAULT_OPTIONS: GlyphAtlasOptions = {
   devicePixelRatio: 1,
 };
 
+const MICRO_TEXT_MAX_CELL = 8;
+
+type MicroGlyph = {
+  width: number;
+  height: number;
+  rows: number[];
+};
+
+const MICRO_FONT_4x6: Record<Nucleotide, MicroGlyph> = {
+  A: { width: 4, height: 6, rows: [0b0110, 0b1001, 0b1111, 0b1001, 0b1001, 0b0000] },
+  C: { width: 4, height: 6, rows: [0b0110, 0b1001, 0b1000, 0b1001, 0b0110, 0b0000] },
+  G: { width: 4, height: 6, rows: [0b0111, 0b1000, 0b1011, 0b1001, 0b0111, 0b0000] },
+  T: { width: 4, height: 6, rows: [0b1111, 0b0100, 0b0100, 0b0100, 0b0100, 0b0000] },
+  N: { width: 4, height: 6, rows: [0b1001, 0b1101, 0b1011, 0b1001, 0b1001, 0b0000] },
+};
+
+const MICRO_FONT_5x7: Record<AminoAcid, MicroGlyph> = {
+  A: { width: 5, height: 7, rows: [0b01110, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001, 0b00000] },
+  C: { width: 5, height: 7, rows: [0b01110, 0b10001, 0b10000, 0b10000, 0b10001, 0b01110, 0b00000] },
+  D: { width: 5, height: 7, rows: [0b11100, 0b10010, 0b10001, 0b10001, 0b10010, 0b11100, 0b00000] },
+  E: { width: 5, height: 7, rows: [0b11111, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111, 0b00000] },
+  F: { width: 5, height: 7, rows: [0b11111, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000, 0b00000] },
+  G: { width: 5, height: 7, rows: [0b01110, 0b10001, 0b10000, 0b10111, 0b10001, 0b01110, 0b00000] },
+  H: { width: 5, height: 7, rows: [0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001, 0b00000] },
+  I: { width: 5, height: 7, rows: [0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b11111, 0b00000] },
+  K: { width: 5, height: 7, rows: [0b10001, 0b10010, 0b11100, 0b10100, 0b10010, 0b10001, 0b00000] },
+  L: { width: 5, height: 7, rows: [0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111, 0b00000] },
+  M: { width: 5, height: 7, rows: [0b10001, 0b11011, 0b10101, 0b10001, 0b10001, 0b10001, 0b00000] },
+  N: { width: 5, height: 7, rows: [0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b00000] },
+  P: { width: 5, height: 7, rows: [0b11110, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000, 0b00000] },
+  Q: { width: 5, height: 7, rows: [0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b01110, 0b00001] },
+  R: { width: 5, height: 7, rows: [0b11110, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001, 0b00000] },
+  S: { width: 5, height: 7, rows: [0b01111, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110, 0b00000] },
+  T: { width: 5, height: 7, rows: [0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00000] },
+  V: { width: 5, height: 7, rows: [0b10001, 0b10001, 0b10001, 0b01010, 0b01010, 0b00100, 0b00000] },
+  W: { width: 5, height: 7, rows: [0b10001, 0b10001, 0b10001, 0b10101, 0b11011, 0b10001, 0b00000] },
+  Y: { width: 5, height: 7, rows: [0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100, 0b00000] },
+  X: { width: 5, height: 7, rows: [0b10001, 0b01010, 0b00100, 0b01010, 0b10001, 0b10001, 0b00000] },
+  '*': { width: 5, height: 7, rows: [0b00100, 0b10101, 0b01110, 0b11111, 0b01110, 0b10101, 0b00100] },
+};
+
 // Calculate optimal font size for given cell dimensions
-// For tiny cells, we skip text entirely and just show colored blocks
+// For tiny cells, we skip normal text and rely on micro-glyphs
 function calculateOptimalFontSize(cellWidth: number, cellHeight: number): number {
   // For pixel-level cells (<=5px), don't bother with text
   if (cellWidth <= 5 || cellHeight <= 5) {
@@ -74,6 +197,7 @@ export class GlyphAtlas {
   private aminoAcidGlyphs: Map<AminoAcid, GlyphInfo> = new Map();
   private metrics: GlyphMetrics;
   private dpr: number;
+  private useMicroGlyphs: boolean;
 
   // Atlas layout constants
   private readonly COLS = 8; // Characters per row
@@ -84,11 +208,13 @@ export class GlyphAtlas {
     // Auto-calculate font size if not explicitly provided
     const cellWidth = options.cellWidth ?? DEFAULT_OPTIONS.cellWidth;
     const cellHeight = options.cellHeight ?? DEFAULT_OPTIONS.cellHeight;
-    const fontSize = options.fontSize ?? calculateOptimalFontSize(cellWidth, cellHeight);
+    const microMode = cellWidth <= MICRO_TEXT_MAX_CELL || cellHeight <= MICRO_TEXT_MAX_CELL;
+    const fontSize = microMode ? 0 : options.fontSize ?? calculateOptimalFontSize(cellWidth, cellHeight);
 
     this.options = { ...DEFAULT_OPTIONS, ...options, fontSize };
     this.theme = theme;
     this.dpr = options.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1);
+    this.useMicroGlyphs = microMode;
 
     // Calculate atlas size
     const totalChars = NUCLEOTIDES.length + AMINO_ACIDS.length;
@@ -142,7 +268,7 @@ export class GlyphAtlas {
     // Render nucleotides
     for (const char of NUCLEOTIDES) {
       const colors = this.theme.nucleotides[char];
-      this.renderGlyph(char, colors, index);
+      this.renderGlyph(char, colors, index, 'nucleotide');
       this.nucleotideGlyphs.set(char, this.getGlyphInfo(char, colors, index));
       index++;
     }
@@ -150,7 +276,7 @@ export class GlyphAtlas {
     // Render amino acids
     for (const char of AMINO_ACIDS) {
       const colors = this.theme.aminoAcids[char as keyof typeof this.theme.aminoAcids];
-      this.renderGlyph(char, colors, index);
+      this.renderGlyph(char, colors, index, 'amino');
       this.aminoAcidGlyphs.set(char, this.getGlyphInfo(char, colors, index));
       index++;
     }
@@ -159,7 +285,7 @@ export class GlyphAtlas {
   /**
    * Render a single glyph at the given index position
    */
-  private renderGlyph(char: string, colors: ColorPair, index: number): void {
+  private renderGlyph(char: string, colors: ColorPair, index: number, type: 'nucleotide' | 'amino'): void {
     const col = index % this.COLS;
     const row = Math.floor(index / this.COLS);
     const x = col * this.options.cellWidth * this.dpr;
@@ -170,6 +296,11 @@ export class GlyphAtlas {
     // Draw background (always - this is the primary visual for tiny cells)
     this.ctx.fillStyle = colors.bg;
     this.ctx.fillRect(x, y, width, height);
+
+    if (this.useMicroGlyphs) {
+      this.renderMicroGlyph(char, colors, x, y, width, height, type);
+      return;
+    }
 
     // Only draw character if fontSize > 0 (skip for pixel-level cells)
     if (this.options.fontSize > 0) {
@@ -196,6 +327,55 @@ export class GlyphAtlas {
       height: this.options.cellHeight * this.dpr,
       colors,
     };
+  }
+
+  /**
+   * Render bitmap glyph for micro text mode
+   */
+  private renderMicroGlyph(
+    char: string,
+    colors: ColorPair,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    type: 'nucleotide' | 'amino'
+  ): void {
+    const glyph =
+      (type === 'nucleotide'
+        ? MICRO_FONT_4x6[char as Nucleotide]
+        : MICRO_FONT_5x7[char as AminoAcid]) ??
+      (type === 'nucleotide' ? MICRO_FONT_4x6.N : MICRO_FONT_5x7.X);
+
+    if (!glyph) return;
+
+    const scaleX = Math.max(1, Math.floor(width / glyph.width));
+    const scaleY = Math.max(1, Math.floor(height / glyph.height));
+    const offsetX = x + Math.floor((width - glyph.width * scaleX) / 2);
+    const offsetY = y + Math.floor((height - glyph.height * scaleY) / 2);
+
+    const ctx = this.ctx;
+    const smoothingFlag = (ctx as CanvasRenderingContext2D).imageSmoothingEnabled;
+    if ('imageSmoothingEnabled' in ctx) {
+      (ctx as CanvasRenderingContext2D).imageSmoothingEnabled = false;
+    }
+
+    ctx.fillStyle = colors.fg;
+
+    for (let rowIdx = 0; rowIdx < glyph.height; rowIdx++) {
+      const rowBits = glyph.rows[rowIdx] ?? 0;
+      for (let bit = 0; bit < glyph.width; bit++) {
+        if (rowBits & (1 << (glyph.width - 1 - bit))) {
+          const px = offsetX + bit * scaleX;
+          const py = offsetY + rowIdx * scaleY;
+          ctx.fillRect(px, py, scaleX, scaleY);
+        }
+      }
+    }
+
+    if ('imageSmoothingEnabled' in ctx) {
+      (ctx as CanvasRenderingContext2D).imageSmoothingEnabled = smoothingFlag;
+    }
   }
 
   /**

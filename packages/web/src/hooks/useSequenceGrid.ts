@@ -9,7 +9,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import type React from 'react';
 import type { Theme, ViewMode, ReadingFrame } from '@phage-explorer/core';
 import { translateSequence, reverseComplement } from '@phage-explorer/core';
-import { CanvasSequenceGridRenderer, type VisibleRange } from '../rendering';
+import { CanvasSequenceGridRenderer, type VisibleRange, type ZoomLevel, type ZoomPreset } from '../rendering';
 
 /** Post-processing pipeline type (placeholder for future WebGL effects) */
 type PostProcessPipeline = unknown;
@@ -27,7 +27,13 @@ export interface UseSequenceGridOptions {
   glow?: boolean;
   postProcess?: PostProcessPipeline;
   reducedMotion?: boolean;
+  /** Initial zoom scale (0.1 to 4.0, default 1.0) */
+  initialZoomScale?: number;
+  /** Enable pinch-to-zoom on touch devices */
+  enablePinchZoom?: boolean;
   onVisibleRangeChange?: (range: VisibleRange) => void;
+  /** Callback when zoom changes */
+  onZoomChange?: (scale: number, preset: ZoomPreset) => void;
 }
 
 export interface UseSequenceGridResult {
@@ -49,6 +55,18 @@ export interface UseSequenceGridResult {
   getIndexAtPoint: (x: number, y: number) => number | null;
   /** Force re-render */
   refresh: () => void;
+  /** Current zoom scale (0.1 to 4.0) */
+  zoomScale: number;
+  /** Current zoom preset info */
+  zoomPreset: ZoomPreset | null;
+  /** Set zoom scale directly */
+  setZoomScale: (scale: number) => void;
+  /** Zoom in by factor */
+  zoomIn: (factor?: number) => void;
+  /** Zoom out by factor */
+  zoomOut: (factor?: number) => void;
+  /** Set zoom to a preset level */
+  setZoomLevel: (level: ZoomLevel) => void;
 }
 
 export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGridResult {
@@ -65,20 +83,34 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     glow = false,
     postProcess,
     reducedMotion = false,
+    initialZoomScale = 1.0,
+    enablePinchZoom = true,
     onVisibleRangeChange,
+    onZoomChange,
   } = options;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<CanvasSequenceGridRenderer | null>(null);
   const [visibleRange, setVisibleRange] = useState<VisibleRange | null>(null);
   const [scrollPosition, setScrollPosition] = useState(0);
+  const [zoomScale, setZoomScaleState] = useState(initialZoomScale);
+  const [zoomPreset, setZoomPreset] = useState<ZoomPreset | null>(null);
+
+  // Handle zoom change callback from renderer
+  const handleZoomChange = useCallback((scale: number, preset: ZoomPreset) => {
+    setZoomScaleState(scale);
+    setZoomPreset(preset);
+    if (onZoomChange) {
+      onZoomChange(scale, preset);
+    }
+  }, [onZoomChange]);
 
   // Initialize renderer when canvas is available
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Create renderer
+    // Create renderer with zoom options
     const renderer = new CanvasSequenceGridRenderer({
       canvas,
       theme,
@@ -86,9 +118,15 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
       glow,
       postProcess,
       reducedMotion,
+      zoomScale: initialZoomScale,
+      enablePinchZoom,
+      onZoomChange: handleZoomChange,
     });
 
     rendererRef.current = renderer;
+
+    // Initialize zoom preset state
+    setZoomPreset(renderer.getZoomPreset());
 
     // Handle resize
     const handleResize = () => {
@@ -135,7 +173,7 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
       renderer.dispose();
       rendererRef.current = null;
     };
-  }, [scanlines, glow, postProcess, reducedMotion]); // Recreate when visual pipeline changes
+  }, [scanlines, glow, postProcess, reducedMotion, initialZoomScale, enablePinchZoom, handleZoomChange]); // Recreate when visual pipeline changes
 
   // Update theme
   useEffect(() => {
@@ -246,6 +284,23 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     [diffPositions, scrollToPosition]
   );
 
+  // Zoom methods
+  const setZoomScale = useCallback((scale: number) => {
+    rendererRef.current?.setZoomScale(scale);
+  }, []);
+
+  const zoomIn = useCallback((factor = 1.3) => {
+    rendererRef.current?.zoomIn(factor);
+  }, []);
+
+  const zoomOut = useCallback((factor = 1.3) => {
+    rendererRef.current?.zoomOut(factor);
+  }, []);
+
+  const setZoomLevel = useCallback((level: ZoomLevel) => {
+    rendererRef.current?.setZoomLevel(level);
+  }, []);
+
   return {
     canvasRef,
     visibleRange,
@@ -256,6 +311,12 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     jumpToDiff,
     getIndexAtPoint,
     refresh,
+    zoomScale,
+    zoomPreset,
+    setZoomScale,
+    zoomIn,
+    zoomOut,
+    setZoomLevel,
   };
 }
 
