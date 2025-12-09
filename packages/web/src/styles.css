@@ -77,23 +77,80 @@
   border: 1px solid var(--color-border-subtle);
 }
 
+/* Tablet header adjustments */
+@media (max-width: 1024px) {
+  .header-right .btn {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-xs);
+    min-height: 28px;
+  }
+}
+
 /* Mobile header adjustments */
 @media (max-width: 640px) {
   .app-header {
     padding: 0 var(--space-3);
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    min-height: auto;
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
   }
 
-  .header-left,
-  .header-right {
+  .header-left {
+    flex: 1 1 auto;
+    min-width: 0; /* Allow shrinking */
     gap: var(--space-2);
   }
 
+  .header-right {
+    flex: 0 0 auto;
+    gap: var(--space-1);
+  }
+
   .app-title {
-    font-size: var(--text-base);
+    font-size: var(--text-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
   }
 
   .app-subtitle {
     display: none;
+  }
+
+  /* Smaller badges on mobile */
+  .header-left .badge {
+    padding: 2px 6px;
+    font-size: 9px;
+  }
+
+  /* Compact buttons on mobile */
+  .header-right .btn {
+    padding: var(--space-1) var(--space-2);
+    font-size: 10px;
+    min-height: 24px;
+  }
+}
+
+/* Very small mobile */
+@media (max-width: 380px) {
+  .app-title {
+    max-width: 120px;
+    font-size: var(--text-xs);
+  }
+
+  .header-right .btn {
+    padding: 2px 6px;
+    font-size: 9px;
+  }
+
+  /* Hide theme/contrast text, keep functional */
+  .header-right .btn {
+    overflow: hidden;
+    max-width: 60px;
+    text-overflow: ellipsis;
   }
 }
 

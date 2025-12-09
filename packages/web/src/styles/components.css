@@ -24,15 +24,31 @@
    ============================================================================= */
 
 .two-column {
-  display: grid;
-  grid-template-columns: minmax(280px, 340px) 1fr;
+  display: grid !important; /* Override .panel flex display */
+  grid-template-columns: minmax(280px, 380px) 1fr;
   gap: var(--space-6);
   min-height: 0; /* Allow shrinking in flex containers */
-  height: 100%;
+  flex: 1; /* Fill available space when in flex container */
 }
 
-/* Tablet: stack columns */
-@media (max-width: 1024px) {
+/* Large desktop: wider sidebar, three-column potential */
+@media (min-width: 1536px) {
+  .two-column {
+    grid-template-columns: minmax(320px, 420px) 1fr;
+    gap: var(--space-8);
+  }
+}
+
+/* Tablet landscape: two-column with adjusted proportions */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .two-column {
+    grid-template-columns: minmax(260px, 320px) 1fr;
+    gap: var(--space-5);
+  }
+}
+
+/* Tablet portrait and below: stack columns */
+@media (max-width: 768px) {
   .two-column {
     grid-template-columns: 1fr;
     gap: var(--space-4);
@@ -65,9 +81,26 @@
   gap: var(--space-2);
   overflow-y: auto;
   overscroll-behavior: contain;
-  max-height: 400px;
+  max-height: 60vh; /* Use viewport-relative height for better scaling */
+  min-height: 200px;
   padding: var(--space-1);
   margin: calc(-1 * var(--space-1)); /* Compensate for focus ring overflow */
+  flex: 1; /* Fill available space in column */
+}
+
+/* Desktop: allow list to be taller */
+@media (min-width: 1024px) {
+  .list {
+    max-height: 70vh;
+  }
+}
+
+/* Mobile: constrained height */
+@media (max-width: 768px) {
+  .list {
+    max-height: 300px;
+    min-height: 150px;
+  }
 }
 
 /* Scrollbar styling */
@@ -333,7 +366,33 @@
   word-break: break-all;
   color: var(--color-text-dim);
   max-height: 400px;
+  min-height: 200px;
   overscroll-behavior: contain;
+}
+
+/* Larger sequence block on desktop */
+@media (min-width: 1024px) {
+  .sequence-block {
+    max-height: 500px;
+    min-height: 300px;
+  }
+}
+
+/* Wider screens: even more space */
+@media (min-width: 1536px) {
+  .sequence-block {
+    max-height: 600px;
+  }
+}
+
+/* Mobile: constrained */
+@media (max-width: 640px) {
+  .sequence-block {
+    max-height: 250px;
+    min-height: 150px;
+    padding: var(--space-3);
+    font-size: var(--text-xs);
+  }
 }
 
 /* Scrollbar for sequence block */
@@ -605,21 +664,8 @@
 
 /* =============================================================================
    TABLET ADJUSTMENTS
+   Note: two-column grid adjustments are in the TWO-COLUMN LAYOUT section above
    ============================================================================= */
-
-@media (min-width: 641px) and (max-width: 1024px) {
-  .two-column {
-    grid-template-columns: 1fr;
-  }
-
-  .column:first-child {
-    max-height: 300px;
-  }
-
-  .list {
-    max-height: 250px;
-  }
-}
 
 /* =============================================================================
    TOUCH DEVICE OPTIMIZATIONS

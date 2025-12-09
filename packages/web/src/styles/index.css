@@ -318,12 +318,35 @@ body {
   position: relative;
   width: 100%;
   min-height: 280px;
+  height: 350px; /* Default height */
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: radial-gradient(circle at 30% 20%, rgba(56, 189, 248, 0.08), transparent 35%),
     radial-gradient(circle at 70% 60%, rgba(168, 85, 247, 0.08), transparent 40%),
     var(--color-background);
   overflow: hidden;
+}
+
+/* Larger 3D viewer on desktop */
+@media (min-width: 1024px) {
+  .three-container {
+    height: 450px;
+  }
+}
+
+/* Even larger on wide screens */
+@media (min-width: 1536px) {
+  .three-container {
+    height: 550px;
+  }
+}
+
+/* Smaller on mobile */
+@media (max-width: 640px) {
+  .three-container {
+    height: 250px;
+    min-height: 200px;
+  }
 }
 
 .three-container canvas {
