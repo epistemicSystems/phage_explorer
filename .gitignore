@@ -22,8 +22,9 @@ scratch*.ts
 temp*.ts
 debug*.ts
 
-# Generated database
-phage.db
+# Generated database (root level only, web public db is tracked for deployment)
+/phage.db
+!packages/web/public/phage.db
 
 # Logs and coverage
 npm-debug.log*
