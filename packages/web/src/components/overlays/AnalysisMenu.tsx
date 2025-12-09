@@ -182,6 +182,28 @@ const ANALYSIS_ITEMS: AnalysisItem[] = [
     requiresLevel: 'power',
   },
 
+  // Comparative Analysis
+  {
+    id: 'synteny',
+    overlayId: 'synteny',
+    label: 'Synteny Analysis',
+    description: 'Gene order conservation between phage genomes',
+    icon: '🧩',
+    shortcut: 'Alt+S',
+    category: 'Comparative',
+    requiresLevel: 'power',
+  },
+  {
+    id: 'dot-plot',
+    overlayId: 'dotPlot',
+    label: 'Dot Plot',
+    description: 'Self-similarity matrix for repeats and palindromes',
+    icon: '⬛',
+    shortcut: 'Alt+D',
+    category: 'Comparative',
+    requiresLevel: 'intermediate',
+  },
+
   // Reference
   {
     id: 'aa-key',

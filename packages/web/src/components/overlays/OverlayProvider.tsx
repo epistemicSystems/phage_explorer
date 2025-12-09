@@ -36,6 +36,7 @@ export type OverlayId =
   | 'biasDecomposition'
   | 'crispr'
   | 'synteny'
+  | 'dotPlot'
   | 'tropism'
   | 'cgr'
   | 'stability'

@@ -48,6 +48,8 @@ export { HilbertOverlay } from './HilbertOverlay';
 export { VirionStabilityOverlay } from './VirionStabilityOverlay';
 export { AnomalyOverlay } from './AnomalyOverlay';
 export { CRISPROverlay } from './CRISPROverlay';
+export { SyntenyOverlay } from './SyntenyOverlay';
+export { DotPlotOverlay } from './DotPlotOverlay';
 
 // Layer 2 Advanced Overlays
 export { KmerAnomalyOverlay } from './KmerAnomalyOverlay';
