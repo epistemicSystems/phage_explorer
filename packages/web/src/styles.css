@@ -8,6 +8,7 @@
 
 @import './styles/index.css';
 @import './styles/accessibility.css';
+@import './styles/holographic.css';
 
 /* =============================================================================
    APP SHELL - Full viewport layout with refined spacing

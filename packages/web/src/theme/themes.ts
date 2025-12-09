@@ -8,7 +8,93 @@
 import type { Theme, NucleotideTheme, AminoTheme, ThemePalette } from './types';
 
 // ============================================================================
-// CYBERPUNK THEME (Default)
+// HOLOGRAPHIC THEME (Default) - Mind-blowing glassmorphic design
+// ============================================================================
+
+const holographicPalette: ThemePalette = {
+  // Iridescent primary colors that create holographic effect
+  primary: '#00f5ff',           // Electric cyan
+  secondary: '#bf00ff',         // Vivid magenta
+  accent: '#ff006e',            // Hot pink accent
+  background: '#030014',        // Deep space black with purple tint
+  backgroundAlt: '#0a0520',     // Slightly elevated dark purple
+  text: '#f0f0ff',              // Cool white with slight blue
+  textDim: '#8888cc',           // Soft purple-gray
+  textMuted: '#4a4a77',         // Muted purple
+  border: 'rgba(191, 0, 255, 0.3)',     // Translucent magenta border
+  borderFocus: '#00f5ff',       // Electric cyan focus
+  borderLight: 'rgba(0, 245, 255, 0.15)', // Translucent cyan
+  success: '#00ffa3',           // Neon mint
+  warning: '#ffaa00',           // Golden amber
+  error: '#ff0055',             // Neon red-pink
+  info: '#00d4ff',              // Bright cyan
+  diffHighlight: '#ff00aa',     // Hot magenta
+  geneForward: '#00f5ff',       // Electric cyan
+  geneReverse: '#bf00ff',       // Vivid magenta
+  geneHighlight: '#ff006e',     // Hot pink
+  gradientLow: '#0a0025',       // Deep purple-black
+  gradientMid: '#bf00ff',       // Vivid magenta
+  gradientHigh: '#00f5ff',      // Electric cyan
+  kmerNormal: '#5555aa',
+  kmerAnomaly: '#ff0055',
+  shadow: '#000008',
+  highlight: '#ffffff',
+  glow: 'rgba(0, 245, 255, 0.6)',  // Cyan glow
+  badge: 'rgba(191, 0, 255, 0.2)', // Translucent magenta
+  badgeText: '#00f5ff',
+  separator: 'rgba(191, 0, 255, 0.4)',
+  iconPrimary: '#00f5ff',
+  iconSecondary: '#bf00ff',
+  panelHeader: 'rgba(10, 5, 32, 0.8)',  // Glassmorphic header
+  panelBorder: 'rgba(191, 0, 255, 0.25)',
+  panelShadow: '#000010',
+  sparkline: ['#0a0025', '#4a00b4', '#bf00ff', '#00f5ff', '#00ffa3'],
+};
+
+const holographicNucleotides: NucleotideTheme = {
+  A: { fg: '#000000', bg: '#00f5ff' },   // Cyan A
+  C: { fg: '#ffffff', bg: '#bf00ff' },   // Magenta C
+  G: { fg: '#000000', bg: '#00ffa3' },   // Mint G
+  T: { fg: '#ffffff', bg: '#ff006e' },   // Pink T
+  N: { fg: '#ffffff', bg: '#2a2a55' },   // Muted purple N
+};
+
+const holographicAminoAcids: AminoTheme = {
+  A: { fg: '#000000', bg: '#00f5ff' },
+  V: { fg: '#ffffff', bg: '#7b00ff' },
+  L: { fg: '#ffffff', bg: '#7b00ff' },
+  I: { fg: '#ffffff', bg: '#7b00ff' },
+  M: { fg: '#000000', bg: '#ffaa00' },
+  F: { fg: '#ffffff', bg: '#4a0080' },
+  W: { fg: '#ffffff', bg: '#2a0050' },
+  P: { fg: '#000000', bg: '#ff6b00' },
+  S: { fg: '#000000', bg: '#00ffa3' },
+  T: { fg: '#000000', bg: '#00ffa3' },
+  Y: { fg: '#ffffff', bg: '#4a0080' },
+  N: { fg: '#000000', bg: '#88ffff' },
+  Q: { fg: '#000000', bg: '#88ffff' },
+  C: { fg: '#000000', bg: '#ffaa00' },
+  K: { fg: '#ffffff', bg: '#0066ff' },
+  R: { fg: '#ffffff', bg: '#0066ff' },
+  H: { fg: '#ffffff', bg: '#0088ff' },
+  D: { fg: '#ffffff', bg: '#ff0055' },
+  E: { fg: '#ffffff', bg: '#ff0055' },
+  G: { fg: '#000000', bg: '#e0e0ff' },
+  '*': { fg: '#ffffff', bg: '#ff0033' },
+  X: { fg: '#ffffff', bg: '#2a2a55' },
+};
+
+export const HOLOGRAPHIC_THEME: Theme = {
+  id: 'holographic',
+  name: 'Holographic',
+  palette: holographicPalette,
+  colors: holographicPalette,
+  nucleotides: holographicNucleotides,
+  aminoAcids: holographicAminoAcids,
+};
+
+// ============================================================================
+// CYBERPUNK THEME
 // ============================================================================
 
 const cyberpunkPalette: ThemePalette = {
@@ -695,6 +781,7 @@ export const MONOCHROME_THEME: Theme = {
  * All available themes
  */
 export const THEMES: readonly Theme[] = [
+  HOLOGRAPHIC_THEME,  // New default - mind-blowing glassmorphic design
   CYBERPUNK_THEME,
   CLASSIC_THEME,
   OCEAN_THEME,
@@ -706,9 +793,9 @@ export const THEMES: readonly Theme[] = [
 ] as const;
 
 /**
- * Default theme
+ * Default theme - Holographic for maximum visual impact
  */
-export const DEFAULT_THEME = CYBERPUNK_THEME;
+export const DEFAULT_THEME = HOLOGRAPHIC_THEME;
 
 /**
  * Get theme by ID
