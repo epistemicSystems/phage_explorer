@@ -5,9 +5,10 @@
  * Handles canvas ref, resize events, and state updates.
  */
 
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import type React from 'react';
 import type { Theme, ViewMode, ReadingFrame } from '@phage-explorer/core';
+import { translateSequence, reverseComplement } from '@phage-explorer/core';
 import { CanvasSequenceGridRenderer, type VisibleRange } from '../rendering';
 
 /** Post-processing pipeline type (placeholder for future WebGL effects) */
@@ -141,10 +142,29 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     rendererRef.current?.setTheme(theme);
   }, [theme]);
 
+  // Compute the display sequence: DNA as-is, or translated to amino acids
+  const displaySequence = useMemo(() => {
+    if (!sequence) return '';
+    if (viewMode === 'dna') return sequence;
+
+    // AA mode: translate DNA to amino acids
+    // Positive frames (0, 1, 2) use forward strand
+    // Negative frames (-1, -2, -3) use reverse complement
+    if (readingFrame >= 0) {
+      const frame = readingFrame as 0 | 1 | 2;
+      return translateSequence(sequence, frame);
+    } else {
+      // Negative frame: use reverse complement
+      const revComp = reverseComplement(sequence);
+      const frame = (Math.abs(readingFrame) - 1) as 0 | 1 | 2;
+      return translateSequence(revComp, frame);
+    }
+  }, [sequence, viewMode, readingFrame]);
+
   // Update sequence
   useEffect(() => {
-    rendererRef.current?.setSequence(sequence, viewMode, readingFrame);
-  }, [sequence, viewMode, readingFrame]);
+    rendererRef.current?.setSequence(displaySequence, viewMode, readingFrame);
+  }, [displaySequence, viewMode, readingFrame]);
 
   // Update diff mode
   useEffect(() => {
