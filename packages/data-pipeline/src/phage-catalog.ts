@@ -139,6 +139,7 @@ export const PHAGE_CATALOG: PhageCatalogEntry[] = [
     genomeType: 'dsDNA',
     baltimoreGroup: 'I',
     description: 'Mu (mutator) phage is a transposable phage that replicates by transposition, causing mutations when it inserts into the host genome.',
+    pdbIds: ['4FCY', '1WRU', '5YVQ'],
   },
   {
     slug: 'phi6',
@@ -166,6 +167,7 @@ export const PHAGE_CATALOG: PhageCatalogEntry[] = [
     genomeType: 'dsDNA',
     baltimoreGroup: 'I',
     description: 'SPbeta is a temperate phage that infects B. subtilis. It has been important for understanding Gram-positive phage biology.',
+    pdbIds: ['5Y24', '6HP7', '5XYB'],
   },
   {
     slug: 't5',
@@ -179,6 +181,7 @@ export const PHAGE_CATALOG: PhageCatalogEntry[] = [
     genomeType: 'dsDNA',
     baltimoreGroup: 'I',
     description: 'T5 is a lytic phage with a unique two-step DNA injection mechanism. First, only 8% of the genome enters, then the rest follows.',
+    pdbIds: ['8ZVI', '6OMC', '5TJT'],
   },
 ];
 
