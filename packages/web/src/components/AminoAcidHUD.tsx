@@ -12,7 +12,6 @@ import {
   getClassificationLabel,
   getClassificationColor,
   getRnaCodons,
-  type AminoAcidDetailedInfo,
 } from '@phage-explorer/core';
 import { useTheme } from '../hooks/useTheme';
 

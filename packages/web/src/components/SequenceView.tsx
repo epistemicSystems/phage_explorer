@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { usePhageStore } from '@phage-explorer/state';
-import { translateSequence } from '@phage-explorer/core';
+import { translateSequence, reverseComplement } from '@phage-explorer/core';
 import { useTheme } from '../hooks/useTheme';
 import { useSequenceGrid, useReducedMotion, useHotkeys } from '../hooks';
 import { useWebPreferences } from '../store/createWebStore';
@@ -142,15 +142,29 @@ export function SequenceView({
     [canvasRef, getIndexAtPoint, scrollToPosition, setScrollPosition]
   );
 
-  // Get amino acid at a given DNA position
+  // Get amino acid at a given position (index is already in AA coordinates in AA mode)
   const getAminoAcidAtPosition = useCallback(
-    (dnaIndex: number): string | null => {
+    (aaIndex: number): string | null => {
       if (!sequence || viewMode !== 'aa') return null;
+
+      // Handle negative reading frames (reverse complement)
+      let seqToTranslate = sequence;
+      let frame: 0 | 1 | 2;
+
+      if (readingFrame < 0) {
+        // For negative frames: reverse complement and adjust frame
+        seqToTranslate = reverseComplement(sequence);
+        frame = (Math.abs(readingFrame) - 1) as 0 | 1 | 2;
+      } else {
+        frame = readingFrame as 0 | 1 | 2;
+      }
+
       // Translate sequence and get the amino acid at this position
-      const aaSequence = translateSequence(sequence, readingFrame as 0 | 1 | 2);
+      const aaSequence = translateSequence(seqToTranslate, frame);
+
       // In AA mode, the index from getIndexAtPoint is already the AA index
-      if (dnaIndex >= 0 && dnaIndex < aaSequence.length) {
-        return aaSequence[dnaIndex];
+      if (aaIndex >= 0 && aaIndex < aaSequence.length) {
+        return aaSequence[aaIndex];
       }
       return null;
     },
