@@ -7,7 +7,6 @@ import {
   DirectionalLight,
   PerspectiveCamera,
   Scene,
-  Vector3,
   WebGLRenderer,
   Group,
 } from 'three';
@@ -102,6 +101,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
     const scene = sceneRef.current;
     if (!data || !scene) return;
 
+
     if (structureRef.current) {
       scene.remove(structureRef.current);
       disposeGroup(structureRef.current);
@@ -129,6 +129,12 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
     }
 
     if (group) {
+      // Center the group at origin by shifting it opposite to the data center
+      const cx = data.center?.x ?? 0;
+      const cy = data.center?.y ?? 0;
+      const cz = data.center?.z ?? 0;
+      group.position.set(-cx, -cy, -cz);
+
       structureRef.current = group;
       scene.add(group);
     }
@@ -218,16 +224,20 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
     };
   }, [quality]);
 
-  // Animation loop
+  // Animation loop - CRITICAL: always schedule next frame first to keep loop running
   useEffect(() => {
     const tick = () => {
+      // Always schedule next frame FIRST to keep loop running even if refs not ready
+      animationRef.current = requestAnimationFrame(tick);
+
+      // Only render if everything is ready
       if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
+
       if (structureRef.current && !paused) {
         structureRef.current.rotation.y += 0.003 * speed;
       }
       controlsRef.current?.update();
       rendererRef.current.render(sceneRef.current, cameraRef.current);
-      animationRef.current = requestAnimationFrame(tick);
     };
     animationRef.current = requestAnimationFrame(tick);
     return () => {
@@ -280,14 +290,17 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       const optimalDist = (structureData.radius / Math.tan(fovRad / 2)) * 1.2;
       const dist = Math.max(optimalDist, structureData.radius * 1.5); // At least 1.5x radius
 
+      // Structure is centered at origin by rebuildStructure, so camera targets origin
       // Position camera at slight angle for better 3D perception
-      camera.position.copy(
-        structureData.center.clone().add(new Vector3(dist * 0.7, dist * 0.5, dist * 0.7))
+      camera.position.set(
+        dist * 0.7,
+        dist * 0.5,
+        dist * 0.7
       );
       camera.near = Math.max(0.1, structureData.radius * 0.01);
       camera.far = Math.max(5000, structureData.radius * 10);
       camera.updateProjectionMatrix();
-      controls.target.copy(structureData.center);
+      controls.target.set(0, 0, 0);
       controls.update();
       setAtomCount(structureData.atomCount);
       setProgress(100);

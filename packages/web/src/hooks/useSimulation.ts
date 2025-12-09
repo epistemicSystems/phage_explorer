@@ -165,6 +165,7 @@ export function useSimulation(simId: SimulationId): UseSimulationResult {
       const elapsed = performance.now() - start;
       setAvgStepMs(prev => (prev === 0 ? elapsed : prev * 0.8 + elapsed * 0.2));
     } catch (err) {
+      if (!mountedRef.current) return;
       setError(`Simulation step failed: ${(err as Error).message}`);
       setIsRunning(false);
     }
@@ -189,11 +190,12 @@ export function useSimulation(simId: SimulationId): UseSimulationResult {
         const elapsed = performance.now() - start;
         setAvgStepMs(prev => (prev === 0 ? elapsed : prev * 0.8 + elapsed * 0.2));
       } catch (err) {
-        setError(`Simulation failed: ${(err as Error).message}`);
         if (animationRef.current) {
           clearInterval(animationRef.current);
           animationRef.current = null;
         }
+        if (!mountedRef.current) return;
+        setError(`Simulation failed: ${(err as Error).message}`);
         setIsRunning(false);
       }
     }, FRAME_INTERVAL);

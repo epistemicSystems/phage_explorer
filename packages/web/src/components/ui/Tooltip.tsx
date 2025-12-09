@@ -20,6 +20,15 @@ export const Tooltip: React.FC<TooltipProps> = ({
   const [internalVisible, setVisible] = useState(false);
   const timeoutRef = useRef<number | null>(null);
 
+  // Cleanup timeout on unmount to prevent state updates on unmounted component
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   const show = () => {
     if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
     timeoutRef.current = window.setTimeout(() => setVisible(true), delay);
