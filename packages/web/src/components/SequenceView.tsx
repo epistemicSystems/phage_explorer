@@ -5,11 +5,13 @@
  * Displays DNA or amino acid sequences with diff highlighting.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { usePhageStore } from '@phage-explorer/state';
+import { translateSequence } from '@phage-explorer/core';
 import { useTheme } from '../hooks/useTheme';
 import { useSequenceGrid, useReducedMotion, useHotkeys } from '../hooks';
 import { useWebPreferences } from '../store/createWebStore';
+import { AminoAcidHUD } from './AminoAcidHUD';
 import type { ZoomLevel } from '../rendering';
 
 interface SequenceViewProps {
@@ -45,6 +47,12 @@ export function SequenceView({
   const colors = theme.colors;
   const reducedMotion = useReducedMotion();
   const [snapToCodon, setSnapToCodon] = useState(true);
+
+  // Amino acid HUD state
+  const [hudAminoAcid, setHudAminoAcid] = useState<string | null>(null);
+  const [hudPosition, setHudPosition] = useState<{ x: number; y: number } | null>(null);
+  const [hudVisible, setHudVisible] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Store state
   const viewMode = usePhageStore((s) => s.viewMode);
@@ -133,6 +141,122 @@ export function SequenceView({
     },
     [canvasRef, getIndexAtPoint, scrollToPosition, setScrollPosition]
   );
+
+  // Get amino acid at a given DNA position
+  const getAminoAcidAtPosition = useCallback(
+    (dnaIndex: number): string | null => {
+      if (!sequence || viewMode !== 'aa') return null;
+      // Translate sequence and get the amino acid at this position
+      const aaSequence = translateSequence(sequence, readingFrame as 0 | 1 | 2);
+      // In AA mode, the index from getIndexAtPoint is already the AA index
+      if (dnaIndex >= 0 && dnaIndex < aaSequence.length) {
+        return aaSequence[dnaIndex];
+      }
+      return null;
+    },
+    [sequence, viewMode, readingFrame]
+  );
+
+  // Touch start - show HUD after long press
+  const handleTouchStart = useCallback(
+    (event: React.TouchEvent<HTMLCanvasElement>) => {
+      if (viewMode !== 'aa') return; // Only show HUD in amino acid mode
+      const touch = event.touches[0];
+      const canvas = canvasRef.current;
+      if (!canvas || !touch) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      // Start long press timer (300ms)
+      longPressTimerRef.current = setTimeout(() => {
+        const idx = getIndexAtPoint(x, y);
+        if (idx !== null) {
+          const aa = getAminoAcidAtPosition(idx);
+          if (aa && aa !== '*' && aa !== 'X') {
+            setHudAminoAcid(aa);
+            setHudPosition({ x: touch.clientX, y: touch.clientY });
+            setHudVisible(true);
+          }
+        }
+      }, 300);
+    },
+    [viewMode, canvasRef, getIndexAtPoint, getAminoAcidAtPosition]
+  );
+
+  // Touch end - hide HUD
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setHudVisible(false);
+  }, []);
+
+  // Touch cancel - hide HUD
+  const handleTouchCancel = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setHudVisible(false);
+  }, []);
+
+  // Touch move - cancel if moved too far, update position if HUD visible
+  const handleTouchMove = useCallback(
+    (event: React.TouchEvent<HTMLCanvasElement>) => {
+      if (hudVisible) {
+        // Update HUD position while visible
+        const touch = event.touches[0];
+        if (touch) {
+          setHudPosition({ x: touch.clientX, y: touch.clientY });
+        }
+      } else if (longPressTimerRef.current) {
+        // Cancel long press if moved before HUD shown
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    },
+    [hudVisible]
+  );
+
+  // Context menu (right-click / long-press on desktop) - show HUD
+  const handleContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLCanvasElement>) => {
+      if (viewMode !== 'aa') return;
+      event.preventDefault();
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const idx = getIndexAtPoint(x, y);
+
+      if (idx !== null) {
+        const aa = getAminoAcidAtPosition(idx);
+        if (aa && aa !== '*' && aa !== 'X') {
+          setHudAminoAcid(aa);
+          setHudPosition({ x: event.clientX, y: event.clientY });
+          setHudVisible(true);
+          // Auto-hide after 3 seconds on desktop
+          setTimeout(() => setHudVisible(false), 3000);
+        }
+      }
+    },
+    [viewMode, canvasRef, getIndexAtPoint, getAminoAcidAtPosition]
+  );
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
 
   // Register hotkeys
   useHotkeys([
@@ -319,12 +443,18 @@ export function SequenceView({
         <canvas
           ref={canvasRef}
           onClick={handleCanvasClick}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchCancel}
+          onTouchMove={handleTouchMove}
+          onContextMenu={handleContextMenu}
           role="img"
           aria-label="Genome sequence canvas"
           style={{
             width: '100%',
             height: resolvedHeight,
             display: 'block',
+            touchAction: hudVisible ? 'none' : 'pan-y',
           }}
         />
         {/* Empty state */}
@@ -366,13 +496,23 @@ export function SequenceView({
             </>
           )}
         </span>
-        <span>scroll to navigate</span>
+        <span>
+          {viewMode === 'aa' ? 'long-press for info · ' : ''}scroll to navigate
+        </span>
       </div>
       <div id={descriptionId} className="sr-only">
         Sequence view in {viewModeLabel} mode, reading frame {frameLabel}. Showing positions
         {visibleRange ? ` ${visibleRange.startIndex} to ${visibleRange.endIndex}` : ' not loaded yet'}.
         Use v to toggle DNA or amino acid view and f to change frame, Home or End to jump to sequence edges, and scroll to navigate.
       </div>
+
+      {/* Amino Acid HUD - shown on long press in AA mode */}
+      <AminoAcidHUD
+        aminoAcid={hudAminoAcid}
+        position={hudPosition}
+        visible={hudVisible}
+        onClose={() => setHudVisible(false)}
+      />
     </div>
   );
 }

@@ -52,3 +52,6 @@ export * from './analysis/sequence-logo';
 
 // Virion stability estimation
 export * from './analysis/virion-stability';
+
+// Amino acid database (detailed info for HUD)
+export * from './data/amino-acid-database';
