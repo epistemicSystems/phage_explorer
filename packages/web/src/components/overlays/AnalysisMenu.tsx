@@ -140,6 +140,16 @@ const ANALYSIS_ITEMS: AnalysisItem[] = [
     requiresLevel: 'power',
   },
   {
+    id: 'anomaly',
+    overlayId: 'anomaly',
+    label: 'Anomaly Detection',
+    description: 'Composite anomalies (KL, compression, skews, bias)',
+    icon: '⚠️',
+    shortcut: 'A',
+    category: 'Evolutionary',
+    requiresLevel: 'power',
+  },
+  {
     id: 'hgt',
     overlayId: 'hgt',
     label: 'HGT Analysis',

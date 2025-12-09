@@ -28,6 +28,7 @@ export type OverlayId =
   | 'modules'
   | 'hgt'
   | 'kmerAnomaly'
+  | 'anomaly'
   | 'foldQuickview'
   | 'commandPalette'
   | 'hilbert'

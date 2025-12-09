@@ -46,6 +46,8 @@ export { PackagingPressureOverlay } from './PackagingPressureOverlay';
 export { CGROverlay } from './CGROverlay';
 export { HilbertOverlay } from './HilbertOverlay';
 export { VirionStabilityOverlay } from './VirionStabilityOverlay';
+export { AnomalyOverlay } from './AnomalyOverlay';
+export { CRISPROverlay } from './CRISPROverlay';
 
 // Layer 2 Advanced Overlays
 export { KmerAnomalyOverlay } from './KmerAnomalyOverlay';

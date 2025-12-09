@@ -236,6 +236,7 @@ export function CommandPalette({ commands: customCommands, context: propContext 
 
     // Advanced analysis (power users)
     { id: 'analysis:kmer', label: 'K-mer Anomaly Detection', category: 'Advanced', shortcut: 'V', action: () => { close(); open('kmerAnomaly'); }, minLevel: 'power', contexts: ['has-phage'] },
+    { id: 'analysis:anomaly', label: 'Anomaly Detection', category: 'Advanced', shortcut: 'A', action: () => { close(); open('anomaly'); }, minLevel: 'power', contexts: ['has-phage'] },
     { id: 'analysis:hgt', label: 'HGT Provenance', category: 'Advanced', shortcut: 'Y', action: () => { close(); open('hgt'); }, minLevel: 'power', contexts: ['has-phage'] },
     { id: 'analysis:tropism', label: 'Tropism & Receptors', category: 'Advanced', shortcut: '0', action: () => { close(); open('tropism'); }, minLevel: 'power', contexts: ['has-phage'] },
     { id: 'analysis:bias', label: 'Codon Bias Decomposition', category: 'Advanced', shortcut: 'J', action: () => { close(); open('biasDecomposition'); }, minLevel: 'power', contexts: ['has-phage'] },
