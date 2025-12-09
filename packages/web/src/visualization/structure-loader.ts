@@ -234,11 +234,28 @@ export async function loadStructure(
   };
 }
 
-export function buildBallAndStick(atoms: AtomRecord[], bonds: Bond[], sphereRadius = 0.5, bondRadius = 0.15): Group {
+interface BallStickOptions {
+  sphereRadius?: number;
+  bondRadius?: number;
+  sphereSegments?: number;
+  bondRadialSegments?: number;
+}
+
+export function buildBallAndStick(
+  atoms: AtomRecord[],
+  bonds: Bond[],
+  options: BallStickOptions = {}
+): Group {
+  const {
+    sphereRadius = 0.5,
+    bondRadius = 0.15,
+    sphereSegments = 24,
+    bondRadialSegments = 16,
+  } = options;
   const group = new Group();
 
   // ATOMS - use instanced mesh with per-instance colors
-  const atomGeo = new SphereGeometry(sphereRadius, 24, 24);
+  const atomGeo = new SphereGeometry(sphereRadius, sphereSegments, sphereSegments);
   const atomMat = new MeshPhongMaterial({
     vertexColors: true,
     shininess: 80,
@@ -258,7 +275,7 @@ export function buildBallAndStick(atoms: AtomRecord[], bonds: Bond[], sphereRadi
   group.add(atomMesh);
 
   // BONDS - bright silver/white for visibility
-  const bondGeo = new CylinderGeometry(bondRadius, bondRadius, 1, 16, 1, true);
+  const bondGeo = new CylinderGeometry(bondRadius, bondRadius, 1, bondRadialSegments, 1, true);
   const bondMat = new MeshPhongMaterial({
     color: '#d4d4d8',  // Bright zinc/silver
     shininess: 60,
@@ -306,12 +323,20 @@ const CHAIN_COLORS = [
   '#f87171', // Red
 ];
 
-export function buildTubeFromTraces(traces: Vector3[][], radius: number, radialSegments: number, defaultColor: string, opacity = 1, colors?: string[]): Group {
+export function buildTubeFromTraces(
+  traces: Vector3[][],
+  radius: number,
+  radialSegments: number,
+  defaultColor: string,
+  opacity = 1,
+  colors?: string[],
+  minSegments = 30
+): Group {
   const group = new Group();
   traces.forEach((trace, idx) => {
     if (trace.length < 2) return;
     const curve = new CatmullRomCurve3(trace);
-    const tubeSegments = Math.max(30, trace.length * 3); // Smoother tubes
+    const tubeSegments = Math.max(minSegments, trace.length * 3); // Smoother tubes
     const tube = new TubeGeometry(curve, tubeSegments, radius, radialSegments, false);
     const chainColor = colors?.[idx % (colors.length || 1)] ?? CHAIN_COLORS[idx % CHAIN_COLORS.length] ?? defaultColor;
     const mat = new MeshPhongMaterial({
@@ -329,11 +354,15 @@ export function buildTubeFromTraces(traces: Vector3[][], radius: number, radialS
   return group;
 }
 
-export function buildSurfaceImpostor(atoms: AtomRecord[], scale = 1.6): Group {
+export function buildSurfaceImpostor(
+  atoms: AtomRecord[],
+  scale = 1.6,
+  segments = 12
+): Group {
   const group = new Group();
 
   // Create a more visible, colorful surface
-  const geo = new SphereGeometry(0.7 * scale, 12, 12);
+  const geo = new SphereGeometry(0.7 * scale, segments, segments);
 
   // Outer surface - semi-transparent blue
   const outerMat = new MeshPhongMaterial({

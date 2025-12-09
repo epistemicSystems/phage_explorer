@@ -25,7 +25,7 @@ export interface AminoAcidInfo {
 }
 
 // View modes
-export type ViewMode = 'dna' | 'aa';
+export type ViewMode = 'dna' | 'aa' | 'dual';
 
 // Reading frame
 export type ReadingFrame = 0 | 1 | 2;

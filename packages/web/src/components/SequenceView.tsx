@@ -44,6 +44,7 @@ export function SequenceView({
   const { theme } = useTheme();
   const colors = theme.colors;
   const reducedMotion = useReducedMotion();
+  const [snapToCodon, setSnapToCodon] = useState(true);
 
   // Store state
   const viewMode = usePhageStore((s) => s.viewMode);
@@ -62,9 +63,12 @@ export function SequenceView({
   const {
     canvasRef,
     visibleRange,
+    orientation,
     scrollToStart,
     scrollToEnd,
     jumpToDiff,
+    getIndexAtPoint,
+    scrollToPosition,
     zoomScale,
     zoomPreset,
     zoomIn,
@@ -84,6 +88,7 @@ export function SequenceView({
     reducedMotion,
     initialZoomScale: 1.0,
     enablePinchZoom: true,
+    snapToCodon,
     onVisibleRangeChange: (range) => {
       setScrollPosition(range.startIndex);
     },
@@ -112,6 +117,23 @@ export function SequenceView({
   const handleZoomIn = useCallback(() => zoomIn(), [zoomIn]);
   const handleZoomOut = useCallback(() => zoomOut(), [zoomOut]);
 
+  // Tap/click to jump to position under cursor
+  const handleCanvasClick = useCallback(
+    (event: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const idx = getIndexAtPoint(x, y);
+      if (idx !== null) {
+        scrollToPosition(idx);
+        setScrollPosition(idx);
+      }
+    },
+    [canvasRef, getIndexAtPoint, scrollToPosition, setScrollPosition]
+  );
+
   // Register hotkeys
   useHotkeys([
     { combo: { key: 'v' }, description: 'Toggle DNA/AA view', action: toggleViewMode, modes: ['NORMAL'] },
@@ -123,10 +145,18 @@ export function SequenceView({
     { combo: { key: '-' }, description: 'Zoom out', action: handleZoomOut, modes: ['NORMAL'] },
   ]);
 
-  const viewModeLabel = viewMode === 'dna' ? 'DNA' : 'AA';
+  const viewModeLabel = viewMode === 'dna' ? 'DNA' : viewMode === 'aa' ? 'AA' : 'Dual';
   const frameLabel = readingFrame === 0 ? '+1' : readingFrame > 0 ? `+${readingFrame + 1}` : `${readingFrame}`;
   const zoomLabel = zoomPreset?.label ?? `${Math.round(zoomScale * 100)}%`;
   const descriptionId = 'sequence-view-description';
+  const resolvedHeight =
+    typeof height === 'number'
+      ? height
+      : typeof height === 'string'
+        ? height
+        : orientation === 'portrait'
+          ? 360
+          : 300;
 
   return (
     <div
@@ -206,6 +236,24 @@ export function SequenceView({
             >
               +
             </button>
+            <button
+              onClick={() => setSnapToCodon((prev) => !prev)}
+              style={{
+                fontSize: '0.7rem',
+                padding: '0.1rem 0.3rem',
+                borderRadius: '3px',
+                border: `1px solid ${colors.borderLight}`,
+                background: snapToCodon ? colors.backgroundAlt : 'transparent',
+                color: colors.text,
+                cursor: 'pointer',
+              }}
+              title="Toggle codon snapping"
+            >
+              snap 3bp
+            </button>
+            <span style={{ fontSize: '0.7rem', color: colors.textMuted }}>
+              {orientation === 'landscape' ? 'landscape' : 'portrait'}
+            </span>
           </div>
           {/* View mode badge */}
           <button
@@ -215,16 +263,32 @@ export function SequenceView({
               padding: '0.15rem 0.4rem',
               borderRadius: '3px',
               border: `1px solid ${colors.borderLight}`,
-              background: viewMode === 'aa' ? colors.accent : colors.backgroundAlt,
-              color: viewMode === 'aa' ? '#000' : colors.text,
+              background: viewMode === 'aa' || viewMode === 'dual' ? colors.accent : colors.backgroundAlt,
+              color: viewMode === 'aa' || viewMode === 'dual' ? '#000' : colors.text,
               cursor: 'pointer',
             }}
-            title="Toggle DNA/AA view (v)"
+            title="Toggle DNA/AA/Dual view (v)"
           >
             {viewModeLabel}
           </button>
+          {/* Snap toggle */}
+          <button
+            onClick={() => setSnapToCodon((prev) => !prev)}
+            style={{
+              fontSize: '0.72rem',
+              padding: '0.15rem 0.4rem',
+              borderRadius: '3px',
+              border: `1px solid ${colors.borderLight}`,
+              background: snapToCodon ? colors.backgroundAlt : colors.background,
+              color: colors.text,
+              cursor: 'pointer',
+            }}
+            title="Toggle codon snapping"
+          >
+            Snap {snapToCodon ? 'On' : 'Off'}
+          </button>
           {/* Reading frame badge */}
-          {viewMode === 'aa' && (
+          {viewMode !== 'dna' && (
             <button
               onClick={cycleReadingFrame}
               style={{
@@ -251,14 +315,15 @@ export function SequenceView({
       </div>
 
       {/* Canvas */}
-      <div style={{ flex: 1, minHeight: height, position: 'relative' }}>
+      <div style={{ flex: 1, minHeight: resolvedHeight, position: 'relative' }}>
         <canvas
           ref={canvasRef}
+          onClick={handleCanvasClick}
           role="img"
           aria-label="Genome sequence canvas"
           style={{
             width: '100%',
-            height: '100%',
+            height: resolvedHeight,
             display: 'block',
           }}
         />

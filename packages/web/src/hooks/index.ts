@@ -16,3 +16,4 @@ export { useDatabase, type UseDatabaseOptions, type UseDatabaseResult } from './
 export { useSequenceGrid, type UseSequenceGridOptions, type UseSequenceGridResult } from './useSequenceGrid';
 export { useReducedMotion } from './useReducedMotion';
 export { useFileSystem } from './useFileSystem';
+export { useOrientation } from './useOrientation';

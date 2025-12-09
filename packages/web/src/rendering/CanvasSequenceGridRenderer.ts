@@ -34,10 +34,13 @@ export interface SequenceGridOptions {
   enablePinchZoom?: boolean;
   /** Callback when zoom changes */
   onZoomChange?: (scale: number, preset: ZoomPreset) => void;
+  /** Snap scrolling to codon boundaries (3 bases) */
+  snapToCodon?: boolean;
 }
 
 export interface GridRenderState {
   sequence: string;
+  aminoSequence: string | null;
   viewMode: ViewMode;
   readingFrame: ReadingFrame;
   diffSequence: string | null;
@@ -47,7 +50,7 @@ export interface GridRenderState {
 
 // Zoom level presets for mobile sequence grid
 // Users can pinch-to-zoom between these levels
-export type ZoomLevel = 'genome' | 'region' | 'codon' | 'base';
+export type ZoomLevel = 'genome' | 'micro' | 'region' | 'codon' | 'base';
 
 export interface ZoomPreset {
   cellWidth: number;
@@ -60,6 +63,7 @@ export interface ZoomPreset {
 // Zoom presets - from ultra-dense genome overview to single-base detail
 const ZOOM_PRESETS: Record<ZoomLevel, ZoomPreset> = {
   genome: { cellWidth: 1, cellHeight: 1, showText: false, showAA: false, label: 'Genome' },
+  micro: { cellWidth: 6, cellHeight: 7, showText: true, showAA: true, label: 'Micro' },
   region: { cellWidth: 3, cellHeight: 3, showText: false, showAA: false, label: 'Region' },
   codon: { cellWidth: 8, cellHeight: 10, showText: true, showAA: true, label: 'Codon' },
   base: { cellWidth: 16, cellHeight: 20, showText: true, showAA: true, label: 'Base' },
@@ -67,8 +71,9 @@ const ZOOM_PRESETS: Record<ZoomLevel, ZoomPreset> = {
 
 // Get zoom preset based on scale factor (0.25 to 4.0)
 function getZoomPresetForScale(scale: number): ZoomPreset {
-  if (scale <= 0.3) return ZOOM_PRESETS.genome;
-  if (scale <= 0.6) return ZOOM_PRESETS.region;
+  if (scale <= 0.25) return ZOOM_PRESETS.genome;
+  if (scale <= 0.55) return ZOOM_PRESETS.micro;
+  if (scale <= 0.9) return ZOOM_PRESETS.region;
   if (scale <= 1.5) return ZOOM_PRESETS.codon;
   return ZOOM_PRESETS.base;
 }
@@ -143,6 +148,7 @@ export class CanvasSequenceGridRenderer {
   private baseCellHeight: number;
   private cellWidth: number;      // Effective cell size after zoom
   private cellHeight: number;
+  private rowHeight: number;      // Effective row height (dual rows double this)
   private dpr: number;
   private zoomScale: number = 1.0;
   private currentZoomPreset: ZoomPreset;
@@ -164,6 +170,7 @@ export class CanvasSequenceGridRenderer {
   private isRendering = false;
   private postProcess?: PostProcessPipeline;
   private reducedMotion: boolean;
+  private snapToCodon: boolean;
 
   constructor(options: SequenceGridOptions) {
     this.canvas = options.canvas;
@@ -174,6 +181,7 @@ export class CanvasSequenceGridRenderer {
     this.reducedMotion = options.reducedMotion ?? false;
     this.enablePinchZoom = options.enablePinchZoom ?? true;
     this.onZoomChange = options.onZoomChange;
+    this.snapToCodon = options.snapToCodon ?? false;
 
     // Get device pixel ratio for high-DPI
     this.dpr = window.devicePixelRatio || 1;
@@ -198,6 +206,7 @@ export class CanvasSequenceGridRenderer {
     // Apply zoom to get effective cell sizes
     this.cellWidth = Math.max(1, Math.round(this.baseCellWidth * this.zoomScale));
     this.cellHeight = Math.max(1, Math.round(this.baseCellHeight * this.zoomScale));
+    this.rowHeight = this.cellHeight;
 
     // Get context
     const ctx = this.canvas.getContext('2d', { alpha: false });
@@ -215,10 +224,11 @@ export class CanvasSequenceGridRenderer {
     this.scroller = new VirtualScroller({
       totalItems: 0,
       itemWidth: this.cellWidth,
-      itemHeight: this.cellHeight,
+      itemHeight: this.rowHeight,
       viewportWidth: this.canvas.clientWidth,
       viewportHeight: this.canvas.clientHeight,
     });
+    this.updateCodonSnap();
 
     // Set up scroll callback
     this.scroller.onScroll(() => this.scheduleRender());
@@ -261,8 +271,10 @@ export class CanvasSequenceGridRenderer {
       viewportWidth: width,
       viewportHeight: height,
       itemWidth: this.cellWidth,
-      itemHeight: this.cellHeight,
+      itemHeight: this.rowHeight,
     });
+    this.updateCodonSnap();
+    this.updateCodonSnap();
 
     // Mark as needing full redraw
     this.needsFullRedraw = true;
@@ -279,6 +291,7 @@ export class CanvasSequenceGridRenderer {
     if (newCellWidth !== this.cellWidth || newCellHeight !== this.cellHeight) {
       this.cellWidth = newCellWidth;
       this.cellHeight = newCellHeight;
+      this.rowHeight = this.currentState?.viewMode === 'dual' ? this.cellHeight * 2 : this.cellHeight;
 
       // Rebuild glyph atlas with new cell sizes
       this.glyphAtlas = new GlyphAtlas(this.theme, {
@@ -287,6 +300,7 @@ export class CanvasSequenceGridRenderer {
         devicePixelRatio: this.dpr,
       });
     }
+    this.updateCodonSnap();
   }
 
   /**
@@ -312,10 +326,12 @@ export class CanvasSequenceGridRenderer {
   setSequence(
     sequence: string,
     viewMode: ViewMode = 'dna',
-    readingFrame: ReadingFrame = 0
+    readingFrame: ReadingFrame = 0,
+    aminoSequence: string | null = null
   ): void {
     this.currentState = {
       sequence,
+      aminoSequence,
       viewMode,
       readingFrame,
       diffSequence: null,
@@ -323,10 +339,16 @@ export class CanvasSequenceGridRenderer {
       diffMask: null,
     };
 
+    // Update row height for dual mode
+    this.rowHeight = viewMode === 'dual' ? this.cellHeight * 2 : this.cellHeight;
+
     // Update scroller for new sequence length
     this.scroller.updateOptions({
       totalItems: sequence.length,
+      itemHeight: this.rowHeight,
     });
+    this.updateCodonSnap();
+    this.updateCodonSnap();
 
     this.needsFullRedraw = true;
     this.scheduleRender();
@@ -365,12 +387,28 @@ export class CanvasSequenceGridRenderer {
   }
 
   /**
+   * Toggle codon snapping (align scroll to multiples of 3 bases)
+   */
+  setSnapToCodon(enabled: boolean): void {
+    this.snapToCodon = enabled;
+    this.updateCodonSnap();
+  }
+
+  /**
    * Update post-processing pipeline
    */
   setPostProcess(pipeline?: PostProcessPipeline): void {
     this.postProcess = pipeline;
     this.needsFullRedraw = true;
     this.scheduleRender();
+  }
+
+  /**
+   * Toggle codon snapping for scroll momentum
+   */
+  setSnapToCodon(enabled: boolean): void {
+    this.snapToCodon = enabled;
+    this.updateCodonSnap();
   }
 
   /**
@@ -390,11 +428,16 @@ export class CanvasSequenceGridRenderer {
     // Update cell sizes based on new zoom
     this.updateCellSizes();
 
+    // Recalculate row height if in dual mode
+    this.rowHeight = this.currentState?.viewMode === 'dual' ? this.cellHeight * 2 : this.cellHeight;
+
     // Update scroller with new cell sizes
     this.scroller.updateOptions({
       itemWidth: this.cellWidth,
-      itemHeight: this.cellHeight,
+      itemHeight: this.rowHeight,
     });
+    this.updateCodonSnap();
+    this.updateCodonSnap();
 
     // Notify listeners
     if (this.onZoomChange) {
@@ -439,7 +482,8 @@ export class CanvasSequenceGridRenderer {
   setZoomLevel(level: ZoomLevel): void {
     const presetScales: Record<ZoomLevel, number> = {
       genome: 0.15,
-      region: 0.45,
+      micro: 0.45,
+      region: 0.7,
       codon: 1.0,
       base: 2.0,
     };
@@ -509,7 +553,7 @@ export class CanvasSequenceGridRenderer {
 
     const startTime = performance.now();
     const ctx = this.backCtx ?? this.ctx;
-    const { sequence, viewMode, diffSequence, diffEnabled, diffMask } = this.currentState;
+    const { sequence, aminoSequence, viewMode, diffSequence, diffEnabled, diffMask } = this.currentState;
 
     // Get visible range from scroller
     const range = this.scroller.getVisibleRange();
@@ -523,7 +567,7 @@ export class CanvasSequenceGridRenderer {
     }
 
     // Render visible characters
-    this.renderVisibleRange(ctx, range, layout, sequence, viewMode, diffSequence, diffEnabled, diffMask);
+    this.renderVisibleRange(ctx, range, layout, sequence, aminoSequence, viewMode, diffSequence, diffEnabled, diffMask);
 
     // Apply scanline effect
     if (this.scanlines && !this.reducedMotion) {
@@ -561,13 +605,20 @@ export class CanvasSequenceGridRenderer {
     range: VisibleRange,
     layout: { cols: number; rows: number },
     sequence: string,
+    aminoSequence: string | null,
     viewMode: ViewMode,
     diffSequence: string | null,
     diffEnabled: boolean,
     diffMask: Uint8Array | null
   ): void {
     const { cellWidth, cellHeight } = this;
+    const rowHeight = viewMode === 'dual' ? cellHeight * 2 : cellHeight;
     const { offsetY, startRow, endRow } = range;
+
+    if (viewMode === 'dual') {
+      this.renderDualRows(ctx, range, layout, sequence, aminoSequence ?? '', diffSequence, diffEnabled, diffMask);
+      return;
+    }
 
     // Batch rendering by color for performance
     const drawMethod = viewMode === 'aa'
@@ -583,7 +634,7 @@ export class CanvasSequenceGridRenderer {
 
     // Render row by row
     for (let row = startRow; row < endRow; row++) {
-      const rowY = (row - startRow) * cellHeight + offsetY;
+      const rowY = (row - startRow) * rowHeight + offsetY;
       const rowStart = row * layout.cols;
       const rowEnd = Math.min(rowStart + layout.cols, sequence.length);
 
@@ -643,6 +694,122 @@ export class CanvasSequenceGridRenderer {
 
       ctx.restore();
     }
+  }
+
+  /**
+   * Render dual-row DNA + AA view
+   */
+  private renderDualRows(
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+    range: VisibleRange,
+    layout: { cols: number; rows: number },
+    sequence: string,
+    aminoSequence: string,
+    diffSequence: string | null,
+    diffEnabled: boolean,
+    diffMask: Uint8Array | null
+  ): void {
+    const { cellWidth, cellHeight } = this;
+    const rowHeight = cellHeight * 2;
+    const { offsetY, startRow, endRow } = range;
+    const readingFrame = this.currentState?.readingFrame ?? 0;
+
+    for (let row = startRow; row < endRow; row++) {
+      const rowY = (row - startRow) * rowHeight + offsetY;
+      const rowStart = row * layout.cols;
+      const rowEnd = Math.min(rowStart + layout.cols, sequence.length);
+
+      // First pass: nucleotides (top row)
+      for (let i = rowStart; i < rowEnd; i++) {
+        const col = i - rowStart;
+        const x = col * cellWidth;
+        const char = sequence[i];
+
+        let diffCode = 0;
+        if (diffEnabled) {
+          if (diffMask && diffMask.length === sequence.length) {
+            diffCode = diffMask[i] ?? 0;
+          } else if (diffSequence) {
+            diffCode = diffSequence[i] && diffSequence[i] !== char ? 1 : 0;
+          }
+        }
+
+        if (diffCode > 0) {
+          let fillStyle: string;
+          switch (diffCode) {
+            case 1:
+              fillStyle = this.theme.colors.diffHighlight ?? '#facc15';
+              break;
+            case 2:
+              fillStyle = '#22c55e';
+              break;
+            case 3:
+              fillStyle = '#ef4444';
+              break;
+            default:
+              fillStyle = this.theme.colors.diffHighlight ?? '#facc15';
+          }
+          ctx.fillStyle = fillStyle;
+          ctx.fillRect(x, rowY, cellWidth, rowHeight);
+        } else {
+          this.glyphAtlas.drawNucleotide(ctx, char, x, rowY, cellWidth, cellHeight);
+        }
+      }
+
+      // Second pass: amino acids (bottom row, aligned per codon)
+      for (let i = rowStart; i < rowEnd; i += 3) {
+        const codonOffset = i - readingFrame;
+        if (codonOffset < 0 || codonOffset % 3 !== 0) continue;
+        const aaIndex = Math.floor(codonOffset / 3);
+        const aaChar = aminoSequence[aaIndex] ?? 'X';
+
+        const col = i - rowStart;
+        const x = col * cellWidth;
+        const destWidth = Math.min(cellWidth * 3, (rowEnd - i) * cellWidth);
+        this.glyphAtlas.drawAminoAcid(ctx, aaChar, x, rowY + cellHeight, destWidth, cellHeight);
+
+        // Optional codon boundary line (subtle)
+        ctx.strokeStyle = this.theme.colors.borderLight ?? '#374151';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + destWidth, rowY);
+        ctx.lineTo(x + destWidth, rowY + rowHeight);
+        ctx.stroke();
+      }
+
+      // Separator between DNA and AA rows
+      ctx.strokeStyle = this.theme.colors.border ?? '#4b5563';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, rowY + cellHeight);
+      ctx.lineTo(layout.cols * cellWidth, rowY + cellHeight);
+      ctx.stroke();
+    }
+  }
+
+  /**
+   * Update scroller snapping for codon boundaries (align start index to multiples of 3)
+   */
+  private updateCodonSnap(): void {
+    if (!this.snapToCodon) {
+      this.scroller.setSnapToMultiple(null);
+      return;
+    }
+    const { cols } = this.scroller.getLayout();
+    const g = this.gcd(cols, 3);
+    const rowsPerSnap = Math.max(1, 3 / g); // smallest row multiple that keeps startIndex % 3 === 0
+    this.scroller.setSnapToMultiple(rowsPerSnap);
+  }
+
+  private gcd(a: number, b: number): number {
+    let x = Math.abs(a);
+    let y = Math.abs(b);
+    while (y !== 0) {
+      const t = y;
+      y = x % y;
+      x = t;
+    }
+    return x || 1;
   }
 
   /**
@@ -722,8 +889,8 @@ export class CanvasSequenceGridRenderer {
   /**
    * Scroll to a specific position in the sequence
    */
-  scrollToPosition(position: number): void {
-    this.scroller.scrollToIndex(position);
+  scrollToPosition(position: number, center: boolean = true): void {
+    this.scroller.scrollToIndex(position, center);
   }
 
   /**

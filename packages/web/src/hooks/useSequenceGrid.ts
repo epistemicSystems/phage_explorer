@@ -31,6 +31,8 @@ export interface UseSequenceGridOptions {
   initialZoomScale?: number;
   /** Enable pinch-to-zoom on touch devices */
   enablePinchZoom?: boolean;
+  /** Snap scrolling to codon boundaries */
+  snapToCodon?: boolean;
   onVisibleRangeChange?: (range: VisibleRange) => void;
   /** Callback when zoom changes */
   onZoomChange?: (scale: number, preset: ZoomPreset) => void;
@@ -41,6 +43,8 @@ export interface UseSequenceGridResult {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   /** Current visible range */
   visibleRange: VisibleRange | null;
+  /** Current screen orientation */
+  orientation: 'portrait' | 'landscape';
   /** Current scroll position (index in sequence) */
   scrollPosition: number;
   /** Scroll to a specific position */
@@ -85,6 +89,7 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     reducedMotion = false,
     initialZoomScale = 1.0,
     enablePinchZoom = true,
+    snapToCodon = true,
     onVisibleRangeChange,
     onZoomChange,
   } = options;
@@ -95,6 +100,10 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
   const [scrollPosition, setScrollPosition] = useState(0);
   const [zoomScale, setZoomScaleState] = useState(initialZoomScale);
   const [zoomPreset, setZoomPreset] = useState<ZoomPreset | null>(null);
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(() => {
+    if (typeof window === 'undefined') return 'landscape';
+    return window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait';
+  });
 
   // Handle zoom change callback from renderer
   const handleZoomChange = useCallback((scale: number, preset: ZoomPreset) => {
@@ -121,6 +130,7 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
       zoomScale: initialZoomScale,
       enablePinchZoom,
       onZoomChange: handleZoomChange,
+      snapToCodon,
     });
 
     rendererRef.current = renderer;
@@ -135,6 +145,13 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
 
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(canvas);
+
+    // Track orientation changes explicitly (some mobile browsers delay resize events)
+    const handleOrientationChange = () => {
+      setOrientation(window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait');
+      renderer.resize();
+    };
+    window.addEventListener('orientationchange', handleOrientationChange);
 
     // Handle wheel events
     const handleWheel = (e: WheelEvent) => {
@@ -166,6 +183,7 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     // Cleanup
     return () => {
       resizeObserver.disconnect();
+      window.removeEventListener('orientationchange', handleOrientationChange);
       canvas.removeEventListener('wheel', handleWheel);
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
@@ -180,29 +198,38 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     rendererRef.current?.setTheme(theme);
   }, [theme]);
 
-  // Compute the display sequence: DNA as-is, or translated to amino acids
-  const displaySequence = useMemo(() => {
-    if (!sequence) return '';
-    if (viewMode === 'dna') return sequence;
+  // Update snapping preference without reconstructing renderer
+  useEffect(() => {
+    rendererRef.current?.setSnapToCodon(snapToCodon);
+  }, [snapToCodon]);
 
-    // AA mode: translate DNA to amino acids
-    // Positive frames (0, 1, 2) use forward strand
-    // Negative frames (-1, -2, -3) use reverse complement
-    if (readingFrame >= 0) {
-      const frame = readingFrame as 0 | 1 | 2;
-      return translateSequence(sequence, frame);
-    } else {
-      // Negative frame: use reverse complement
+  // Compute sequences for rendering
+  const { displaySequence, aminoSequence } = useMemo(() => {
+    if (!sequence) return { displaySequence: '', aminoSequence: null as string | null };
+    if (viewMode === 'dna') return { displaySequence: sequence, aminoSequence: null as string | null };
+
+    const computeAA = () => {
+      if (readingFrame >= 0) {
+        const frame = readingFrame as 0 | 1 | 2;
+        return translateSequence(sequence, frame);
+      }
       const revComp = reverseComplement(sequence);
       const frame = (Math.abs(readingFrame) - 1) as 0 | 1 | 2;
       return translateSequence(revComp, frame);
+    };
+
+    const aaSeq = computeAA();
+    if (viewMode === 'aa') {
+      return { displaySequence: aaSeq, aminoSequence: aaSeq };
     }
+    // dual mode: keep DNA as display, but supply AA sequence separately
+    return { displaySequence: sequence, aminoSequence: aaSeq };
   }, [sequence, viewMode, readingFrame]);
 
   // Update sequence
   useEffect(() => {
-    rendererRef.current?.setSequence(displaySequence, viewMode, readingFrame);
-  }, [displaySequence, viewMode, readingFrame]);
+    rendererRef.current?.setSequence(displaySequence, viewMode, readingFrame, aminoSequence);
+  }, [displaySequence, viewMode, readingFrame, aminoSequence]);
 
   // Update diff mode
   useEffect(() => {
@@ -304,6 +331,7 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
   return {
     canvasRef,
     visibleRange,
+    orientation,
     scrollPosition,
     scrollToPosition,
     scrollToStart,

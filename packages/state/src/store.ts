@@ -339,8 +339,12 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
 
   toggleViewMode: () => {
     const { viewMode } = get();
+    const nextMode: ViewMode =
+      viewMode === 'dna' ? 'aa' :
+      viewMode === 'aa' ? 'dual' :
+      'dna';
     set({
-      viewMode: viewMode === 'dna' ? 'aa' : 'dna',
+      viewMode: nextMode,
       scrollPosition: 0,
     });
   },

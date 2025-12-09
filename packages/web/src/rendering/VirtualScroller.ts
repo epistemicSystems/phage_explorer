@@ -22,6 +22,18 @@ export interface VirtualScrollerOptions {
   momentum?: boolean;
   /** Momentum friction coefficient (0-1, lower = more friction) */
   friction?: number;
+  /** Minimum velocity before stopping momentum */
+  minVelocity?: number;
+  /** Rubber-band factor for overscroll (0-1, higher = stretchier) */
+  rubberBand?: number;
+  /** Maximum overscroll distance in pixels */
+  maxOverscroll?: number;
+  /** Snap scrolling to multiples of N items (e.g., 3 for codon alignment) */
+  snapToMultiple?: number | null;
+  /** Duration in ms for snap animation (simple linear) */
+  snapAnimationMs?: number;
+  /** Damping applied when bouncing off edges */
+  bounceDamping?: number;
 }
 
 export interface VisibleRange {
@@ -62,7 +74,13 @@ const DEFAULT_OPTIONS: Required<VirtualScrollerOptions> = {
   viewportHeight: 600,
   overscan: 3,
   momentum: true,
-  friction: 0.92, // Lower friction = more natural iOS-like feel
+  friction: 0.95, // Higher = longer coast; closer to native feel
+  minVelocity: 0.5,
+  rubberBand: 0.5,
+  maxOverscroll: 50,
+  snapToMultiple: null,
+  snapAnimationMs: 150,
+  bounceDamping: 0.3,
 };
 
 export class VirtualScroller {
@@ -191,8 +209,8 @@ export class VirtualScroller {
    * Scroll to absolute position
    */
   scrollTo(x: number, y: number): void {
-    const newScrollX = Math.max(0, Math.min(x, this.maxScrollX));
-    const newScrollY = Math.max(0, Math.min(y, this.maxScrollY));
+    const newScrollX = this.applyRubberBand(x, this.maxScrollX);
+    const newScrollY = this.applyRubberBand(y, this.maxScrollY);
 
     if (newScrollX !== this.state.scrollX || newScrollY !== this.state.scrollY) {
       this.state.scrollX = newScrollX;
@@ -334,6 +352,8 @@ export class VirtualScroller {
     const speed = Math.abs(this.state.velocityX) + Math.abs(this.state.velocityY);
     if (this.options.momentum && speed > 2) {
       this.startMomentum();
+    } else if (this.options.snapToMultiple) {
+      this.snapToMultipleBoundary(this.options.snapToMultiple);
     }
   }
 
@@ -353,7 +373,7 @@ export class VirtualScroller {
   private animateMomentum = (): void => {
     if (!this.state.isAnimating) return;
 
-    const { friction } = this.options;
+    const { friction, minVelocity, snapToMultiple, bounceDamping } = this.options;
 
     // Apply velocity
     this.scrollBy(this.state.velocityX, this.state.velocityY);
@@ -362,12 +382,25 @@ export class VirtualScroller {
     this.state.velocityX *= friction;
     this.state.velocityY *= friction;
 
+    // Edge bounce with damping
+    if (this.state.scrollY < 0) {
+      this.state.scrollY *= this.options.rubberBand;
+      this.state.velocityY *= -bounceDamping;
+    } else if (this.state.scrollY > this.maxScrollY) {
+      const over = this.state.scrollY - this.maxScrollY;
+      this.state.scrollY = this.maxScrollY + over * this.options.rubberBand;
+      this.state.velocityY *= -bounceDamping;
+    }
+
     // Stop if velocity is negligible
     const speed = Math.abs(this.state.velocityX) + Math.abs(this.state.velocityY);
-    if (speed < 0.1) {
+    if (speed < (minVelocity ?? 0.1)) {
       this.state.isAnimating = false;
       this.state.velocityX = 0;
       this.state.velocityY = 0;
+      if (snapToMultiple) {
+        this.snapToMultipleBoundary(snapToMultiple);
+      }
       return;
     }
 
@@ -386,6 +419,39 @@ export class VirtualScroller {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+  }
+
+  /**
+   * Update snapping preference
+   */
+  setSnapToMultiple(multiple: number | null): void {
+    this.updateOptions({ snapToMultiple: multiple });
+  }
+
+  /**
+   * Snap to nearest multiple boundary (vertical scroll only)
+   */
+  private snapToMultipleBoundary(multiple: number): void {
+    if (multiple <= 0) return;
+    const target = Math.round(this.state.scrollY / (this.options.itemHeight * multiple)) * (this.options.itemHeight * multiple);
+    const clamped = Math.max(0, Math.min(target, this.maxScrollY));
+    this.scrollTo(this.state.scrollX, clamped);
+  }
+
+  /**
+   * Apply rubber banding to a scroll value
+   */
+  private applyRubberBand(value: number, max: number): number {
+    const { rubberBand, maxOverscroll } = this.options;
+    if (value < 0) {
+      const overshoot = Math.max(value, -maxOverscroll);
+      return overshoot * rubberBand;
+    }
+    if (value > max) {
+      const overshoot = Math.min(value - max, maxOverscroll);
+      return max + overshoot * rubberBand;
+    }
+    return value;
   }
 
   /**

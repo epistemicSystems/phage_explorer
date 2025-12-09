@@ -26,12 +26,44 @@ interface Model3DViewProps {
   phage: PhageFull | null;
 }
 
-const qualityPixelRatio: Record<string, number> = {
-  low: 0.9,
-  medium: 1,
-  high: 1.3,
-  ultra: 1.6,
-};
+const QUALITY_PRESETS = {
+  low: {
+    pixelRatio: 0.9,
+    shadows: false,
+    sphereSegments: 12,
+    bondRadialSegments: 10,
+    tubeRadialSegments: 6,
+    tubeMinSegments: 24,
+    surfaceSegments: 10,
+  },
+  medium: {
+    pixelRatio: 1,
+    shadows: true,
+    sphereSegments: 18,
+    bondRadialSegments: 14,
+    tubeRadialSegments: 8,
+    tubeMinSegments: 30,
+    surfaceSegments: 12,
+  },
+  high: {
+    pixelRatio: 1.3,
+    shadows: true,
+    sphereSegments: 24,
+    bondRadialSegments: 16,
+    tubeRadialSegments: 10,
+    tubeMinSegments: 36,
+    surfaceSegments: 16,
+  },
+  ultra: {
+    pixelRatio: 1.6,
+    shadows: true,
+    sphereSegments: 32,
+    bondRadialSegments: 20,
+    tubeRadialSegments: 12,
+    tubeMinSegments: 42,
+    surfaceSegments: 20,
+  },
+} as const;
 
 const chainPalette = [
   '#3b82f6',
@@ -75,14 +107,27 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
   const paused = usePhageStore(s => s.model3DPaused);
   const speed = usePhageStore(s => s.model3DSpeed);
   const quality = usePhageStore(s => s.model3DQuality);
+  const fullscreen = usePhageStore(s => s.model3DFullscreen);
+  const toggleFullscreen = usePhageStore(s => s.toggle3DModelFullscreen);
+  const cycleQuality = usePhageStore(s => s.cycle3DModelQuality);
+  const togglePause = usePhageStore(s => s.toggle3DModelPause);
+  const setSpeed = usePhageStore(s => s.set3DModelSpeed);
+
   const [renderMode, setRenderMode] = useState<RenderMode>('ball');
 
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [atomCount, setAtomCount] = useState<number | null>(null);
+  const [fps, setFps] = useState<number>(0);
+  const lastFrameTimeRef = useRef<number | null>(null);
+  const frameCounterRef = useRef<{ count: number; lastSample: number }>({
+    count: 0,
+    lastSample: performance.now(),
+  });
 
   const pdbId = useMemo(() => phage?.pdbIds?.[0] ?? null, [phage?.pdbIds]);
+  const qualityPreset = QUALITY_PRESETS[quality] ?? QUALITY_PRESETS.medium;
 
   const {
     data: structureData,
@@ -113,19 +158,49 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
 
     switch (mode) {
       case 'ball':
-        group = buildBallAndStick(data.atoms, data.bonds, 0.5, 0.12);
+        group = buildBallAndStick(data.atoms, data.bonds, {
+          sphereRadius: 0.5,
+          bondRadius: 0.12,
+          sphereSegments: qualityPreset.sphereSegments,
+          bondRadialSegments: qualityPreset.bondRadialSegments,
+        });
         break;
       case 'cartoon':
-        group = buildTubeFromTraces(data.backboneTraces, 0.5, 10, '#38bdf8', 1, chainColors);
+        group = buildTubeFromTraces(
+          data.backboneTraces,
+          0.5,
+          qualityPreset.tubeRadialSegments,
+          '#38bdf8',
+          1,
+          chainColors,
+          qualityPreset.tubeMinSegments
+        );
         break;
       case 'ribbon':
-        group = buildTubeFromTraces(data.backboneTraces, 0.3, 6, '#c084fc', 0.9, chainColors);
+        group = buildTubeFromTraces(
+          data.backboneTraces,
+          0.3,
+          Math.max(6, qualityPreset.tubeRadialSegments - 2),
+          '#c084fc',
+          0.9,
+          chainColors,
+          qualityPreset.tubeMinSegments
+        );
         break;
       case 'surface':
-        group = buildSurfaceImpostor(data.atoms, 1.6);
+        group = buildSurfaceImpostor(
+          data.atoms,
+          1.6,
+          qualityPreset.surfaceSegments
+        );
         break;
       default:
-        group = buildBallAndStick(data.atoms, data.bonds, 0.5, 0.12);
+        group = buildBallAndStick(data.atoms, data.bonds, {
+          sphereRadius: 0.5,
+          bondRadius: 0.12,
+          sphereSegments: qualityPreset.sphereSegments,
+          bondRadialSegments: qualityPreset.bondRadialSegments,
+        });
     }
 
     if (group) {
@@ -152,8 +227,8 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       cameraRef.current.aspect = width / height;
       cameraRef.current.updateProjectionMatrix();
       const dpr = window.devicePixelRatio ?? 1;
-      const pr = qualityPixelRatio[quality] ?? 1;
-      rendererRef.current.setPixelRatio(Math.min(dpr * pr, 2));
+      rendererRef.current.shadowMap.enabled = qualityPreset.shadows;
+      rendererRef.current.setPixelRatio(Math.min(dpr * qualityPreset.pixelRatio, 2));
       rendererRef.current.setSize(width, height);
       rendererRef.current.render(sceneRef.current, cameraRef.current);
       return;
@@ -162,7 +237,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
     const scene = new Scene();
     scene.background = new Color('#0b1021');
     const camera = new PerspectiveCamera(50, 1, 0.1, 5000);
-    const renderer = new WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new WebGLRenderer({ antialias: quality !== 'low', alpha: true });
     renderer.setClearColor('#0b1021', 0);
     rendererRef.current = renderer;
     sceneRef.current = scene;
@@ -200,8 +275,8 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       const dpr = window.devicePixelRatio ?? 1;
-      const pr = qualityPixelRatio[quality] ?? 1;
-      renderer.setPixelRatio(Math.min(dpr * pr, 2));
+      renderer.shadowMap.enabled = qualityPreset.shadows;
+      renderer.setPixelRatio(Math.min(dpr * qualityPreset.pixelRatio, 2));
       renderer.setSize(width, height);
       renderer.render(scene, camera);
     };
@@ -222,7 +297,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       controlsRef.current = null;
       structureRef.current = null;
     };
-  }, [quality]);
+  }, [quality, qualityPreset.pixelRatio, qualityPreset.shadows]);
 
   // Animation loop - CRITICAL: always schedule next frame first to keep loop running
   useEffect(() => {
@@ -238,6 +313,21 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       }
       controlsRef.current?.update();
       rendererRef.current.render(sceneRef.current, cameraRef.current);
+
+      // FPS sampling
+      const now = performance.now();
+      const last = lastFrameTimeRef.current;
+      lastFrameTimeRef.current = now;
+      if (last != null) {
+        frameCounterRef.current.count += 1;
+        const elapsed = now - frameCounterRef.current.lastSample;
+        if (elapsed >= 500) {
+          const currentFps = (frameCounterRef.current.count * 1000) / elapsed;
+          setFps(Math.round(currentFps));
+          frameCounterRef.current.count = 0;
+          frameCounterRef.current.lastSample = now;
+        }
+      }
     };
     animationRef.current = requestAnimationFrame(tick);
     return () => {
@@ -313,7 +403,110 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
     if (loadState === 'ready') {
       rebuildStructure(renderMode);
     }
-  }, [renderMode, loadState]);
+  }, [renderMode, loadState, quality]);
+
+  // Fullscreen management: sync store state with DOM fullscreen API
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleFsChange = () => {
+      const domFullscreen = document.fullscreenElement === container;
+      // If DOM exited but store still true, flip store flag back
+      if (!domFullscreen && fullscreen) {
+        toggleFullscreen();
+      }
+    };
+    const handleKeyEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && fullscreen) {
+        toggleFullscreen();
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('keydown', handleKeyEsc);
+
+    if (fullscreen && !document.fullscreenElement) {
+      void container.requestFullscreen().catch((err) => {
+        console.warn('Fullscreen request failed', err);
+        // Revert state if browser rejected fullscreen
+        toggleFullscreen();
+      });
+    } else if (!fullscreen && document.fullscreenElement === container) {
+      void document.exitFullscreen();
+    }
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('keydown', handleKeyEsc);
+      if (document.fullscreenElement === container) {
+        void document.exitFullscreen();
+      }
+    };
+  }, [fullscreen, toggleFullscreen]);
+
+  // Keyboard controls only in fullscreen: arrows rotate, +/- zoom, space toggles rotation
+  useEffect(() => {
+    if (!fullscreen) return;
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (!sceneRef.current || !structureRef.current || !controlsRef.current) return;
+      switch (event.key) {
+        case 'ArrowLeft':
+          structureRef.current.rotation.y -= 0.05;
+          event.preventDefault();
+          break;
+        case 'ArrowRight':
+          structureRef.current.rotation.y += 0.05;
+          event.preventDefault();
+          break;
+        case 'ArrowUp':
+          structureRef.current.rotation.x -= 0.05;
+          event.preventDefault();
+          break;
+        case 'ArrowDown':
+          structureRef.current.rotation.x += 0.05;
+          event.preventDefault();
+          break;
+        case '+':
+        case '=':
+          controlsRef.current.dollyIn?.(1.1);
+          controlsRef.current.update();
+          event.preventDefault();
+          break;
+        case '-':
+        case '_':
+          controlsRef.current.dollyOut?.(1.1);
+          controlsRef.current.update();
+          event.preventDefault();
+          break;
+        case ' ':
+          togglePause();
+          event.preventDefault();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [fullscreen, togglePause]);
+
+  const handleScreenshot = () => {
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    const dataUrl = renderer.domElement.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = 'phage-explorer-3d.png';
+    link.click();
+  };
+
+  const handleSpeedChange = (delta: number) => {
+    const next = Math.max(0, Math.min(4, speed + delta));
+    setSpeed(next);
+  };
 
   const stateLabel = loadState === 'ready'
     ? 'Loaded'
@@ -330,6 +523,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
         <div className="badge-row">
           <span className="badge">{stateLabel}</span>
           {atomCount !== null && <span className="badge subtle">{atomCount} atoms</span>}
+          <span className="badge subtle">FPS {fps || '—'}</span>
         </div>
       </div>
 
@@ -347,12 +541,59 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
             {mode === 'surface' && 'Surface'}
           </button>
         ))}
+        <button
+          type="button"
+          className="btn"
+          onClick={cycleQuality}
+        >
+          Quality: {quality}
+        </button>
+        <button
+          type="button"
+          className={`btn ${fullscreen ? 'active' : ''}`}
+          onClick={toggleFullscreen}
+        >
+          {fullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => togglePause()}
+        >
+          {paused ? 'Resume' : 'Pause'}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={handleScreenshot}
+        >
+          Save PNG
+        </button>
+        <div className="badge-row" style={{ gap: '4px' }}>
+          <button
+            type="button"
+            className="btn subtle"
+            onClick={() => handleSpeedChange(-0.5)}
+            title="Decrease auto-rotation speed"
+          >
+            −speed
+          </button>
+          <button
+            type="button"
+            className="btn subtle"
+            onClick={() => handleSpeedChange(0.5)}
+            title="Increase auto-rotation speed"
+          >
+            +speed
+          </button>
+        </div>
       </div>
 
       <div
         className="three-container"
         ref={containerRef}
         role="presentation"
+        style={fullscreen ? { width: '100%', height: 'calc(100vh - 120px)' } : undefined}
       >
         {loadState === 'loading' && (
           <div className="three-overlay">
@@ -368,6 +609,14 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
         {!show3DModel && (
           <div className="three-overlay">
             <p className="text-dim">3D model hidden (toggle with M)</p>
+          </div>
+        )}
+        {fullscreen && (
+          <div className="three-overlay" style={{ right: '1rem', top: '1rem', left: 'auto', width: 'auto' }}>
+            <div className="badge-row" style={{ gap: '6px' }}>
+              <span className="badge">FPS {fps || '—'}</span>
+              <span className="badge subtle">Quality {quality}</span>
+            </div>
           </div>
         )}
       </div>
