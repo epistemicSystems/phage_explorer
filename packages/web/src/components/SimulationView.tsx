@@ -74,10 +74,7 @@ export default function SimulationView(): React.ReactElement | null {
   const { theme } = useTheme();
   const colors = theme.colors;
 
-  if (!isOpen('simulationView')) {
-    return null;
-  }
-
+  // ALL hooks must be called unconditionally before any early return
   const simId = useMemo(() => {
     const fromOverlay = overlayData['simulationView.simId'] as string | undefined;
     return normalizeSimId(fromOverlay);
@@ -95,12 +92,18 @@ export default function SimulationView(): React.ReactElement | null {
     error,
   } = useSimulation(simId);
 
+  const isOpenSimView = isOpen('simulationView');
+
   // Auto-init when opened and no state yet
   useEffect(() => {
-    if (!isLoading && !state) {
-      void controls.init();
-    }
-  }, [controls, isLoading, state]);
+    if (!isOpenSimView || isLoading || state) return;
+    void controls.init();
+  }, [controls, isLoading, state, isOpenSimView]);
+
+  // Early return AFTER all hooks have been called
+  if (!isOpenSimView) {
+    return null;
+  }
 
   const paramValues = (state as any)?.params ?? {};
   const simTime = (state as any)?.time ?? 0;

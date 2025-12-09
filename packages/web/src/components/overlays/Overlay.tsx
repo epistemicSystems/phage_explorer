@@ -9,7 +9,7 @@
  * - Animation support
  */
 
-import React, { useRef, useEffect, type ReactNode, type CSSProperties } from 'react';
+import React, { useRef, useEffect, useCallback, type ReactNode, type CSSProperties } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { useOverlay, useOverlayZIndex, type OverlayId } from './OverlayProvider';
 
@@ -66,28 +66,27 @@ export function Overlay({
   const overlayRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
 
-  // Don't render if not open
-  if (!isOpen(id)) {
-    return null;
-  }
+  const overlayIsOpen = isOpen(id);
 
-  // Handle close
-  const handleClose = () => {
+  // Handle close - use useCallback to avoid stale closures
+  const handleClose = useCallback(() => {
     if (onClose) {
       onClose();
     }
     close(id);
-  };
+  }, [onClose, close, id]);
 
   // Handle backdrop click
-  const handleBackdropClick = (e: React.MouseEvent) => {
+  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       handleClose();
     }
-  };
+  }, [handleClose]);
 
-  // Focus trap
+  // Focus trap - must be called unconditionally before any early return
   useEffect(() => {
+    if (!overlayIsOpen) return;
+
     const overlay = overlayRef.current;
     if (!overlay) return;
 
@@ -138,7 +137,12 @@ export function Overlay({
         previousFocus.current.focus();
       }
     };
-  }, []);
+  }, [overlayIsOpen, handleClose]);
+
+  // Don't render if not open - AFTER all hooks
+  if (!overlayIsOpen) {
+    return null;
+  }
 
   // Styles
   const backdropStyle: CSSProperties = {
