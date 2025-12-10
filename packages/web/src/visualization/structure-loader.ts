@@ -1,17 +1,21 @@
 import {
   Box3,
+  BufferGeometry,
   CatmullRomCurve3,
   Color,
   CylinderGeometry,
+  Float32BufferAttribute,
   Group,
   InstancedMesh,
+  LineBasicMaterial,
+  LineSegments,
   Matrix4,
   Mesh,
   MeshPhongMaterial,
+  Quaternion,
   SphereGeometry,
   TubeGeometry,
   Vector3,
-  Quaternion,
 } from 'three';
 
 export type StructureFormat = 'pdb' | 'mmcif';
@@ -24,6 +28,7 @@ export interface LoadedStructure {
   center: Vector3;
   radius: number;
   atomCount: number;
+  functionalGroups: FunctionalGroup[];
 }
 
 export interface AtomRecord {
@@ -40,6 +45,14 @@ export interface AtomRecord {
 export interface Bond {
   a: number;
   b: number;
+}
+
+export type FunctionalGroupType = 'aromatic' | 'disulfide' | 'phosphate';
+
+export interface FunctionalGroup {
+  type: FunctionalGroupType;
+  atomIndices: number[];
+  color: Color;
 }
 
 // CPK-based colors optimized for dark backgrounds
@@ -70,6 +83,12 @@ const ELEMENT_RADII: Record<string, number> = {
   O: 0.66,
   S: 1.05,
   P: 1.07,
+};
+
+const FUNCTIONAL_GROUP_COLORS: Record<FunctionalGroupType, Color> = {
+  aromatic: new Color('#c084fc'),
+  disulfide: new Color('#facc15'),
+  phosphate: new Color('#fb923c'),
 };
 
 function detectFormat(idOrUrl: string): StructureFormat {
@@ -220,6 +239,7 @@ export async function loadStructure(
   const bonds = detectBonds(atoms);
   const backboneTraces = buildBackboneTraces(atoms);
   const chains = Array.from(new Set(atoms.map(a => a.chainId)));
+  const functionalGroups = detectFunctionalGroups(atoms, bonds);
 
   const box = new Box3();
   for (const atom of atoms) {
@@ -236,7 +256,139 @@ export async function loadStructure(
     center,
     radius,
     atomCount: atoms.length,
+    functionalGroups,
   };
+}
+
+function buildAdjacency(atoms: AtomRecord[], bonds: Bond[]): number[][] {
+  const adj: number[][] = Array.from({ length: atoms.length }, () => []);
+  for (const { a, b } of bonds) {
+    adj[a].push(b);
+    adj[b].push(a);
+  }
+  return adj;
+}
+
+function detectAromaticRings(atoms: AtomRecord[], bonds: Bond[]): FunctionalGroup[] {
+  const adj = buildAdjacency(atoms, bonds);
+  const rings: FunctionalGroup[] = [];
+  const isCarbon = (idx: number) => atoms[idx].element.toUpperCase() === 'C';
+
+  const maxPlanarOffset = 0.25; // Å deviation from plane
+
+  for (let start = 0; start < atoms.length; start++) {
+    if (!isCarbon(start)) continue;
+    const stack: number[] = [start];
+    const visited = new Set<number>([start]);
+
+    const dfs = (current: number, depth: number) => {
+      if (depth === 5) {
+        for (const next of adj[current]) {
+          if (next === start) {
+            const ring = [...stack];
+            // Require start to be the smallest index to avoid duplicates
+            if (ring.some(idx => idx < start)) continue;
+            if (!ring.every(isCarbon)) continue;
+            if (isPlanarRing(ring, atoms, maxPlanarOffset)) {
+              rings.push({
+                type: 'aromatic',
+                atomIndices: ring,
+                color: FUNCTIONAL_GROUP_COLORS.aromatic,
+              });
+            }
+          }
+        }
+        return;
+      }
+
+      for (const next of adj[current]) {
+        if (next === start) continue; // close only at depth 5
+        if (next <= start) continue; // enforce ordering to limit duplicates
+        if (visited.has(next)) continue;
+        visited.add(next);
+        stack.push(next);
+        dfs(next, depth + 1);
+        stack.pop();
+        visited.delete(next);
+      }
+    };
+
+    dfs(start, 1);
+  }
+
+  return rings;
+}
+
+function isPlanarRing(indices: number[], atoms: AtomRecord[], tolerance: number): boolean {
+  if (indices.length < 3) return false;
+  const [i0, i1, i2] = indices;
+  const a = new Vector3(atoms[i0].x, atoms[i0].y, atoms[i0].z);
+  const b = new Vector3(atoms[i1].x, atoms[i1].y, atoms[i1].z);
+  const c = new Vector3(atoms[i2].x, atoms[i2].y, atoms[i2].z);
+  const normal = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
+  if (normal.lengthSq() === 0) return false;
+
+  const distanceToPlane = (p: Vector3) => Math.abs(normal.dot(p.clone().sub(a)));
+  for (const idx of indices) {
+    const p = new Vector3(atoms[idx].x, atoms[idx].y, atoms[idx].z);
+    if (distanceToPlane(p) > tolerance) return false;
+  }
+  return true;
+}
+
+function detectDisulfides(atoms: AtomRecord[], bonds: Bond[]): FunctionalGroup[] {
+  const adj = buildAdjacency(atoms, bonds);
+  const groups: FunctionalGroup[] = [];
+  const sulfurIdx = atoms
+    .map((atom, idx) => ({ atom, idx }))
+    .filter(({ atom }) => atom.element.toUpperCase() === 'S')
+    .map(({ idx }) => idx);
+
+  for (let i = 0; i < sulfurIdx.length; i++) {
+    for (let j = i + 1; j < sulfurIdx.length; j++) {
+      const a = sulfurIdx[i];
+      const b = sulfurIdx[j];
+      const bonded = adj[a].includes(b);
+      const dx = atoms[a].x - atoms[b].x;
+      const dy = atoms[a].y - atoms[b].y;
+      const dz = atoms[a].z - atoms[b].z;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (bonded || dist <= 2.2) {
+        groups.push({
+          type: 'disulfide',
+          atomIndices: [a, b],
+          color: FUNCTIONAL_GROUP_COLORS.disulfide,
+        });
+      }
+    }
+  }
+
+  return groups;
+}
+
+function detectPhosphates(atoms: AtomRecord[], bonds: Bond[]): FunctionalGroup[] {
+  const adj = buildAdjacency(atoms, bonds);
+  const groups: FunctionalGroup[] = [];
+  atoms.forEach((atom, idx) => {
+    if (atom.element.toUpperCase() !== 'P') return;
+    const oxyNeighbors = adj[idx].filter(n => atoms[n].element.toUpperCase() === 'O');
+    if (oxyNeighbors.length >= 3) {
+      groups.push({
+        type: 'phosphate',
+        atomIndices: [idx, ...oxyNeighbors],
+        color: FUNCTIONAL_GROUP_COLORS.phosphate,
+      });
+    }
+  });
+  return groups;
+}
+
+function detectFunctionalGroups(atoms: AtomRecord[], bonds: Bond[]): FunctionalGroup[] {
+  return [
+    ...detectAromaticRings(atoms, bonds),
+    ...detectDisulfides(atoms, bonds),
+    ...detectPhosphates(atoms, bonds),
+  ];
 }
 
 interface BallStickOptions {
@@ -403,6 +555,109 @@ export function buildSurfaceImpostor(
   });
   innerMesh.instanceMatrix.needsUpdate = true;
   group.add(innerMesh);
+
+  return group;
+}
+
+export type FunctionalGroupStyle = 'halo' | 'bounds' | 'lines';
+
+interface FunctionalGroupHighlightOptions {
+  style?: FunctionalGroupStyle;
+}
+
+export function buildFunctionalGroupHighlights(
+  atoms: AtomRecord[],
+  groups: FunctionalGroup[],
+  options: FunctionalGroupHighlightOptions = {}
+): Group {
+  const style = options.style ?? 'halo';
+  const group = new Group();
+  if (!groups.length) return group;
+
+  switch (style) {
+    case 'bounds': {
+      groups.forEach(g => {
+        const centroid = g.atomIndices.reduce(
+          (acc, idx) => acc.add(new Vector3(atoms[idx].x, atoms[idx].y, atoms[idx].z)),
+          new Vector3()
+        ).multiplyScalar(1 / g.atomIndices.length);
+        let maxRadius = 0;
+        g.atomIndices.forEach(idx => {
+          const atomPos = new Vector3(atoms[idx].x, atoms[idx].y, atoms[idx].z);
+          maxRadius = Math.max(maxRadius, atomPos.distanceTo(centroid));
+        });
+        const radius = maxRadius + 0.6;
+        const geo = new SphereGeometry(radius, 16, 16);
+        const mat = new MeshPhongMaterial({
+          color: g.color,
+          transparent: true,
+          opacity: 0.22,
+          emissive: g.color,
+          emissiveIntensity: 0.15,
+          depthWrite: false,
+        });
+        const mesh = new Mesh(geo, mat);
+        mesh.position.copy(centroid);
+        group.add(mesh);
+      });
+      break;
+    }
+    case 'lines': {
+      const positions: number[] = [];
+      const colors: number[] = [];
+      groups.forEach(g => {
+        const atomsInGroup = g.atomIndices;
+        if (atomsInGroup.length < 2) return;
+        for (let i = 0; i < atomsInGroup.length - 1; i++) {
+          const a = atomsInGroup[i];
+          const b = atomsInGroup[i + 1];
+          positions.push(atoms[a].x, atoms[a].y, atoms[a].z);
+          positions.push(atoms[b].x, atoms[b].y, atoms[b].z);
+          colors.push(g.color.r, g.color.g, g.color.b);
+          colors.push(g.color.r, g.color.g, g.color.b);
+        }
+      });
+      if (positions.length) {
+        const geo = new BufferGeometry();
+        geo.setAttribute('position', new Float32BufferAttribute(positions, 3));
+        geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
+        const mat = new LineBasicMaterial({ vertexColors: true, linewidth: 1 });
+        const lines = new LineSegments(geo, mat);
+        group.add(lines);
+      }
+      break;
+    }
+    case 'halo':
+    default: {
+      const instances: { idx: number; color: Color }[] = [];
+      groups.forEach(g => {
+        g.atomIndices.forEach(idx => instances.push({ idx, color: g.color }));
+      });
+      if (!instances.length) return group;
+      const haloRadius = 0.65;
+      const geo = new SphereGeometry(haloRadius, 14, 14);
+      const mat = new MeshPhongMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.35,
+        shininess: 80,
+        emissiveIntensity: 0.2,
+      });
+      const mesh = new InstancedMesh(geo, mat, instances.length);
+      const matrix = new Matrix4();
+      const color = new Color();
+      instances.forEach((item, i) => {
+        const atom = atoms[item.idx];
+        matrix.makeTranslation(atom.x, atom.y, atom.z);
+        mesh.setMatrixAt(i, matrix);
+        mesh.setColorAt(i, color.copy(item.color));
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      group.add(mesh);
+      break;
+    }
+  }
 
   return group;
 }
