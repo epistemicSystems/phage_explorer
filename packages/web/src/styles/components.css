@@ -821,6 +821,95 @@
 }
 
 /* =============================================================================
+   SEQUENCE VIEW MODE TOGGLE
+   Premium segmented control for DNA / Dual / Amino Acid views
+   ============================================================================= */
+
+.view-mode-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 6px;
+  border-radius: var(--radius-xl);
+  background: var(--view-toggle-bg, var(--color-background-elevated));
+  border: 1px solid var(--view-toggle-border, var(--color-border-subtle));
+  box-shadow: var(--shadow-sm);
+}
+
+.view-mode-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 14px;
+  min-height: 44px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--view-toggle-muted, var(--color-text-muted));
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: var(--tracking-normal);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.view-mode-segment.active {
+  background: var(--view-toggle-active, var(--color-primary));
+  color: var(--view-toggle-active-text, var(--color-background));
+  border-color: var(--view-toggle-border, var(--color-border-light));
+  box-shadow: var(--shadow-md);
+}
+
+.view-mode-segment:not(.active):hover {
+  background: var(--color-background-hover);
+  color: var(--view-toggle-text, var(--color-text));
+  border-color: var(--view-toggle-border, var(--color-border-light));
+}
+
+.view-mode-segment:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
+}
+
+.view-mode-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.view-mode-label {
+  font-weight: 600;
+}
+
+.view-mode-subtle {
+  font-size: var(--text-xs);
+  color: var(--view-toggle-muted, var(--color-text-muted));
+  line-height: 1.2;
+}
+
+@media (max-width: 640px) {
+  .view-mode-toggle {
+    gap: var(--space-1);
+    padding: 4px;
+  }
+
+  .view-mode-segment {
+    padding: 8px 10px;
+    min-width: 0;
+  }
+
+  .view-mode-subtle {
+    display: none;
+  }
+}
+
+/* =============================================================================
    MOBILE-SPECIFIC UTILITIES
    Note: Header/footer/body styles are in styles.css
    ============================================================================= */
