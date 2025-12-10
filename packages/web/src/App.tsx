@@ -449,6 +449,44 @@ export default function App(): JSX.Element {
           </div>
         </section>
       </AppShell>
+      {isGlossaryOpen && (
+        <div
+          role="complementary"
+          aria-label="Glossary"
+          style={{
+            position: 'fixed',
+            top: 'var(--header-height, 64px)',
+            right: 0,
+            bottom: 'var(--footer-height, 60px)',
+            width: 'min(420px, 42%)',
+            background: 'var(--color-background)',
+            borderLeft: '1px solid var(--color-border-subtle)',
+            boxShadow: 'var(--shadow-lg, 0 12px 36px rgba(0,0,0,0.35))',
+            zIndex: 15,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.5rem 0.75rem',
+              borderBottom: '1px solid var(--color-border-subtle)',
+              background: 'var(--color-background-elevated)',
+            }}
+          >
+            <div style={{ fontWeight: 700 }}>Glossary</div>
+            <button className="btn" type="button" onClick={closeGlossary}>
+              Close
+            </button>
+          </div>
+          <div style={{ padding: '0.75rem', overflow: 'auto', flex: 1 }}>
+            <GlossaryPanel />
+          </div>
+        </div>
+      )}
       <OverlayManager repository={repository} currentPhage={currentPhage} />
       {beginnerToast && (
         <div className="toast toast-info" role="status" aria-live="polite">
