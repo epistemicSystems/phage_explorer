@@ -50,7 +50,6 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
       <div className="header-right" role="navigation" aria-label="Quick actions">
-        {subtitle && <span className="app-subtitle" aria-label="Theme or Status">{subtitle}</span>}
         {children}
       </div>
     </header>

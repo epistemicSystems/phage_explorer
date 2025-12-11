@@ -41,7 +41,7 @@ function ViewModeToggle({ value, onChange, colors }: ViewModeToggleProps): React
     '--view-toggle-text': colors.text,
     '--view-toggle-muted': colors.textMuted,
     '--view-toggle-active-text': '#000',
-  };
+  } as React.CSSProperties; // Use type assertion for custom properties
 
   const handleKey = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -401,12 +401,14 @@ export function SequenceView({
           alignItems: 'center',
           padding: '0.4rem 0.75rem',
           borderBottom: `1px solid ${colors.borderLight}`,
+          flexWrap: 'wrap',
+          gap: '8px',
         }}
       >
         <span style={{ color: colors.primary, fontWeight: 'bold', fontSize: '0.9rem' }}>
           Sequence
         </span>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {/* Zoom controls */}
           <div style={{ display: 'flex', gap: '0.15rem', alignItems: 'center' }}>
             <button
@@ -494,9 +496,9 @@ export function SequenceView({
               Frame {frameLabel}
             </button>
           )}
-          {/* Position indicator */}
+          {/* Position indicator - hide on mobile to save space if needed, or wrap */}
           {visibleRange && (
-            <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>
+            <span style={{ fontSize: '0.75rem', color: colors.textMuted, marginLeft: '4px' }}>
               {visibleRange.startIndex.toLocaleString()} - {visibleRange.endIndex.toLocaleString()}
             </span>
           )}

@@ -1,0 +1,57 @@
+
+/* ... (keep existing imports) ... */
+
+/* Mobile Touch Targets & Typography Overrides */
+@media (max-width: 640px) {
+  :root {
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+  }
+
+  /* Force minimum touch target size */
+  button, 
+  .btn,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px 16px; 
+    font-size: 14px; /* readable size */
+  }
+
+  /* Fix header button grouping on mobile */
+  .app-header {
+    padding: 8px 12px;
+    gap: 8px;
+    height: auto; /* Allow growth */
+    flex-wrap: wrap;
+  }
+
+  .header-right {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* Badges shouldn't be microscopic */
+  .badge {
+    font-size: 11px;
+    padding: 4px 8px;
+    height: auto;
+    min-height: 20px; /* Badges are info, not touch targets, so smaller is ok, but not 9px text */
+  }
+
+  /* Sequence View Toolbar adjustments */
+  .sequence-view .toolbar button {
+    padding: 8px 12px;
+    margin: 2px;
+  }
+}
+
+/* Fix 3D View Container width on mobile */
+.three-container {
+  width: 100%;
+  min-height: 300px; /* Keep reasonable height */
+}
