@@ -57,7 +57,19 @@ Thumbs.db
 
 # Test artifacts
 test-output/
+test-results/
 *.test-output
+
+# UI inspection/audit scripts (debugging tools, not production code)
+inspect-ui.ts
+audit-ui.ts
+packages/web/audit-ui.ts
+
+# Temporary beads tracking data
+.beads/beads.left.*
+
+# Generated database in web public (fetched at runtime, not checked in)
+packages/web/public/phage.db
 
 # OS files
 .DS_Store
