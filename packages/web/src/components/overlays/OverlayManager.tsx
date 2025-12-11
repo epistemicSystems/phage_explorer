@@ -30,6 +30,7 @@ import { NonBDNAOverlay } from './NonBDNAOverlay';
 import { StructureConstraintOverlay } from './StructureConstraintOverlay';
 import { DotPlotOverlay } from './DotPlotOverlay';
 import { SyntenyOverlay } from './SyntenyOverlay';
+import { SettingsOverlay } from './SettingsOverlay';
 
 interface OverlayManagerProps {
   repository: PhageRepository | null;
@@ -60,6 +61,7 @@ export function OverlayManager({ repository, currentPhage }: OverlayManagerProps
       <StructureConstraintOverlay repository={repository} currentPhage={currentPhage} />
       <DotPlotOverlay repository={repository} currentPhage={currentPhage} />
       <SyntenyOverlay repository={repository} currentPhage={currentPhage} />
+      <SettingsOverlay />
       <CommandPalette />
     </>
   );

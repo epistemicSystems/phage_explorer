@@ -12,6 +12,7 @@ export type OverlayId =
   | 'help'
   | 'search'
   | 'goto'
+  | 'settings'
   | 'aaKey'
   | 'aaLegend'
   | 'comparison'

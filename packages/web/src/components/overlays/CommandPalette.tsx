@@ -223,6 +223,14 @@ export function CommandPalette({ commands: customCommands, context: propContext 
     { id: 'theme:cyber', label: 'Theme: Cyberpunk', category: 'Theme', action: () => {}, minLevel: 'novice' },
     { id: 'theme:matrix', label: 'Theme: Matrix', category: 'Theme', action: () => {}, minLevel: 'novice' },
     { id: 'theme:ocean', label: 'Theme: Ocean', category: 'Theme', action: () => {}, minLevel: 'novice' },
+    {
+      id: 'nav:settings',
+      label: 'Open Settings',
+      category: 'Navigation',
+      shortcut: 'Ctrl+,',
+      action: () => { close(); open('settings'); },
+      minLevel: 'novice',
+    },
 
     // Overlay commands
     { id: 'overlay:help', label: 'Show Help', category: 'Navigation', shortcut: '?', action: () => { close(); open('help'); }, minLevel: 'novice' },
@@ -238,6 +246,12 @@ export function CommandPalette({ commands: customCommands, context: propContext 
     { id: 'analysis:promoter', label: 'Promoter/RBS Sites', category: 'Analysis', shortcut: 'p', action: () => { close(); open('promoter'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
     { id: 'analysis:repeat', label: 'Repeat Finder', category: 'Analysis', shortcut: 'r', action: () => { close(); open('repeats'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
     { id: 'analysis:cgr', label: 'Chaos Game Representation', category: 'Analysis', shortcut: 'Alt+Shift+C', action: () => { close(); open('cgr'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
+    { id: 'analysis:hilbert', label: 'Hilbert Curve Visualization', category: 'Analysis', shortcut: 'H', action: () => { close(); open('hilbert'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
+    { id: 'analysis:dotplot', label: 'Synteny Dotplot', category: 'Analysis', shortcut: '.', action: () => { close(); open('dotplot'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
+    { id: 'analysis:gel', label: 'Virtual Gel Electrophoresis', category: 'Analysis', shortcut: 'G', action: () => { close(); open('gel'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
+    { id: 'analysis:constraints', label: 'Structure Constraints', category: 'Analysis', action: () => { close(); open('structureConstraints'); }, minLevel: 'power', contexts: ['has-phage'] },
+    { id: 'analysis:non-b', label: 'Non-B DNA Structures', category: 'Analysis', action: () => { close(); open('nonBDNA'); }, minLevel: 'power', contexts: ['has-phage'] },
+    { id: 'analysis:crispr', label: 'CRISPR Arrays', category: 'Analysis', action: () => { close(); open('crispr'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
 
     // Advanced analysis (power users)
     { id: 'analysis:kmer', label: 'K-mer Anomaly Detection', category: 'Advanced', shortcut: 'V', action: () => { close(); open('kmerAnomaly'); }, minLevel: 'power', contexts: ['has-phage'] },
@@ -245,6 +259,10 @@ export function CommandPalette({ commands: customCommands, context: propContext 
     { id: 'analysis:hgt', label: 'HGT Provenance', category: 'Advanced', shortcut: 'Y', action: () => { close(); open('hgt'); }, minLevel: 'power', contexts: ['has-phage'] },
     { id: 'analysis:tropism', label: 'Tropism & Receptors', category: 'Advanced', shortcut: '0', action: () => { close(); open('tropism'); }, minLevel: 'power', contexts: ['has-phage'] },
     { id: 'analysis:bias', label: 'Codon Bias Decomposition', category: 'Advanced', shortcut: 'J', action: () => { close(); open('biasDecomposition'); }, minLevel: 'power', contexts: ['has-phage'] },
+    { id: 'analysis:phase', label: 'Phase Portrait', category: 'Advanced', shortcut: 'P', action: () => { close(); open('phasePortrait'); }, minLevel: 'power', contexts: ['has-phage'] },
+    { id: 'analysis:packaging', label: 'Packaging Pressure', category: 'Advanced', action: () => { close(); open('packagingPressure'); }, minLevel: 'power', contexts: ['has-phage'] },
+    { id: 'analysis:stability', label: 'Virion Stability', category: 'Advanced', action: () => { close(); open('virionStability'); }, minLevel: 'power', contexts: ['has-phage'] },
+
     { id: 'reference:aa-key', label: 'Amino Acid Key', category: 'Reference', shortcut: 'k', action: () => { close(); open('aaKey'); }, minLevel: 'novice' },
     { id: 'reference:aa-legend', label: 'Amino Acid Legend (compact)', category: 'Reference', shortcut: 'l', action: () => { close(); open('aaLegend'); }, minLevel: 'novice' },
 
@@ -559,17 +577,7 @@ export function CommandPalette({ commands: customCommands, context: propContext 
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type to search commands..."
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            backgroundColor: colors.backgroundAlt,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '4px',
-            color: colors.text,
-            fontSize: '1rem',
-            fontFamily: 'inherit',
-            outline: 'none',
-          }}
+          className="input"
           autoComplete="off"
           spellCheck={false}
         />
@@ -577,25 +585,13 @@ export function CommandPalette({ commands: customCommands, context: propContext 
         {/* Command list */}
         <div
           ref={listRef}
-          style={{
-            maxHeight: '400px',
-            overflowY: 'auto',
-          }}
+          className="scrollable-y"
+          style={{ maxHeight: '400px' }}
         >
           {/* Recent commands section (only show when no query) */}
           {showRecent && (
             <div>
-              <div style={{
-                padding: '0.5rem',
-                color: colors.accent,
-                fontSize: '0.75rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                borderBottom: `1px solid ${colors.borderLight}`,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-              }}>
+              <div className="text-muted text-xs uppercase tracking-wider p-2 border-b border-border-light flex items-center gap-2">
                 <span>⏱</span>
                 <span>Recent</span>
               </div>
@@ -607,29 +603,13 @@ export function CommandPalette({ commands: customCommands, context: propContext 
                   <div
                     key={`recent-${cmd.id}`}
                     onClick={() => executeCommand(cmd)}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '0.5rem 0.75rem',
-                      cursor: 'pointer',
-                      backgroundColor: isSelected ? colors.backgroundAlt : 'transparent',
-                      borderLeft: isSelected ? `2px solid ${colors.accent}` : '2px solid transparent',
-                    }}
+                    className={`list-item ${isSelected ? 'active' : ''}`}
                   >
-                    <span style={{ color: isSelected ? colors.text : colors.textDim }}>
+                    <span className={isSelected ? 'text-text' : 'text-dim'}>
                       {cmd.label}
                     </span>
                     {cmd.shortcut && (
-                      <span style={{
-                        color: colors.accent,
-                        fontSize: '0.8rem',
-                        padding: '0.1rem 0.4rem',
-                        backgroundColor: colors.background,
-                        border: `1px solid ${colors.borderLight}`,
-                        borderRadius: '3px',
-                        fontFamily: 'monospace',
-                      }}>
+                      <span className="key-hint">
                         {cmd.shortcut}
                       </span>
                     )}
@@ -641,14 +621,7 @@ export function CommandPalette({ commands: customCommands, context: propContext 
 
           {Object.entries(groupedCommands).map(([category, cmds]) => (
             <div key={category}>
-              <div style={{
-                padding: '0.5rem',
-                color: colors.textMuted,
-                fontSize: '0.75rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                borderBottom: `1px solid ${colors.borderLight}`,
-              }}>
+              <div className="text-muted text-xs uppercase tracking-wider p-2 border-b border-border-light">
                 {category}
               </div>
               {cmds.map((cmd) => {
@@ -659,38 +632,22 @@ export function CommandPalette({ commands: customCommands, context: propContext 
                   <div
                     key={cmd.id}
                     onClick={() => executeCommand(cmd)}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '0.5rem 0.75rem',
-                      cursor: 'pointer',
-                      backgroundColor: isSelected ? colors.backgroundAlt : 'transparent',
-                      borderLeft: isSelected ? `2px solid ${colors.accent}` : '2px solid transparent',
-                    }}
+                    className={`list-item ${isSelected ? 'active' : ''}`}
                   >
                     <div>
-                      <span style={{ color: isSelected ? colors.text : colors.textDim }}>
+                      <span className={isSelected ? 'text-text' : 'text-dim'}>
                         {(cmd as any)._indices
                           ? highlightMatch(cmd.label, (cmd as any)._indices, colors.accent)
                           : cmd.label}
                       </span>
                       {cmd.description && (
-                        <span style={{ color: colors.textMuted, marginLeft: '0.5rem', fontSize: '0.85rem' }}>
+                        <span className="text-muted text-xs ml-2">
                           {cmd.description}
                         </span>
                       )}
                     </div>
                     {cmd.shortcut && (
-                      <span style={{
-                        color: colors.accent,
-                        fontSize: '0.8rem',
-                        padding: '0.1rem 0.4rem',
-                        backgroundColor: colors.background,
-                        border: `1px solid ${colors.borderLight}`,
-                        borderRadius: '3px',
-                        fontFamily: 'monospace',
-                      }}>
+                      <span className="key-hint">
                         {cmd.shortcut}
                       </span>
                     )}

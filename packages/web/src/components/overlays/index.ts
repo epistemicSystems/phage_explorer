@@ -50,6 +50,7 @@ export { AnomalyOverlay } from './AnomalyOverlay';
 export { CRISPROverlay } from './CRISPROverlay';
 export { SyntenyOverlay } from './SyntenyOverlay';
 export { DotPlotOverlay } from './DotPlotOverlay';
+export { SettingsOverlay } from './SettingsOverlay';
 
 // Layer 2 Advanced Overlays
 export { KmerAnomalyOverlay } from './KmerAnomalyOverlay';
