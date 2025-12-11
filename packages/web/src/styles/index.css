@@ -317,35 +317,28 @@ body {
 .three-container {
   position: relative;
   width: 100%;
-  min-height: 280px;
-  height: 350px; /* Default height */
+  min-height: 320px;
+  height: clamp(320px, 55vh, 540px);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: radial-gradient(circle at 30% 20%, rgba(56, 189, 248, 0.08), transparent 35%),
-    radial-gradient(circle at 70% 60%, rgba(168, 85, 247, 0.08), transparent 40%),
-    var(--color-background);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 28% 20%, rgba(56, 189, 248, 0.12), transparent 36%),
+    radial-gradient(circle at 72% 62%, rgba(168, 85, 247, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.88)),
+    var(--color-background-alt);
   overflow: hidden;
 }
 
-/* Larger 3D viewer on desktop */
 @media (min-width: 1024px) {
   .three-container {
-    height: 450px;
+    height: clamp(420px, 60vh, 620px);
   }
 }
 
-/* Even larger on wide screens */
-@media (min-width: 1536px) {
-  .three-container {
-    height: 550px;
-  }
-}
-
-/* Smaller on mobile */
 @media (max-width: 640px) {
   .three-container {
-    height: 250px;
-    min-height: 200px;
+    min-height: 340px;
+    height: clamp(340px, 62vh, 520px);
   }
 }
 
