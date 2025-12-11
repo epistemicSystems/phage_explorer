@@ -19,6 +19,7 @@ import {
 } from './store';
 import { useBeginnerMode, useBeginnerModeInit } from './education';
 import './styles.css';
+import { GeneMapCanvas } from './components/GeneMapCanvas';
 import { Model3DView } from './components/Model3DView';
 import { SequenceView } from './components/SequenceView';
 import { BeginnerModeIndicator } from './components/BeginnerModeIndicator';
@@ -440,6 +441,12 @@ export default function App(): JSX.Element {
                 <div className="detail-viewers">
                   <div className="viewer-panel">
                     <div className="metric-label" style={{ marginBottom: '0.5rem' }}>Sequence</div>
+                    {currentPhage && (
+                      <GeneMapCanvas 
+                        height={60} 
+                        onGeneClick={(pos) => usePhageStore.getState().setScrollPosition(pos)} 
+                      />
+                    )}
                     <SequenceView
                       sequence={fullSequence}
                       height={sequenceHeight}
@@ -506,6 +513,7 @@ export default function App(): JSX.Element {
           {beginnerToast}
         </div>
       )}
+      <ControlDeck />
     </>
   );
 }
