@@ -27,7 +27,9 @@ import { ReadingFrameVisualizer } from './components/ReadingFrameVisualizer';
 import { GlossaryPanel } from './education/glossary/GlossaryPanel';
 import { LearnMenu } from './components/LearnMenu';
 
+// Mobile controls
 import { ControlDeck } from './components/mobile/ControlDeck';
+import { FloatingActionButton } from './components/controls/FloatingActionButton';
 
 /** Number of bases to show in the sequence preview */
 const SEQUENCE_PREVIEW_LENGTH = 500;
@@ -37,7 +39,10 @@ export default function App(): JSX.Element {
   const reducedMotion = useReducedMotion();
   const highContrast = useWebPreferences((s) => s.highContrast);
   const setHighContrast = useWebPreferences((s) => s.setHighContrast);
-  // Hydrate beginner mode preferences from storage once on mount
+  const controlDrawerOpen = useWebPreferences((s) => s.controlDrawerOpen);
+  const setControlDrawerOpen = useWebPreferences((s) => s.setControlDrawerOpen);
+  const toggleControlDrawer = useWebPreferences((s) => s.toggleControlDrawer);
+  
   useBeginnerModeInit();
   const {
     repository,
@@ -57,7 +62,6 @@ export default function App(): JSX.Element {
   const [beginnerToast, setBeginnerToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
-  // Use individual selectors to avoid getSnapshot caching issues
   const phages = usePhageStore((s) => s.phages);
   const currentPhageIndex = usePhageStore((s) => s.currentPhageIndex);
   const currentPhage = usePhageStore((s) => s.currentPhage);
@@ -77,12 +81,14 @@ export default function App(): JSX.Element {
   const enableBackgroundEffects = !reducedMotion;
   const [isNarrow, setIsNarrow] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const checkLayout = () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
       setIsNarrow(width < 900);
+      setIsMobile(width < 640);
       setIsLandscape(width > height);
     };
     checkLayout();
@@ -90,20 +96,11 @@ export default function App(): JSX.Element {
     return () => window.removeEventListener('resize', checkLayout);
   }, []);
 
-  // Smart height calculation:
-  // - Landscape mobile: Maximize height (85vh), hide header/footer visual clutter
-  // - Portrait mobile: Taller than before (65vh)
-  // - Desktop: Standard fixed heights
-  const sequenceHeight = isNarrow
-    ? isLandscape ? '85vh' : '65vh'
-    : 480;
-
-  // In landscape mobile, we hide the 3D view by default to focus on the sequence
-  // The user can still toggle it via the 'M' key or menu if they really want it
+  const sequenceHeight = isNarrow ? (isLandscape ? '85vh' : '65vh') : 480;
   const show3DInLayout = !isNarrow || !isLandscape;
+  const showList = !isMobile || (isMobile && !currentPhage);
+  const showDetail = !isMobile || (isMobile && currentPhage);
 
-  // React 19: useOptimistic for instant visual feedback on phage selection
-  // Shows selection immediately while data loads in background
   const [optimisticIndex, setOptimisticIndex] = useOptimistic(
     currentPhageIndex,
     (_current: number, next: number) => next
@@ -118,13 +115,20 @@ export default function App(): JSX.Element {
     }
   }, [highContrast]);
 
-  // Initialize persistence once on mount
+  const handleFabToggle = useCallback(() => {
+    toggleControlDrawer();
+  }, [toggleControlDrawer]);
+
+  const handleFabLongPress = useCallback(() => {
+    setControlDrawerOpen(true);
+    openOverlayCtx('commandPalette');
+  }, [openOverlayCtx, setControlDrawerOpen]);
+
   useEffect(() => {
     const cleanup = initializeStorePersistence();
     return cleanup;
   }, []);
 
-  // Keep Zustand theme aligned with current visual theme
   useEffect(() => {
     storeSetTheme(theme.id);
   }, [storeSetTheme, theme.id]);
@@ -155,7 +159,6 @@ export default function App(): JSX.Element {
     [setCurrentPhage, setCurrentPhageIndex, setError, setLoadingPhage]
   );
 
-  // Hydrate store from repository once available
   const hydratedRef = useRef(false);
   useEffect(() => {
     if (!repository || hydratedRef.current) return;
@@ -179,7 +182,6 @@ export default function App(): JSX.Element {
   const handleSelectPhage = useCallback(
     async (index: number) => {
       if (!repository) return;
-      // React 19: Optimistically update selection for instant UI feedback
       setOptimisticIndex(index);
       await loadPhage(repository, index);
     },
@@ -189,7 +191,6 @@ export default function App(): JSX.Element {
   const handleNextPhage = useCallback(() => {
     if (!repository || phages.length === 0) return;
     const nextIndex = (currentPhageIndex + 1) % phages.length;
-    // React 19: Optimistic update for keyboard navigation too
     setOptimisticIndex(nextIndex);
     void loadPhage(repository, nextIndex);
   }, [currentPhageIndex, loadPhage, phages.length, repository, setOptimisticIndex]);
@@ -197,7 +198,6 @@ export default function App(): JSX.Element {
   const handlePrevPhage = useCallback(() => {
     if (!repository || phages.length === 0) return;
     const prevIndex = (currentPhageIndex - 1 + phages.length) % phages.length;
-    // React 19: Optimistic update for keyboard navigation too
     setOptimisticIndex(prevIndex);
     void loadPhage(repository, prevIndex);
   }, [currentPhageIndex, loadPhage, phages.length, repository, setOptimisticIndex]);
@@ -237,7 +237,6 @@ export default function App(): JSX.Element {
   const loadingOverlayNeeded = isLoading || (!repository && progress);
   const showErrorOverlay = !!error && !repository;
 
-  // Baseline hotkeys matching core navigation
   useHotkeys([
     { combo: { key: 'j' }, description: 'Next phage', action: handleNextPhage, modes: ['NORMAL'] },
     { combo: { key: 'k' }, description: 'Previous phage', action: handlePrevPhage, modes: ['NORMAL'] },
@@ -274,7 +273,6 @@ export default function App(): JSX.Element {
     { key: 'Ctrl+B', label: 'beginner' },
   ]), []);
 
-  // React 19: Dynamic document title
   const documentTitle = currentPhage
     ? `${currentPhage.name} - Phage Explorer`
     : 'Phage Explorer';
@@ -342,7 +340,6 @@ export default function App(): JSX.Element {
           children: <BeginnerModeIndicator />,
         }}
       >
-        {/* Database loading/error status - only shown when needed */}
         {(!repository || error) && (
           <section className="panel panel-compact" aria-label="Repository status">
             <div className="panel-header">
@@ -366,117 +363,131 @@ export default function App(): JSX.Element {
         )}
 
         <section className="panel two-column" aria-label="Phage browser">
-          <div className="column column--list">
-            <div className="panel-header">
-              <h3>Phages</h3>
-              <span className="badge">{phages.length}</span>
-            </div>
-            <div className="list">
-              {phages.map((phage, idx) => {
-                // Use optimistic index for instant visual selection feedback
-                const isActive = idx === optimisticIndex;
-                return (
-                  <button
-                    key={phage.id}
-                    className={`list-item ${isActive ? 'active' : ''}`}
-                    onClick={() => handleSelectPhage(idx)}
-                    type="button"
-                  >
-                    <div className="list-item-main">
-                      <div className="list-title">{phage.name}</div>
-                      <div className="list-subtitle text-dim">
-                        {phage.host ?? 'Unknown host'} · {(phage.genomeLength ?? 0).toLocaleString()} bp
+          {showList && (
+            <div className="column column--list">
+              <div className="panel-header">
+                <h3>Phages</h3>
+                <span className="badge">{phages.length}</span>
+              </div>
+              <div className="list">
+                {phages.map((phage, idx) => {
+                  const isActive = idx === optimisticIndex;
+                  return (
+                    <button
+                      key={phage.id}
+                      className={`list-item ${isActive ? 'active' : ''}`}
+                      onClick={() => handleSelectPhage(idx)}
+                      type="button"
+                    >
+                      <div className="list-item-main">
+                        <div className="list-title">{phage.name}</div>
+                        <div className="list-subtitle text-dim">
+                          {phage.host ?? 'Unknown host'} · {(phage.genomeLength ?? 0).toLocaleString()} bp
+                        </div>
                       </div>
-                    </div>
-                    <div className="list-item-meta">
-                      {phage.lifecycle && (
-                        <span className={`badge badge-tiny ${phage.lifecycle === 'lytic' ? 'badge-warning' : 'badge-info'}`}>
-                          {phage.lifecycle}
-                        </span>
-                      )}
-                      {phage.gcContent != null && (
-                        <span className="meta-gc text-dim">{phage.gcContent.toFixed(1)}%</span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-              {phages.length === 0 && (
-                <div className="text-dim">Phage list will appear once the database loads.</div>
-              )}
-            </div>
-          </div>
-
-          <div className="column column--detail">
-            <div className="panel-header">
-              <h3>Details</h3>
-              {isLoadingPhage && <span className="badge">Loading</span>}
-            </div>
-            {currentPhage ? (
-              <div className="detail-card">
-                <h4>{currentPhage.name}</h4>
-                <p className="text-dim">
-                  {currentPhage.family ?? 'Unassigned family'} · {currentPhage.lifecycle ?? 'Lifecycle n/a'}
-                </p>
-                <div className="metrics">
-                  <div>
-                    <div className="metric-label">Genome length</div>
-                    <div className="metric-value">{(currentPhage.genomeLength ?? 0).toLocaleString()} bp</div>
-                  </div>
-                  <div>
-                    <div className="metric-label">GC content</div>
-                    <div className="metric-value">
-                      {currentPhage.gcContent != null ? `${currentPhage.gcContent.toFixed(2)}%` : '—'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="metric-label">Genes</div>
-                    <div className="metric-value">{currentPhage.genes.length}</div>
-                  </div>
-                </div>
-                <div className="text-muted">
-                  Accession: {currentPhage.accession} · Baltimore: {currentPhage.baltimoreGroup ?? 'n/a'}
-                </div>
-                {/* Side-by-side viewers on wide screens, stacked on smaller */}
-                <div className="detail-viewers">
-                  <div className="viewer-panel">
-                    <div className="metric-label" style={{ marginBottom: '0.5rem' }}>Sequence</div>
-                    {currentPhage && (
-                      <GeneMapCanvas 
-                        height={60} 
-                        onGeneClick={(pos) => usePhageStore.getState().setScrollPosition(pos)} 
-                      />
-                    )}
-                    <SequenceView
-                      sequence={fullSequence}
-                      height={sequenceHeight}
-                    />
-                    {!fullSequence && (
-                      <pre className="sequence-block" style={{ marginTop: '0.5rem' }}>
-                        {sequencePreview
-                          ? sequencePreview
-                          : 'Sequence preview will appear after phage load completes.'}
-                      </pre>
-                    )}
-                  </div>
-                  <div className="viewer-panel">
-                    {show3DInLayout && <Model3DView phage={currentPhage} />}
-                  </div>
-                </div>
-                {beginnerModeEnabled && fullSequence && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <ReadingFrameVisualizer sequence={fullSequence} />
-                  </div>
+                      <div className="list-item-meta">
+                        {phage.lifecycle && (
+                          <span className={`badge badge-tiny ${phage.lifecycle === 'lytic' ? 'badge-warning' : 'badge-info'}`}>
+                            {phage.lifecycle}
+                          </span>
+                        )}
+                        {phage.gcContent != null && (
+                          <span className="meta-gc text-dim">{phage.gcContent.toFixed(1)}%</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+                {phages.length === 0 && (
+                  <div className="text-dim">Phage list will appear once the database loads.</div>
                 )}
               </div>
-            ) : (
-              <div className="text-dim">
-                {isLoadingPhage
-                  ? 'Loading phage details...'
-                  : 'Select a phage to view details once the database is ready.'}
+            </div>
+          )}
+
+          {showDetail && (
+            <div className="column column--detail">
+              <div className="panel-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {isMobile && (
+                    <button 
+                      className="btn btn-sm"
+                      onClick={() => setCurrentPhage(null)}
+                      type="button"
+                      aria-label="Back to list"
+                    >
+                      ← Back
+                    </button>
+                  )}
+                  <h3>Details</h3>
+                </div>
+                {isLoadingPhage && <span className="badge">Loading</span>}
               </div>
-            )}
-          </div>
+              {currentPhage ? (
+                <div className="detail-card">
+                  <h4>{currentPhage.name}</h4>
+                  <p className="text-dim">
+                    {currentPhage.family ?? 'Unassigned family'} · {currentPhage.lifecycle ?? 'Lifecycle n/a'}
+                  </p>
+                  <div className="metrics">
+                    <div>
+                      <div className="metric-label">Genome length</div>
+                      <div className="metric-value">{(currentPhage.genomeLength ?? 0).toLocaleString()} bp</div>
+                    </div>
+                    <div>
+                      <div className="metric-label">GC content</div>
+                      <div className="metric-value">
+                        {currentPhage.gcContent != null ? `${currentPhage.gcContent.toFixed(2)}%` : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="metric-label">Genes</div>
+                      <div className="metric-value">{currentPhage.genes.length}</div>
+                    </div>
+                  </div>
+                  <div className="text-muted">
+                    Accession: {currentPhage.accession} · Baltimore: {currentPhage.baltimoreGroup ?? 'n/a'}
+                  </div>
+                  <div className="detail-viewers">
+                    <div className="viewer-panel">
+                      <div className="metric-label" style={{ marginBottom: '0.5rem' }}>Sequence</div>
+                      {currentPhage && (
+                        <GeneMapCanvas 
+                          height={60} 
+                          onGeneClick={(pos) => usePhageStore.getState().setScrollPosition(pos)} 
+                        />
+                      )}
+                      <SequenceView
+                        sequence={fullSequence}
+                        height={sequenceHeight}
+                      />
+                      {!fullSequence && (
+                        <pre className="sequence-block" style={{ marginTop: '0.5rem' }}>
+                          {sequencePreview
+                            ? sequencePreview
+                            : 'Sequence preview will appear after phage load completes.'}
+                        </pre>
+                      )}
+                    </div>
+                    <div className="viewer-panel">
+                      {show3DInLayout && <Model3DView phage={currentPhage} />}
+                    </div>
+                  </div>
+                  {beginnerModeEnabled && fullSequence && (
+                    <div style={{ marginTop: '1rem' }}>
+                      <ReadingFrameVisualizer sequence={fullSequence} />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-dim">
+                  {isLoadingPhage
+                    ? 'Loading phage details...'
+                    : 'Select a phage to view details once the database is ready.'}
+                </div>
+              )}
+            </div>
+          )}
         </section>
       </AppShell>
       {isGlossaryOpen && (
