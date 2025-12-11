@@ -19,6 +19,7 @@ export interface UseSequenceGridOptions {
   sequence: string;
   viewMode?: ViewMode;
   readingFrame?: ReadingFrame;
+  densityMode?: 'compact' | 'standard';
   diffSequence?: string | null;
   diffEnabled?: boolean;
   diffMask?: Uint8Array | null;
@@ -241,6 +242,16 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
   useEffect(() => {
     rendererRef.current?.setSnapToCodon(snapToCodon);
   }, [snapToCodon]);
+
+  // Update density mode without reconstructing renderer
+  useEffect(() => {
+    rendererRef.current?.setDensityMode(densityMode);
+  }, [densityMode]);
+
+  // Update density mode (compact vs standard) without rebuilding
+  useEffect(() => {
+    rendererRef.current?.setDensityMode(densityMode);
+  }, [densityMode]);
 
   // Compute sequences for rendering
   const { displaySequence, aminoSequence } = useMemo(() => {

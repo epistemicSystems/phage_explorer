@@ -127,10 +127,11 @@ export function SequenceView({
   const colors = theme.colors;
   const reducedMotion = useReducedMotion();
   const [snapToCodon, setSnapToCodon] = useState(true);
-  const [denseMode, setDenseMode] = useState(false);
   const defaultDensity: 'compact' | 'standard' =
     typeof window !== 'undefined' && window.innerWidth < 1024 ? 'compact' : 'standard';
   const [densityMode, setDensityMode] = useState<'compact' | 'standard'>(defaultDensity);
+  const [userDensityOverride, setUserDensityOverride] = useState(false);
+  const [jumpInput, setJumpInput] = useState<string>('');
 
   // Amino acid HUD state
   const [hudAminoAcid, setHudAminoAcid] = useState<string | null>(null);
@@ -156,6 +157,7 @@ export function SequenceView({
   const {
     canvasRef,
     visibleRange,
+    scrollPosition,
     orientation,
     isMobile,
     scrollToStart,
@@ -182,11 +184,21 @@ export function SequenceView({
     reducedMotion,
     enablePinchZoom: true,
     snapToCodon,
-    initialZoomScale: denseMode ? 0.8 : 1.0,
+    initialZoomScale: densityMode === 'compact' ? 0.85 : 1.0,
+    densityMode,
     onVisibleRangeChange: (range) => {
-      setScrollPosition(range.startIndex);
-    },
-  });
+    setScrollPosition(range.startIndex);
+  },
+});
+
+  // Auto-compact for landscape mobile unless user overrode
+  useEffect(() => {
+    if (userDensityOverride) return;
+    const next = isMobile && orientation === 'landscape' ? 'compact' : defaultDensity;
+    if (next !== densityMode) {
+      setDensityMode(next);
+    }
+  }, [isMobile, orientation, defaultDensity, densityMode, userDensityOverride]);
 
   useEffect(() => {
     if (onControlsReady) {
@@ -372,6 +384,10 @@ export function SequenceView({
   const viewModeLabel = viewMode === 'dna' ? 'DNA' : viewMode === 'aa' ? 'Amino Acids' : 'Dual';
   const frameLabel = readingFrame === 0 ? '+1' : readingFrame > 0 ? `+${readingFrame + 1}` : `${readingFrame}`;
   const zoomLabel = zoomPreset?.label ?? `${Math.round(zoomScale * 100)}%`;
+  const seqLength = sequence?.length ?? 0;
+  const visibleStart = visibleRange?.startIndex ?? 0;
+  const visibleEnd = visibleRange?.endIndex ?? Math.min(seqLength, visibleStart + 1);
+  const visiblePercent = seqLength ? Math.round((visibleStart / seqLength) * 100) : 0;
   const descriptionId = 'sequence-view-description';
   const resolvedHeight =
     typeof height === 'number'
@@ -482,46 +498,13 @@ export function SequenceView({
             >
               snap 3bp
             </button>
-            <button
-              onClick={() => setDenseMode((v) => !v)}
-              className={`btn compact ${denseMode ? 'active' : ''}`}
-              style={{
-                fontSize: '0.8rem',
-                padding: '0.35rem 0.7rem',
-                minHeight: '32px',
-              }}
-              title="Toggle dense micro mode (more columns, tiny letters)"
-            >
-              dense
-            </button>
             <span style={{ fontSize: '0.75rem', color: colors.textMuted, marginLeft: '0.5rem', display: 'none' }}>
               {orientation === 'landscape' ? 'landscape' : 'portrait'}
             </span>
           </div>
 
-          {/* Density toggle */}
-          <div style={{ display: 'flex', gap: '0.15rem', alignItems: 'center' }}>
-            <button
-              className={`btn compact ${densityMode === 'compact' ? 'active' : ''}`}
-              style={{ minHeight: '32px', minWidth: '60px' }}
-              onClick={() => setDensityMode('compact')}
-              title="Dense view (smaller letters, more bases)"
-            >
-              Dense
-            </button>
-            <button
-              className={`btn compact ${densityMode === 'standard' ? 'active' : ''}`}
-              style={{ minHeight: '32px', minWidth: '60px' }}
-              onClick={() => setDensityMode('standard')}
-              title="Comfort view (larger cells)"
-            >
-              Comfort
-            </button>
-          </div>
           {/* View mode control */}
           <ViewModeToggle value={viewMode} onChange={setViewMode} colors={colors} />
-          {/* Snap toggle (redundant, removing) */}
-          
           {/* Reading frame badge */}
           {viewMode !== 'dna' && (
             <button
@@ -582,6 +565,108 @@ export function SequenceView({
         )}
       </div>
 
+      {/* Navigator + jump */}
+      <div
+        style={{
+          padding: '0.35rem 0.75rem 0.6rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.45rem',
+          borderTop: `1px solid ${colors.borderLight}`,
+        }}
+      >
+        <div
+          style={{
+            height: '12px',
+            background: colors.backgroundAlt,
+            border: `1px solid ${colors.borderLight}`,
+            borderRadius: '8px',
+            position: 'relative',
+            cursor: 'pointer',
+            overflow: 'hidden',
+          }}
+          title="Tap or click to jump"
+          onClick={(e) => {
+            if (!seqLength) return;
+            const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const pct = x / rect.width;
+            const target = Math.floor(seqLength * pct);
+            scrollToPosition(target);
+            setScrollPosition(target);
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              left: '0',
+              top: 0,
+              bottom: 0,
+              width: `${visiblePercent}%`,
+              background: colors.primary + '44',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              left: `${visiblePercent}%`,
+              top: 0,
+              bottom: 0,
+              width: `${seqLength ? ((visibleEnd - visibleStart) / seqLength) * 100 : 0}%`,
+              background: colors.accent + '88',
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!seqLength) return;
+              const raw = jumpInput.trim();
+              if (!raw) return;
+              let target = 0;
+              if (raw.endsWith('%')) {
+                const pct = parseFloat(raw.slice(0, -1));
+                if (!Number.isNaN(pct)) target = Math.floor((pct / 100) * seqLength);
+              } else {
+                const n = parseInt(raw, 10);
+                if (!Number.isNaN(n)) target = n;
+              }
+              target = Math.max(0, Math.min(seqLength - 1, target));
+              scrollToPosition(target);
+              setScrollPosition(target);
+            }}
+            style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}
+          >
+            <input
+              value={jumpInput}
+              onChange={(e) => setJumpInput(e.target.value)}
+              placeholder="Jump (idx or %)"
+              style={{
+                width: '130px',
+                padding: '0.35rem 0.5rem',
+                borderRadius: '6px',
+                border: `1px solid ${colors.borderLight}`,
+                background: colors.backgroundAlt,
+                color: colors.text,
+                fontSize: '0.9rem',
+              }}
+            />
+            <button
+              type="submit"
+              className="btn compact"
+              style={{ minHeight: '32px', padding: '0.35rem 0.75rem' }}
+            >
+              Go
+            </button>
+            <span style={{ color: colors.textMuted, fontSize: '0.8rem' }}>
+              Pos: {visibleStart.toLocaleString()}/{seqLength.toLocaleString()} ({visiblePercent}%)
+            </span>
+          </form>
+        </div>
+      </div>
+
       {/* Footer hints */}
       <div
         style={{
@@ -615,12 +700,32 @@ export function SequenceView({
       </div>
 
       {/* Amino Acid HUD - shown on long press in AA mode */}
-      <AminoAcidHUD
-        aminoAcid={hudAminoAcid}
-        position={hudPosition}
-        visible={hudVisible}
-        onClose={() => setHudVisible(false)}
-      />
+  <AminoAcidHUD
+    aminoAcid={hudAminoAcid}
+    position={hudPosition}
+    visible={hudVisible}
+    onClose={() => setHudVisible(false)}
+  />
+
+      {/* Mobile sticky badge for scroll progress */}
+      {isMobile && seqLength > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            right: '12px',
+            bottom: '86px',
+            zIndex: 20,
+            background: colors.backgroundAlt,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '999px',
+            padding: '6px 10px',
+            fontSize: '0.8rem',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+          }}
+        >
+          {visibleStart.toLocaleString()} / {seqLength.toLocaleString()} ({visiblePercent}%)
+        </div>
+      )}
     </div>
   );
 }

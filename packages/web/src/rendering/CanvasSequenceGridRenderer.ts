@@ -352,8 +352,10 @@ export class CanvasSequenceGridRenderer {
    * Create double-buffer for smooth rendering
    */
   private createBackBuffer(width: number, height: number): void {
+    const safeWidth = Math.max(1, width);
+    const safeHeight = Math.max(1, height);
     if (typeof OffscreenCanvas !== 'undefined') {
-      this.backBuffer = new OffscreenCanvas(width * this.dpr, height * this.dpr);
+      this.backBuffer = new OffscreenCanvas(safeWidth * this.dpr, safeHeight * this.dpr);
       const ctx = this.backBuffer.getContext('2d', { alpha: false });
       if (ctx) {
         this.backCtx = ctx;
@@ -584,6 +586,12 @@ export class CanvasSequenceGridRenderer {
    */
   private render(): void {
     if (this.isRendering || !this.currentState) return;
+    const clientWidth = this.canvas.clientWidth || 0;
+    const clientHeight = this.canvas.clientHeight || 0;
+    if (clientWidth === 0 || clientHeight === 0) {
+      // Canvas not laid out yet; skip this frame
+      return;
+    }
     this.isRendering = true;
 
     const startTime = performance.now();
