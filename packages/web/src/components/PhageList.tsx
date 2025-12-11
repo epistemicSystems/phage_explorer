@@ -146,14 +146,13 @@ export function PhageList({
   return (
     <div
       ref={listRef}
-      className={`phage-list ${className}`}
+      className={`phage-list panel ${className}`}
       style={{
         display: 'flex',
         flexDirection: 'column',
-        border: `1px solid ${colors.border}`,
-        borderRadius: '6px',
-        backgroundColor: colors.background,
+        padding: 0, // Reset panel padding for list container
         overflow: 'hidden',
+        height: '100%',
       }}
       role="listbox"
       aria-label="Phage list"

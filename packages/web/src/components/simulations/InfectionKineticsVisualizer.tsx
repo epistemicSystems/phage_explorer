@@ -32,6 +32,9 @@ export function InfectionKineticsVisualizer({
     return [...points].sort((a, b) => a.time - b.time);
   }, [state]);
 
+  const last = series.at(-1);
+  const first = series[0];
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -154,10 +157,46 @@ export function InfectionKineticsVisualizer({
   }, [series, width, height, colors]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: `${width}px`, height: `${height}px`, display: 'block' }}
-    />
+    <div className="infection-viz">
+      <div className="infection-viz__metrics" aria-label="Infection kinetics summary">
+        <div className="metric">
+          <p className="label">Time</p>
+          <p className="value mono">{last?.time?.toFixed(0) ?? '0'}</p>
+        </div>
+        <div className="metric">
+          <p className="label">Bacteria</p>
+          <p className="value" style={{ color: COLORS.bacteria }}>
+            {formatCount(last?.bacteria ?? 0)}
+          </p>
+        </div>
+        <div className="metric">
+          <p className="label">Infected</p>
+          <p className="value" style={{ color: COLORS.infected }}>
+            {formatCount(last?.infected ?? 0)}
+          </p>
+        </div>
+        <div className="metric">
+          <p className="label">Phage</p>
+          <p className="value" style={{ color: COLORS.phage }}>
+            {formatCount(last?.phage ?? 0)}
+          </p>
+        </div>
+        {first && last && (
+          <div className="metric">
+            <p className="label">Δ Bacteria</p>
+            <p className="value mono">
+              {formatDelta(last.bacteria - first.bacteria)}
+            </p>
+          </div>
+        )}
+      </div>
+      <canvas
+        ref={canvasRef}
+        aria-label="Infection kinetics chart"
+        role="img"
+        style={{ width: `${width}px`, height: `${height}px`, display: 'block' }}
+      />
+    </div>
   );
 }
 
@@ -166,6 +205,14 @@ function formatCount(value: number): string {
   if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
   if (value >= 1e3) return `${(value / 1e3).toFixed(1)}k`;
   return value.toFixed(0);
+}
+
+function formatDelta(value: number): string {
+  const prefix = value > 0 ? '+' : '';
+  const abs = Math.abs(value);
+  if (abs >= 1e6) return `${prefix}${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${prefix}${(abs / 1e3).toFixed(1)}k`;
+  return `${prefix}${abs.toFixed(0)}`;
 }
 
 export default InfectionKineticsVisualizer;
