@@ -90,50 +90,42 @@ function isLandscape(viewportWidth: number, viewportHeight: number): boolean {
 // UPDATED: Increased cell sizes on mobile for better readability (xivy Pillar 1)
 function getResponsiveCellSize(
   viewportWidth: number,
-  viewportHeight?: number
+  viewportHeight?: number,
+  densityMode: 'compact' | 'standard' = 'standard'
 ): { width: number; height: number } {
   const height = viewportHeight ?? viewportWidth * 0.6; // Assume portrait if no height
   const landscape = isLandscape(viewportWidth, height);
+  const compact = densityMode === 'compact';
 
-  // Mobile devices (< 768px width in portrait, < 1024px in landscape)
-  // Key insight: Cell sizes must be large enough for letters to be readable
-  // Minimum readable size is ~10px height for most fonts
   if (viewportWidth < 375) {
-    // Tiny phones - prioritize readability over density
     return landscape
-      ? { width: 9, height: 11 }   // Landscape: more columns, still readable
-      : { width: 12, height: 14 }; // Portrait: touch-friendly
+      ? { width: compact ? 6 : 9, height: compact ? 7 : 11 }
+      : { width: compact ? 8 : 12, height: compact ? 9 : 14 };
   }
   if (viewportWidth < 480) {
-    // Small phones (iPhone SE, etc.)
     return landscape
-      ? { width: 9, height: 11 } // Landscape: maximize density with micro glyphs
-      : { width: 14, height: 16 };
+      ? { width: compact ? 6 : 9, height: compact ? 7 : 11 }
+      : { width: compact ? 9 : 14, height: compact ? 10 : 16 };
   }
   if (viewportWidth < 640) {
-    // Standard phones
     return landscape
-      ? { width: 10, height: 12 }
-      : { width: 16, height: 18 };
+      ? { width: compact ? 7 : 10, height: compact ? 8 : 12 }
+      : { width: compact ? 11 : 16, height: compact ? 12 : 18 };
   }
   if (viewportWidth < 768) {
-    // Large phones / small tablets portrait
     return landscape
-      ? { width: 11, height: 13 }
-      : { width: 12, height: 14 };
+      ? { width: compact ? 8 : 11, height: compact ? 9 : 13 }
+      : { width: compact ? 12 : 18, height: compact ? 13 : 20 };
   }
   if (viewportWidth < 1024) {
-    // Tablets
     return landscape
-      ? { width: 12, height: 14 }
-      : { width: 14, height: 16 };
+      ? { width: compact ? 9 : 12, height: compact ? 10 : 14 }
+      : { width: compact ? 12 : 14, height: compact ? 13 : 16 };
   }
   if (viewportWidth < 1440) {
-    // Small laptops / tablets landscape
-    return { width: 14, height: 16 };
+    return { width: compact ? 12 : 14, height: compact ? 14 : 16 };
   }
-  // Large screens - full readability
-  return { width: 16, height: 20 };
+  return { width: compact ? 14 : 16, height: compact ? 16 : 20 };
 }
 
 // Detect if device is mobile (touch-primary)
@@ -193,6 +185,7 @@ export class CanvasSequenceGridRenderer {
   private postProcess?: PostProcessPipeline;
   private reducedMotion: boolean;
   private snapToCodon: boolean;
+  private densityMode: 'compact' | 'standard';
 
   constructor(options: SequenceGridOptions) {
     this.canvas = options.canvas;
@@ -204,6 +197,7 @@ export class CanvasSequenceGridRenderer {
     this.enablePinchZoom = options.enablePinchZoom ?? true;
     this.onZoomChange = options.onZoomChange;
     this.snapToCodon = options.snapToCodon ?? false;
+    this.densityMode = options.densityMode ?? 'standard';
 
     // Get device pixel ratio for high-DPI
     this.dpr = window.devicePixelRatio || 1;
@@ -221,7 +215,8 @@ export class CanvasSequenceGridRenderer {
     } else {
       const responsiveSize = getResponsiveCellSize(
         this.canvas.clientWidth,
-        this.canvas.clientHeight
+        this.canvas.clientHeight,
+        this.densityMode
       );
       this.baseCellWidth = responsiveSize.width;
       this.baseCellHeight = responsiveSize.height;
@@ -270,7 +265,7 @@ export class CanvasSequenceGridRenderer {
     const height = rect.height;
 
     // Recalculate responsive BASE cell sizes with orientation awareness
-    const responsiveSize = getResponsiveCellSize(width, height);
+    const responsiveSize = getResponsiveCellSize(width, height, this.densityMode);
     this.baseCellWidth = responsiveSize.width;
     this.baseCellHeight = responsiveSize.height;
 
@@ -304,6 +299,26 @@ export class CanvasSequenceGridRenderer {
     this.scheduleRender();
   }
 
+  setDensityMode(mode: 'compact' | 'standard'): void {
+    if (this.densityMode === mode) return;
+    this.densityMode = mode;
+    const rect = this.canvas.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const responsiveSize = getResponsiveCellSize(width, height, this.densityMode);
+    this.baseCellWidth = responsiveSize.width;
+    this.baseCellHeight = responsiveSize.height;
+    this.updateCellSizes();
+    this.scroller.updateOptions({
+      itemWidth: this.cellWidth,
+      itemHeight: this.rowHeight,
+      viewportWidth: width,
+      viewportHeight: height,
+    });
+    this.needsFullRedraw = true;
+    this.scheduleRender();
+  }
+
   /**
    * Update effective cell sizes based on zoom scale
    * Enforces minimum readable sizes on mobile devices
@@ -311,8 +326,9 @@ export class CanvasSequenceGridRenderer {
   private updateCellSizes(): void {
     // Minimum cell sizes for readability on mobile (text needs ~8px minimum)
     const mobile = isMobileDevice();
-    const minWidth = mobile ? 6 : 1;
-    const minHeight = mobile ? 8 : 1;
+    const compact = this.densityMode === 'compact';
+    const minWidth = compact ? 4 : mobile ? 6 : 1;
+    const minHeight = compact ? 5 : mobile ? 8 : 1;
 
     const newCellWidth = Math.max(minWidth, Math.round(this.baseCellWidth * this.zoomScale));
     const newCellHeight = Math.max(minHeight, Math.round(this.baseCellHeight * this.zoomScale));

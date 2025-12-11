@@ -168,10 +168,13 @@ export class GlyphAtlas {
     // Auto-calculate font size if not explicitly provided
     const cellWidth = options.cellWidth ?? DEFAULT_OPTIONS.cellWidth;
     const cellHeight = options.cellHeight ?? DEFAULT_OPTIONS.cellHeight;
+    // Guard against zero-size canvases (can happen if canvas not yet sized)
+    const safeWidth = Math.max(1, cellWidth);
+    const safeHeight = Math.max(1, cellHeight);
     const microMode = cellWidth <= MICRO_TEXT_MAX_CELL || cellHeight <= MICRO_TEXT_MAX_CELL;
-    const fontSize = microMode ? 0 : options.fontSize ?? calculateOptimalFontSize(cellWidth, cellHeight);
+    const fontSize = microMode ? 0 : options.fontSize ?? calculateOptimalFontSize(safeWidth, safeHeight);
 
-    this.options = { ...DEFAULT_OPTIONS, ...options, fontSize };
+    this.options = { ...DEFAULT_OPTIONS, ...options, fontSize, cellWidth: safeWidth, cellHeight: safeHeight };
     this.theme = theme;
     this.dpr = options.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1);
     this.useMicroGlyphs = microMode;

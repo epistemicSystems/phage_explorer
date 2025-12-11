@@ -1,0 +1,55 @@
+/* Floating Action Button for mobile control palette */
+.fab {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary, #0a0a0f);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1200;
+  transition: transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.fab .fab-icon {
+  font-size: 22px;
+  line-height: 1;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.fab.open .fab-icon {
+  transform: rotate(45deg);
+}
+
+.fab:active {
+  transform: scale(0.96);
+}
+
+.fab:hover {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+}
+
+.fab:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(72, 130, 255, 0.35);
+}
+
+.fab--no-anim {
+  transition: none;
+}
+
+@media (max-width: 900px) {
+  .fab {
+    display: inline-flex;
+  }
+}

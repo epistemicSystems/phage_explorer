@@ -37,6 +37,8 @@ export interface WebPreferencesState {
   glow: boolean;
   tuiMode: boolean;
   highContrast: boolean;
+  // Control palette state
+  controlDrawerOpen: boolean;
   // Command history (session only, not persisted)
   commandHistory: Array<{ label: string; at: number }>;
   // Hydration state
@@ -50,6 +52,8 @@ export interface WebPreferencesActions {
   setGlow: (enabled: boolean) => void;
   setTuiMode: (enabled: boolean) => void;
   setHighContrast: (enabled: boolean) => void;
+  setControlDrawerOpen: (open: boolean) => void;
+  toggleControlDrawer: () => void;
   pushCommand: (label: string) => void;
   clearHistory: () => void;
   setHasHydrated: (state: boolean) => void;
@@ -87,6 +91,7 @@ const defaultWebPreferences: WebPreferencesState = {
   glow: true,
   tuiMode: false,
   highContrast: false,
+  controlDrawerOpen: false,
   commandHistory: [],
   _hasHydrated: false,
 };
@@ -156,6 +161,9 @@ export const useWebPreferences = create<WebPreferencesStore>()(
       setGlow: (enabled) => set({ glow: enabled }),
       setTuiMode: (enabled) => set({ tuiMode: enabled }),
       setHighContrast: (enabled) => set({ highContrast: enabled }),
+      setControlDrawerOpen: (open) => set({ controlDrawerOpen: open }),
+      toggleControlDrawer: () =>
+        set((state) => ({ controlDrawerOpen: !state.controlDrawerOpen })),
       pushCommand: (label) =>
         set((state) => ({
           commandHistory: [
@@ -177,6 +185,7 @@ export const useWebPreferences = create<WebPreferencesStore>()(
         glow: state.glow,
         tuiMode: state.tuiMode,
         highContrast: state.highContrast,
+        controlDrawerOpen: state.controlDrawerOpen,
         // commandHistory intentionally not persisted
       }),
       migrate: migrateWebPrefs,

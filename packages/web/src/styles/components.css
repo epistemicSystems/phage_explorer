@@ -677,17 +677,29 @@
   }
 }
 
+@media (max-width: 960px) and (orientation: landscape) {
+  .detail-viewers {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+}
+
 @media (max-width: 768px) {
   .detail-viewers {
     gap: var(--space-3);
   }
 
   .detail-viewers .sequence-view {
-    min-height: 320px;
+    min-height: 360px;
   }
 
   .detail-viewers .three-container {
-    min-height: 320px;
+    min-height: 360px;
+  }
+
+  /* Toolbar buttons wrap gracefully on small widths */
+  .sequence-view .btn.compact {
+    min-width: 40px;
   }
 }
 

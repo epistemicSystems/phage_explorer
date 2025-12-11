@@ -127,6 +127,10 @@ export function SequenceView({
   const colors = theme.colors;
   const reducedMotion = useReducedMotion();
   const [snapToCodon, setSnapToCodon] = useState(true);
+  const [denseMode, setDenseMode] = useState(false);
+  const defaultDensity: 'compact' | 'standard' =
+    typeof window !== 'undefined' && window.innerWidth < 1024 ? 'compact' : 'standard';
+  const [densityMode, setDensityMode] = useState<'compact' | 'standard'>(defaultDensity);
 
   // Amino acid HUD state
   const [hudAminoAcid, setHudAminoAcid] = useState<string | null>(null);
@@ -176,9 +180,9 @@ export function SequenceView({
     scanlines,
     glow,
     reducedMotion,
-    initialZoomScale: 1.0,
     enablePinchZoom: true,
     snapToCodon,
+    initialZoomScale: denseMode ? 0.8 : 1.0,
     onVisibleRangeChange: (range) => {
       setScrollPosition(range.startIndex);
     },
@@ -376,8 +380,8 @@ export function SequenceView({
         ? height
         : isMobile
           ? orientation === 'portrait'
-            ? '72vh' // taller in portrait to show more bases
-            : 'calc(100vh - 140px)' // landscape: nearly full height
+            ? '78vh' // taller in portrait to show more bases
+            : 'calc(100vh - 120px)' // landscape: more usable height
           : orientation === 'portrait'
             ? '60vh'
             : '70vh';
@@ -478,9 +482,41 @@ export function SequenceView({
             >
               snap 3bp
             </button>
+            <button
+              onClick={() => setDenseMode((v) => !v)}
+              className={`btn compact ${denseMode ? 'active' : ''}`}
+              style={{
+                fontSize: '0.8rem',
+                padding: '0.35rem 0.7rem',
+                minHeight: '32px',
+              }}
+              title="Toggle dense micro mode (more columns, tiny letters)"
+            >
+              dense
+            </button>
             <span style={{ fontSize: '0.75rem', color: colors.textMuted, marginLeft: '0.5rem', display: 'none' }}>
               {orientation === 'landscape' ? 'landscape' : 'portrait'}
             </span>
+          </div>
+
+          {/* Density toggle */}
+          <div style={{ display: 'flex', gap: '0.15rem', alignItems: 'center' }}>
+            <button
+              className={`btn compact ${densityMode === 'compact' ? 'active' : ''}`}
+              style={{ minHeight: '32px', minWidth: '60px' }}
+              onClick={() => setDensityMode('compact')}
+              title="Dense view (smaller letters, more bases)"
+            >
+              Dense
+            </button>
+            <button
+              className={`btn compact ${densityMode === 'standard' ? 'active' : ''}`}
+              style={{ minHeight: '32px', minWidth: '60px' }}
+              onClick={() => setDensityMode('standard')}
+              title="Comfort view (larger cells)"
+            >
+              Comfort
+            </button>
           </div>
           {/* View mode control */}
           <ViewModeToggle value={viewMode} onChange={setViewMode} colors={colors} />
