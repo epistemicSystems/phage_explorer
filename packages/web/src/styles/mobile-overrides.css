@@ -133,3 +133,120 @@
     max-height: 38vh;
   }
 }
+
+/* =============================================================================
+   WCAG 2.5.5 Touch Target Compliance (44x44px minimum)
+   Applies to touch devices (phones, tablets) for accessibility
+   ============================================================================= */
+@media (hover: none) and (pointer: coarse) {
+  /* Base button touch targets */
+  button,
+  .btn,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  a[href] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Icon buttons - expand hit area without changing visual size */
+  .btn-icon,
+  .btn.icon-only,
+  button[aria-label]:not(.btn-lg) {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px;
+  }
+
+  /* Small buttons - keep visual appearance but expand hit area */
+  .btn-sm {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px 14px;
+  }
+
+  /* Compact toolbar buttons - expand hit area for touch */
+  .btn.compact,
+  .toolbar .btn,
+  .segmented-control button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px;
+  }
+
+  /* List items as touch targets */
+  .list-item {
+    min-height: 56px;
+    padding: 12px 16px;
+  }
+
+  /* Badge buttons (when clickable) */
+  .badge[role="button"],
+  .badge.clickable,
+  button.badge {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 14px;
+  }
+
+  /* Overlay close buttons */
+  .overlay-close,
+  .modal-close,
+  [aria-label="Close"],
+  [aria-label="close"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Checkbox and radio targets */
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Select dropdowns */
+  select {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  /* Text inputs - comfortable touch height */
+  input[type="text"],
+  input[type="search"],
+  input[type="number"],
+  input[type="email"],
+  input[type="url"],
+  textarea {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  /* Tab buttons */
+  [role="tab"] {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  /* View mode segments */
+  .view-mode-segment {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  /* Ensure adequate spacing between adjacent touch targets */
+  .badge-row {
+    gap: 8px;
+  }
+
+  .toolbar {
+    gap: 8px;
+  }
+
+  .btn + .btn,
+  button + button {
+    margin-left: 4px;
+  }
+}
