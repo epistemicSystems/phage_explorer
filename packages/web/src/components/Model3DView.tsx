@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePhageStore } from '@phage-explorer/state';
 import type { PhageFull } from '@phage-explorer/core';
+import { Model3DSkeleton } from './ui/Skeleton';
 import {
   ACESFilmicToneMapping,
   AmbientLight,
@@ -37,6 +38,47 @@ interface Model3DViewProps {
 function isCoarsePointerDevice(): boolean {
   if (typeof window === 'undefined') return false;
   return window.matchMedia?.('(pointer: coarse)')?.matches ?? false;
+}
+
+/**
+ * Check if WebGL is supported by the browser
+ */
+function detectWebGLSupport(): { supported: boolean; version: 1 | 2 | null } {
+  if (typeof window === 'undefined') return { supported: false, version: null };
+  try {
+    const canvas = document.createElement('canvas');
+    const gl2 = canvas.getContext('webgl2');
+    if (gl2) return { supported: true, version: 2 };
+    const gl1 = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (gl1) return { supported: true, version: 1 };
+    return { supported: false, version: null };
+  } catch {
+    return { supported: false, version: null };
+  }
+}
+
+/**
+ * Get human-readable error message for structure loading failures
+ */
+function getStructureErrorMessage(error: Error | unknown): string {
+  if (!(error instanceof Error)) return 'An unexpected error occurred loading the structure.';
+  const msg = error.message.toLowerCase();
+  if (msg.includes('404') || msg.includes('not found')) {
+    return 'Structure not found in the database.';
+  }
+  if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) {
+    return 'Network error. Please check your connection and try again.';
+  }
+  if (msg.includes('timeout')) {
+    return 'Request timed out. The server may be slow or unavailable.';
+  }
+  if (msg.includes('cors') || msg.includes('cross-origin')) {
+    return 'Unable to access the structure server.';
+  }
+  if (msg.includes('parse') || msg.includes('invalid') || msg.includes('corrupt')) {
+    return 'The structure data appears to be corrupted.';
+  }
+  return error.message || 'An unexpected error occurred loading the structure.';
 }
 
 const QUALITY_PRESETS = {
@@ -120,6 +162,7 @@ function suggestInitialRenderMode(options: {
 
 export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
   const coarsePointer = useMemo(() => isCoarsePointerDevice(), []);
+  const webglSupport = useMemo(() => detectWebGLSupport(), []);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<WebGLRenderer | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -241,10 +284,18 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
     isFetching: structureFetching,
     isError: structureError,
     error: structureErr,
+    refetch: refetchStructure,
   } = useStructureQuery({
     idOrUrl: pdbId ?? undefined,
     enabled: show3DModel && Boolean(pdbId),
   });
+
+  // Handle retry with useCallback to avoid stale closures
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setLoadState('loading');
+    void refetchStructure();
+  }, [refetchStructure]);
 
   const rebuildStructure = (mode: RenderMode) => {
     const data = structureDataRef.current;
@@ -600,7 +651,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
 
     if (structureError) {
       setLoadState('error');
-      setError(structureErr instanceof Error ? structureErr.message : 'Failed to load structure');
+      setError(getStructureErrorMessage(structureErr));
       setAtomCount(null);
       structureDataRef.current = null;
       if (structureRef.current && sceneRef.current) {
@@ -810,14 +861,55 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
         ? 'Error'
         : 'Idle';
 
+  // Show fallback if WebGL is not supported
+  if (!webglSupport.supported) {
+    return (
+      <div className="panel" aria-label="3D structure viewer">
+        <div className="panel-header">
+          <h3>3D Structure</h3>
+          <span className="badge">Not Available</span>
+        </div>
+        <div
+          className="three-container"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '16px',
+            padding: '32px',
+            textAlign: 'center',
+            minHeight: '280px',
+            background: 'var(--bg-darker)',
+          }}
+          role="alert"
+          aria-live="polite"
+        >
+          <div style={{ fontSize: '48px', opacity: 0.6 }}>🧊</div>
+          <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>3D Viewer Not Available</h4>
+          <p className="text-dim" style={{ margin: 0, maxWidth: '320px' }}>
+            Your browser doesn't support WebGL, which is required for 3D visualization.
+            Try using a modern browser like Chrome, Firefox, or Edge.
+          </p>
+        </div>
+        <div className="panel-footer text-dim">
+          WebGL support required for 3D structures
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if phage has no structure
+  const hasNoStructure = !pdbId && loadState !== 'loading';
+
   return (
     <div className="panel" aria-label="3D structure viewer">
       <div className="panel-header">
         <h3>3D Structure</h3>
         <div className="badge-row">
-          <span className="badge">{stateLabel}</span>
+          <span className="badge">{hasNoStructure ? 'No Data' : stateLabel}</span>
           {atomCount !== null && <span className="badge subtle">{atomCount} atoms</span>}
-          <span className="badge subtle">FPS {fps || '—'}</span>
+          {!hasNoStructure && <span className="badge subtle">FPS {fps || '—'}</span>}
         </div>
       </div>
 
@@ -905,22 +997,83 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
         role="presentation"
         style={fullscreen ? { width: '100%', height: 'calc(100dvh - 120px)' } : undefined}
       >
+        {/* Loading state with skeleton */}
         {loadState === 'loading' && (
-          <div className="three-overlay">
-            <div className="spinner" aria-label="Loading structure" />
-            <p className="text-dim">Loading structure… {Math.round(progress)}%</p>
+          <div className="three-overlay" aria-busy="true" aria-label="Loading 3D structure">
+            <Model3DSkeleton />
+            <p className="text-dim" style={{ marginTop: '16px' }}>
+              Loading structure… {Math.round(progress)}%
+            </p>
           </div>
         )}
+
+        {/* Error state with retry button */}
         {loadState === 'error' && (
-          <div className="three-overlay error">
-            <p className="text-error">Error: {error}</p>
+          <div
+            className="three-overlay"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '16px',
+              padding: '24px',
+              textAlign: 'center',
+            }}
+            role="alert"
+            aria-live="polite"
+          >
+            <div style={{ fontSize: '40px', opacity: 0.6 }}>⚠️</div>
+            <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>Unable to Load Structure</h4>
+            <p className="text-dim" style={{ margin: 0, maxWidth: '280px' }}>
+              {error}
+            </p>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleRetry}
+                style={{ minWidth: '80px' }}
+              >
+                Retry
+              </button>
+            </div>
           </div>
         )}
+
+        {/* Empty state - no structure available for this phage */}
+        {hasNoStructure && show3DModel && (
+          <div
+            className="three-overlay"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '16px',
+              padding: '24px',
+              textAlign: 'center',
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            <div style={{ fontSize: '40px', opacity: 0.5 }}>🧬</div>
+            <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>No Structure Available</h4>
+            <p className="text-dim" style={{ margin: 0, maxWidth: '280px' }}>
+              This phage doesn't have a 3D structure in our database.
+              Not all phages have experimentally determined or predicted structures.
+            </p>
+          </div>
+        )}
+
+        {/* Hidden state */}
         {!show3DModel && (
           <div className="three-overlay">
             <p className="text-dim">3D model hidden (toggle with M)</p>
           </div>
         )}
+
+        {/* Fullscreen HUD */}
         {fullscreen && (
           <div className="three-overlay" style={{ right: '1rem', top: '1rem', left: 'auto', width: 'auto' }}>
             <div className="badge-row" style={{ gap: '6px' }}>
@@ -934,7 +1087,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       <div className="panel-footer text-dim">
         {pdbId
           ? `Source: ${pdbId}${atomCount ? ` · ${atomCount.toLocaleString()} atoms` : ''}`
-          : 'No PDB/mmCIF entry for this phage'}
+          : 'No PDB/mmCIF structure available for this phage'}
       </div>
     </div>
   );
