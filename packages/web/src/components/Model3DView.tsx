@@ -9,6 +9,7 @@ import {
   Fog,
   HemisphereLight,
   PerspectiveCamera,
+  Quaternion,
   Scene,
   SRGBColorSpace,
   WebGLRenderer,
@@ -124,6 +125,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
   const controlsRef = useRef<OrbitControls | null>(null);
   const sceneRef = useRef<Scene | null>(null);
   const cameraRef = useRef<PerspectiveCamera | null>(null);
+  const renderModeRef = useRef<RenderMode>(coarsePointer ? 'ribbon' : 'ball');
   const structureRef = useRef<Group | null>(null);
   const highlightRef = useRef<Group | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -132,6 +134,11 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
   const tickRef = useRef<(now: number) => void>(() => {});
   const lastTickTimeRef = useRef<number | null>(null);
   const wasRotatingRef = useRef(false);
+  const lastCameraPoseRef = useRef<{ pos: Vector3; quat: Quaternion; initialized: boolean }>({
+    pos: new Vector3(),
+    quat: new Quaternion(),
+    initialized: false,
+  });
   const qualityGuardRef = useRef<{ lowStreak: number; highStreak: number; lastChange: number }>({
     lowStreak: 0,
     highStreak: 0,
@@ -166,6 +173,10 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
 
   const pdbId = useMemo(() => phage?.pdbIds?.[0] ?? null, [phage?.pdbIds]);
   const qualityPreset = QUALITY_PRESETS[quality] ?? QUALITY_PRESETS.medium;
+
+  useEffect(() => {
+    renderModeRef.current = renderMode;
+  }, [renderMode]);
 
   const requestRender = useMemo(() => {
     return () => {
@@ -289,7 +300,11 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
     scene.background = new Color('#0f1529');
     scene.fog = new Fog(0x0f1529, 120, 2600);
     const camera = new PerspectiveCamera(50, 1, 0.1, 5000);
-    const renderer = new WebGLRenderer({ antialias: !coarsePointer && quality !== 'low', alpha: true });
+    const renderer = new WebGLRenderer({
+      antialias: !coarsePointer && quality !== 'low',
+      alpha: false,
+      powerPreference: 'high-performance',
+    });
     renderer.outputColorSpace = SRGBColorSpace;
     renderer.toneMapping = ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.25;
@@ -393,6 +408,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       if (!show3DModel) {
         lastTickTimeRef.current = null;
         wasRotatingRef.current = false;
+        lastCameraPoseRef.current.initialized = false;
         return;
       }
 
@@ -418,7 +434,28 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
         structureRef.current.rotation.y += 0.18 * speed * deltaSeconds;
       }
 
-      const controlsChanged = controlsRef.current?.update(deltaSeconds) ?? false;
+      // OrbitControls.update() returns void in Three.js; detect damping/interaction by camera deltas.
+      let controlsChanged = false;
+      const controls = controlsRef.current;
+      if (controls) {
+        const pose = lastCameraPoseRef.current;
+        if (!pose.initialized) {
+          pose.pos.copy(camera.position);
+          pose.quat.copy(camera.quaternion);
+          pose.initialized = true;
+        }
+
+        controls.update();
+
+        const posDelta = pose.pos.distanceToSquared(camera.position);
+        const rotDelta = 1 - Math.abs(pose.quat.dot(camera.quaternion));
+        controlsChanged = posDelta > 1e-8 || rotDelta > 1e-8;
+
+        if (controlsChanged) {
+          pose.pos.copy(camera.position);
+          pose.quat.copy(camera.quaternion);
+        }
+      }
       renderer.render(scene, camera);
 
       if (rotating) {
@@ -514,7 +551,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
 
       structureDataRef.current = structureData;
       const hasBackboneTraces = structureData.backboneTraces.some(trace => trace.length >= 2);
-      let mode: RenderMode = renderMode;
+      let mode: RenderMode = renderModeRef.current;
       if (initialModeForPdbRef.current !== pdbId) {
         initialModeForPdbRef.current = pdbId;
         const suggested = suggestInitialRenderMode({
@@ -522,7 +559,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
           atomCount: structureData.atomCount,
           hasBackboneTraces,
         });
-        if (suggested !== renderMode) {
+        if (suggested !== renderModeRef.current) {
           setRenderMode(suggested);
           mode = suggested;
         }
@@ -556,7 +593,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       setLoadState('ready');
       requestRender();
     }
-  }, [pdbId, renderMode, show3DModel, structureData, structureError, structureErr, structureFetching, structureLoading]);
+  }, [coarsePointer, pdbId, show3DModel, structureData, structureError, structureErr, structureFetching, structureLoading, requestRender]);
 
   useEffect(() => {
     if (loadState === 'ready') {
