@@ -227,42 +227,28 @@ export function parseGenBank(genbank: string): NCBISequenceResult {
   };
 }
 
-// Parse feature location string
+// Parse feature location string to find total extent (min start, max end)
 function parseLocation(location: string, feature: Partial<NCBIFeature>): void {
-  // Handle complement
-  if (location.startsWith('complement(')) {
+  // Extract all integers from the location string
+  const numbers = location.match(/\d+/g)?.map(n => parseInt(n, 10));
+  
+  if (!numbers || numbers.length === 0) {
+    return;
+  }
+
+  // GenBank is 1-based, we want 0-based
+  // Find min and max coordinates
+  const min = Math.min(...numbers);
+  const max = Math.max(...numbers);
+
+  feature.start = Math.max(0, min - 1);
+  feature.end = max;
+
+  // Determine strand based on presence of 'complement'
+  if (location.includes('complement(')) {
     feature.strand = '-';
-    location = location.replace(/complement\(|\)/g, '');
-  }
-
-  // Handle join (take first and last positions)
-  if (location.startsWith('join(')) {
-    location = location.replace(/join\(|\)/g, '');
-    const parts = location.split(',');
-    const first = parts[0];
-    const last = parts[parts.length - 1];
-
-    const firstMatch = first.match(/(\d+)/);
-    const lastMatch = last.match(/\.\.(\d+)|(\d+)$/);
-
-    if (firstMatch) feature.start = Math.max(0, parseInt(firstMatch[1], 10) - 1);
-    if (lastMatch) feature.end = parseInt(lastMatch[1] || lastMatch[2], 10);
-    return;
-  }
-
-  // Simple range: start..end
-  const rangeMatch = location.match(/<?(\d+)\.\.>?(\d+)/);
-  if (rangeMatch) {
-    feature.start = Math.max(0, parseInt(rangeMatch[1], 10) - 1);
-    feature.end = parseInt(rangeMatch[2], 10);
-    return;
-  }
-
-  // Single position
-  const singleMatch = location.match(/^(\d+)$/);
-  if (singleMatch) {
-    feature.start = Math.max(0, parseInt(singleMatch[1], 10) - 1);
-    feature.end = feature.start + 1; // Length 1
+  } else {
+    feature.strand = '+';
   }
 }
 
@@ -277,18 +263,19 @@ export async function fetchPhageSequence(accession: string): Promise<NCBISequenc
 export async function fetchPhageSequences(
   accessions: string[],
   onProgress?: (current: number, total: number) => void
-): Promise<Map<string, NCBISequenceResult>> {
-  const results = new Map<string, NCBISequenceResult>();
+): Promise<Map<string, NCBISequenceResult | null>> {
+  const results = new Map<string, NCBISequenceResult | null>();
 
   for (let i = 0; i < accessions.length; i++) {
     const accession = accessions[i];
     try {
       const result = await fetchPhageSequence(accession);
       results.set(accession, result);
-      onProgress?.(i + 1, accessions.length);
     } catch (error) {
       console.error(`Failed to fetch ${accession}:`, error);
+      results.set(accession, null); // Mark as failed
     }
+    onProgress?.(i + 1, accessions.length);
   }
 
   return results;

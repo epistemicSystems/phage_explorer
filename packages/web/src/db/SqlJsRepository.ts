@@ -356,7 +356,9 @@ export class SqlJsRepository implements PhageRepository {
       throw new Error('Database not initialized');
     }
 
-    const searchTerm = `%${query.toLowerCase()}%`;
+    // Escape wildcard characters
+    const escaped = query.replace(/[%_]/g, '\\$&');
+    const searchTerm = `%${escaped.toLowerCase()}%`;
     return this.execStatement<PhageSummary>(
       this.statements.searchPhages,
       [searchTerm, searchTerm, searchTerm, searchTerm, searchTerm]

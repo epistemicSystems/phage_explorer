@@ -269,7 +269,7 @@ export function extractCanonicalKmerSet(sequence: string, k: number): Set<string
  * Estimate Jaccard similarity using MinHash for very large sequences.
  * This provides O(n) space and time complexity instead of O(n^2).
  *
- * Uses a simple hash function and keeps minimum hash values.
+ * Optimized to use a single base hash and permutations.
  */
 export function minHashJaccard(
   sequenceA: string,
@@ -277,29 +277,44 @@ export function minHashJaccard(
   k: number,
   numHashes: number = 128
 ): number {
-  // Simple hash function (FNV-1a inspired)
-  const hash = (s: string, seed: number): number => {
-    let h = seed;
+  // FNV-1a hash function
+  const fnv1a = (s: string): number => {
+    let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) {
       h ^= s.charCodeAt(i);
       h = Math.imul(h, 0x01000193);
     }
-    return h >>> 0; // Ensure unsigned
+    return h >>> 0;
   };
 
+  // Generate permutation seeds once
+  const seeds = new Uint32Array(numHashes);
+  for (let i = 0; i < numHashes; i++) {
+    seeds[i] = Math.floor(Math.random() * 0xffffffff);
+  }
+
   // Generate min-hash signature for a sequence
-  const getSignature = (seq: string): number[] => {
-    const signature: number[] = new Array(numHashes).fill(Infinity);
+  const getSignature = (seq: string): Uint32Array => {
+    const signature = new Uint32Array(numHashes).fill(0xffffffff);
     const s = seq.toUpperCase();
 
     for (let i = 0; i <= s.length - k; i++) {
       const kmer = s.substring(i, i + k);
       if (kmer.includes('N')) continue;
 
+      const baseHash = fnv1a(kmer);
+
+      // Permute hash to get 'numHashes' independent values
+      // h_i(x) = (a * x + b) % prime is better, but XOR-shift is faster
+      // Here using a simple XOR permutation with precomputed seeds
       for (let h = 0; h < numHashes; h++) {
-        const hashVal = hash(kmer, h * 0x9e3779b9);
-        if (hashVal < signature[h]) {
-          signature[h] = hashVal;
+        // Simple distinct hash mixing: (baseHash XOR seed) * prime
+        let mixed = (baseHash ^ seeds[h]);
+        mixed = Math.imul(mixed, 0x01000193); // FNV prime
+        mixed = mixed >>> 0;
+        
+        if (mixed < signature[h]) {
+          signature[h] = mixed;
         }
       }
     }

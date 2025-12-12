@@ -139,72 +139,82 @@ async function main() {
       continue;
     }
 
-    // Insert phage record
-    const [phageRecord] = await db
-      .insert(phages)
-      .values({
-        slug: entry.slug,
-        name: entry.name,
-        accession: entry.accession,
-        family: entry.family,
-        genus: entry.genus,
-        host: entry.host,
-        morphology: entry.morphology,
-        lifecycle: entry.lifecycle,
-        genomeLength: sequenceData.length,
-        genomeType: entry.genomeType,
-        gcContent: sequenceData.gcContent,
-        baltimoreGroup: entry.baltimoreGroup,
-        description: entry.description,
-        pdbIds: entry.pdbIds ? JSON.stringify(entry.pdbIds) : null,
-        lastUpdated: Date.now(),
-      })
-      .returning({ id: phages.id });
+    // Run database operations in a transaction
+    const insertTx = sqlite.transaction(async () => {
+      // Insert phage record
+      const [phageRecord] = await db
+        .insert(phages)
+        .values({
+          slug: entry.slug,
+          name: entry.name,
+          accession: entry.accession,
+          family: entry.family,
+          genus: entry.genus,
+          host: entry.host,
+          morphology: entry.morphology,
+          lifecycle: entry.lifecycle,
+          genomeLength: sequenceData.length,
+          genomeType: entry.genomeType,
+          gcContent: sequenceData.gcContent,
+          baltimoreGroup: entry.baltimoreGroup,
+          description: entry.description,
+          pdbIds: entry.pdbIds ? JSON.stringify(entry.pdbIds) : null,
+          lastUpdated: Date.now(),
+        })
+        .returning({ id: phages.id });
 
-    const phageId = phageRecord.id;
-    console.log(`  Inserted phage record (id: ${phageId})`);
+      const phageId = phageRecord.id;
+      console.log(`  Inserted phage record (id: ${phageId})`);
 
-    // Insert sequence chunks
-    const seq = sequenceData.sequence;
-    const numChunks = Math.ceil(seq.length / CHUNK_SIZE);
+      // Insert sequence chunks
+      const seq = sequenceData.sequence;
+      const numChunks = Math.ceil(seq.length / CHUNK_SIZE);
 
-    for (let i = 0; i < numChunks; i++) {
-      const chunk = seq.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-      await db.insert(sequences).values({
+      for (let i = 0; i < numChunks; i++) {
+        const chunk = seq.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+        await db.insert(sequences).values({
+          phageId,
+          chunkIndex: i,
+          sequence: chunk,
+        });
+      }
+      console.log(`  Inserted ${numChunks} sequence chunks`);
+
+      // Insert gene annotations
+      for (const feature of sequenceData.features) {
+        await db.insert(genes).values({
+          phageId,
+          name: feature.gene || null,
+          locusTag: feature.locusTag || null,
+          startPos: feature.start,
+          endPos: feature.end,
+          strand: feature.strand,
+          product: feature.product || null,
+          type: feature.type,
+          qualifiers: JSON.stringify(feature.qualifiers),
+        });
+      }
+      console.log(`  Inserted ${sequenceData.features.length} gene annotations`);
+
+      // Calculate and insert codon usage
+      const codonCounts = countCodonUsage(seq, 0);
+      const aaSeq = translateSequence(seq, 0);
+      const aaCounts = countAminoAcidUsage(aaSeq);
+
+      await db.insert(codonUsage).values({
         phageId,
-        chunkIndex: i,
-        sequence: chunk,
+        aaCounts: JSON.stringify(aaCounts),
+        codonCounts: JSON.stringify(codonCounts),
       });
-    }
-    console.log(`  Inserted ${numChunks} sequence chunks`);
-
-    // Insert gene annotations
-    for (const feature of sequenceData.features) {
-      await db.insert(genes).values({
-        phageId,
-        name: feature.gene || null,
-        locusTag: feature.locusTag || null,
-        startPos: feature.start,
-        endPos: feature.end,
-        strand: feature.strand,
-        product: feature.product || null,
-        type: feature.type,
-        qualifiers: JSON.stringify(feature.qualifiers),
-      });
-    }
-    console.log(`  Inserted ${sequenceData.features.length} gene annotations`);
-
-    // Calculate and insert codon usage
-    const codonCounts = countCodonUsage(seq, 0);
-    const aaSeq = translateSequence(seq, 0);
-    const aaCounts = countAminoAcidUsage(aaSeq);
-
-    await db.insert(codonUsage).values({
-      phageId,
-      aaCounts: JSON.stringify(aaCounts),
-      codonCounts: JSON.stringify(codonCounts),
+      console.log(`  Calculated codon usage`);
     });
-    console.log(`  Calculated codon usage`);
+
+    // Execute transaction
+    try {
+      await insertTx();
+    } catch (txError) {
+      console.error(`  ERROR inserting ${entry.accession} into DB:`, txError);
+    }
 
     // Small delay between fetches to be nice to NCBI
     await new Promise(r => setTimeout(r, 500));

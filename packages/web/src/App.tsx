@@ -1,7 +1,9 @@
 import React, {
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
+  lazy,
   useMemo,
   useRef,
   useState,
@@ -26,7 +28,6 @@ import {
 } from './store';
 import { useBeginnerMode, useBeginnerModeInit, TourEngine } from './education';
 import { GeneMapCanvas } from './components/GeneMapCanvas';
-import { Model3DView } from './components/Model3DView';
 import { SequenceView } from './components/SequenceView';
 import { BeginnerModeIndicator } from './components/BeginnerModeIndicator';
 import { ReadingFrameVisualizer } from './components/ReadingFrameVisualizer';
@@ -40,6 +41,11 @@ import { ControlDeck } from './components/mobile/ControlDeck';
 const SEQUENCE_PREVIEW_LENGTH = 500;
 const BREAKPOINT_PHONE_PX = 640;
 const BREAKPOINT_NARROW_PX = 1100;
+
+const LazyModel3DView = lazy(async () => {
+  const mod = await import('./components/Model3DView');
+  return { default: mod.Model3DView };
+});
 
 export default function App(): JSX.Element {
   const { theme, nextTheme } = useTheme();
@@ -78,6 +84,7 @@ export default function App(): JSX.Element {
   const storeSetTheme = usePhageStore((s) => s.setTheme);
   const storeCloseAllOverlays = usePhageStore((s) => s.closeAllOverlays);
   const show3DModel = usePhageStore((s) => s.show3DModel);
+  const toggle3DModel = usePhageStore((s) => s.toggle3DModel);
   const { open: openOverlayCtx, closeAll: closeAllOverlaysCtx, hasBlockingOverlay } = useOverlay();
   const { mode } = useKeyboardMode();
   const pendingSequence = usePendingSequence();
@@ -93,8 +100,8 @@ export default function App(): JSX.Element {
     const width = window.innerWidth;
     const height = window.innerHeight || 1;
     return {
-      isNarrow: width < BREAKPOINT_NARROW_PX,
-      isMobile: width < BREAKPOINT_PHONE_PX,
+      isNarrow: width <= BREAKPOINT_NARROW_PX,
+      isMobile: width <= BREAKPOINT_PHONE_PX,
       isLandscape: width > height,
     };
   }, []);
@@ -129,11 +136,26 @@ export default function App(): JSX.Element {
     };
   }, []);
 
-  const sequenceHeight = isNarrow ? (isLandscape ? '85vh' : '65vh') : 480;
+  const sequenceHeight = isNarrow ? (isLandscape ? '85dvh' : '65dvh') : 480;
   const show3DInLayout = (!isMobile && (!isNarrow || !isLandscape)) || (isMobile && show3DModel);
   const hasSelection = currentPhage !== null || isLoadingPhage;
   const showList = !isMobile || !hasSelection || mobileListOpen;
   const showDetail = !isMobile || hasSelection;
+  const shouldLockScroll = hasBlockingOverlay || (isMobile && mobileListOpen);
+
+  // Prevent background scroll on mobile when a blocking overlay or the list drawer is open.
+  useEffect(() => {
+    if (!shouldLockScroll) return;
+    const body = document.body;
+    const prevOverflow = body.style.overflow;
+    const prevOverscroll = body.style.overscrollBehavior;
+    body.style.overflow = 'hidden';
+    body.style.overscrollBehavior = 'none';
+    return () => {
+      body.style.overflow = prevOverflow;
+      body.style.overscrollBehavior = prevOverscroll;
+    };
+  }, [shouldLockScroll]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -567,7 +589,41 @@ export default function App(): JSX.Element {
                 </div>
                     {show3DInLayout && (
                       <div className="viewer-panel">
-                        <Model3DView phage={currentPhage} />
+                        {show3DModel ? (
+                          <Suspense
+                            fallback={
+                              <div className="panel" aria-label="3D structure viewer loading">
+                                <div className="panel-header">
+                                  <h3>3D Structure</h3>
+                                  <span className="badge">Loading…</span>
+                                </div>
+                                <div className="panel-body text-dim">Loading 3D renderer…</div>
+                              </div>
+                            }
+                          >
+                            <LazyModel3DView phage={currentPhage} />
+                          </Suspense>
+                        ) : (
+                          <div className="panel" aria-label="3D structure viewer">
+                            <div className="panel-header">
+                              <h3>3D Structure</h3>
+                              <span className="badge subtle">Off</span>
+                            </div>
+                            <div className="panel-body text-dim">
+                              <p style={{ marginTop: 0 }}>
+                                3D is currently disabled to save battery/GPU. Enable it to load the structure viewer.
+                              </p>
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={toggle3DModel}
+                                aria-label="Enable 3D structure viewer"
+                              >
+                                Enable 3D
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

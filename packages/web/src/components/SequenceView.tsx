@@ -391,11 +391,11 @@ export function SequenceView({
         ? height
         : isMobile
           ? orientation === 'portrait'
-            ? '78vh' // taller in portrait to show more bases
-            : 'calc(100vh - 120px)' // landscape: more usable height
+            ? '78dvh' // taller in portrait to show more bases
+            : 'calc(100dvh - 120px)' // landscape: more usable height
           : orientation === 'portrait'
-            ? '60vh'
-            : '70vh';
+            ? '60dvh'
+            : '70dvh';
 
   return (
     <div
