@@ -140,7 +140,9 @@ async function main() {
     }
 
     // Run database operations in a transaction
-    const insertTx = sqlite.transaction(async () => {
+    try {
+      sqlite.exec('BEGIN IMMEDIATE');
+
       // Insert phage record
       const [phageRecord] = await db
         .insert(phages)
@@ -207,12 +209,10 @@ async function main() {
         codonCounts: JSON.stringify(codonCounts),
       });
       console.log(`  Calculated codon usage`);
-    });
 
-    // Execute transaction
-    try {
-      await insertTx();
+      sqlite.exec('COMMIT');
     } catch (txError) {
+      sqlite.exec('ROLLBACK');
       console.error(`  ERROR inserting ${entry.accession} into DB:`, txError);
     }
 

@@ -115,7 +115,11 @@ export class SqlJsRepository implements PhageRepository {
         SELECT id, slug, name, accession, family, host, genome_length as genomeLength,
                gc_content as gcContent, morphology, lifecycle
         FROM phages
-        WHERE name LIKE ? OR host LIKE ? OR family LIKE ? OR accession LIKE ? OR slug LIKE ?
+        WHERE name LIKE ? ESCAPE '\\' 
+           OR host LIKE ? ESCAPE '\\' 
+           OR family LIKE ? ESCAPE '\\' 
+           OR accession LIKE ? ESCAPE '\\' 
+           OR slug LIKE ? ESCAPE '\\'
         ORDER BY name ASC
         LIMIT 20
       `),
