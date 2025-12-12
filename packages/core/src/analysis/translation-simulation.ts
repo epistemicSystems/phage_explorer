@@ -117,10 +117,12 @@ export const ribosomeTrafficSimulation: Simulation<RibosomeTrafficState> = {
     let stalls = 0;
 
     // Rebuild positions from 3' to 5' to handle exclusion.
-    const newPositions: number[] = [];
+    // We use push() to build [3' ... 5'] array (descending indices) then reverse it at the end to get [5' ... 3'] (ascending).
+    // This avoids O(N^2) behavior of unshift() in a loop.
+    const newPositionsReversed: number[] = [];
     let proteins = state.proteinsProduced;
     
-    // We need to process from 3' to 5'
+    // We process from 3' to 5' (end of array to start)
     // `ribosomes` is sorted ascending. 3' is at end.
     
     for (let i = ribosomes.length - 1; i >= 0; i--) {
@@ -130,27 +132,24 @@ export const ribosomeTrafficSimulation: Simulation<RibosomeTrafficState> = {
         if (pos >= length - 1) {
             // Try terminate
             if (Math.random() < beta) {
-                // Success: remove (don't add to newPositions)
+                // Success: remove (don't add)
                 proteins++;
                 continue;
             } else {
                 // Failed: stay
-                newPositions.unshift(pos);
+                newPositionsReversed.push(pos);
                 continue;
             }
         }
         
         // Elongation
         const rate = codonRates[pos] || 0.1;
-        // Check obstruction
-        // Obstruction is from the ribosome *ahead* (which we processed earlier in this loop, i.e., added to newPositions)
-        // Since we process 3'->5', the ribosome ahead (i+1) has already been processed and put into `newPositions` (at index 0 of newPositions, since we unshift).
-        // Wait, if we unshift, the one we just processed is at newPositions[0].
         
+        // Check obstruction from the ribosome ahead
+        // The ribosome ahead was just processed and is the *last* element in newPositionsReversed
         let blocked = false;
-        if (newPositions.length > 0) {
-            // The ribosome immediately ahead
-            const nextPos = newPositions[0]; 
+        if (newPositionsReversed.length > 0) {
+            const nextPos = newPositionsReversed[newPositionsReversed.length - 1]; 
             if (nextPos - pos <= footprint) {
                 blocked = true;
             }
@@ -158,31 +157,34 @@ export const ribosomeTrafficSimulation: Simulation<RibosomeTrafficState> = {
         
         if (blocked) {
             stalls++;
-            newPositions.unshift(pos);
+            newPositionsReversed.push(pos);
         } else {
             // Try move
             if (Math.random() < rate) {
-                newPositions.unshift(pos + 1);
+                newPositionsReversed.push(pos + 1);
             } else {
-                newPositions.unshift(pos);
+                newPositionsReversed.push(pos);
             }
         }
     }
     
     // 3. Initiation
-    // Check if first ribosome (now at newPositions[0]) blocks start
+    // Check if first ribosome (now the last element of newPositionsReversed) blocks start
     let startBlocked = false;
-    if (newPositions.length > 0) {
-        if (newPositions[0] < footprint) {
+    if (newPositionsReversed.length > 0) {
+        if (newPositionsReversed[newPositionsReversed.length - 1] < footprint) {
             startBlocked = true;
         }
     }
     
     if (!startBlocked) {
         if (Math.random() < alpha) {
-            newPositions.unshift(0);
+            newPositionsReversed.push(0);
         }
     }
+    
+    // Reverse to restore ascending order [0, ..., length]
+    const newPositions = newPositionsReversed.reverse();
     
     // Update history
     const newDensityHistory = [...state.densityHistory.slice(1), newPositions.length];

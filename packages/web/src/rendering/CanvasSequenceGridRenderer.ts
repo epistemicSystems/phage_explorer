@@ -187,6 +187,8 @@ export class CanvasSequenceGridRenderer {
   private snapToCodon: boolean;
   private densityMode: 'compact' | 'standard';
   private slowFrameLastLoggedAt = 0;
+  private scanlinePattern: CanvasPattern | null = null;
+  private scanlinePatternCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
   constructor(options: SequenceGridOptions) {
     this.canvas = options.canvas;
@@ -836,17 +838,32 @@ export class CanvasSequenceGridRenderer {
       }
 
       // Second pass: amino acids (bottom row, aligned per codon)
-      for (let i = rowStart; i < rowEnd; i += 3) {
+      // Align start index to reading frame to ensure we hit codon boundaries
+      let aaRowStart = rowStart;
+      if (!isReverse) {
+        // Forward: (i - forwardFrame) % 3 === 0
+        while ((aaRowStart - forwardFrame) % 3 !== 0) aaRowStart++;
+      } else {
+        // Reverse: (seqLength - 3 - i - forwardFrame) % 3 === 0
+        // We need to find the first i >= rowStart that satisfies this
+        // Note: JS modulo of negative numbers is negative, so use manual wrap if needed
+        // but simple loop is robust enough for small stride
+        while ((seqLength - 3 - aaRowStart - forwardFrame) % 3 !== 0) aaRowStart++;
+      }
+
+      for (let i = aaRowStart; i < rowEnd; i += 3) {
         let aaIndex: number;
         if (!isReverse) {
           const codonOffset = i - forwardFrame;
-          if (codonOffset < 0 || codonOffset % 3 !== 0) continue;
+          // if (codonOffset < 0 || codonOffset % 3 !== 0) continue; // Aligned by loop
+          if (codonOffset < 0) continue;
           aaIndex = Math.floor(codonOffset / 3);
         } else {
           // Reverse frames map codons from the 3' end back toward 5'
           const rcStart = seqLength - 3 - i;
           const codonOffset = rcStart - forwardFrame;
-          if (codonOffset < 0 || codonOffset % 3 !== 0) continue;
+          // if (codonOffset < 0 || codonOffset % 3 !== 0) continue; // Aligned by loop
+          if (codonOffset < 0) continue;
           aaIndex = Math.floor(codonOffset / 3);
         }
         const aaChar = aminoSequence[aaIndex] ?? 'X';
@@ -909,10 +926,36 @@ export class CanvasSequenceGridRenderer {
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
 
+    this.ensureScanlinePattern(ctx);
+    if (this.scanlinePattern) {
+      ctx.fillStyle = this.scanlinePattern;
+      ctx.fillRect(0, 0, width, height);
+      return;
+    }
+
+    // Fallback: draw individual scanlines (should be rare).
     ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
     for (let y = 0; y < height; y += 2) {
       ctx.fillRect(0, y, width, 1);
     }
+  }
+
+  private ensureScanlinePattern(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D): void {
+    if (this.scanlinePattern && this.scanlinePatternCtx === ctx) return;
+    if (typeof document === 'undefined') return;
+
+    const patternCanvas = document.createElement('canvas');
+    patternCanvas.width = 1;
+    patternCanvas.height = 2;
+    const patternCtx = patternCanvas.getContext('2d');
+    if (!patternCtx) return;
+
+    patternCtx.clearRect(0, 0, 1, 2);
+    patternCtx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+    patternCtx.fillRect(0, 0, 1, 1);
+
+    this.scanlinePattern = ctx.createPattern(patternCanvas, 'repeat');
+    this.scanlinePatternCtx = ctx;
   }
 
   /**

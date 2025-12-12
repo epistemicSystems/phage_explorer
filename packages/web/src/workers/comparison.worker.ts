@@ -98,8 +98,16 @@ function computeDiff(sequenceA: string, sequenceB: string): DiffComputation {
   const trace: Int32Array[] = [];
 
   let distance = 0;
+  let success = false;
+  
+  // Guard against OOM for large, divergent sequences
+  const MAX_ITERATIONS = 5000;
 
   outer: for (let d = 0; d <= max; d++) {
+    if (d > MAX_ITERATIONS) {
+      console.warn(`Diff computation exceeded max iterations (${MAX_ITERATIONS}). Result truncated.`);
+      break;
+    }
     for (let k = -d; k <= d; k += 2) {
       let x: number;
       if (k === -d || (k !== d && v[k - 1 + offset] < v[k + 1 + offset])) {
@@ -116,10 +124,28 @@ function computeDiff(sequenceA: string, sequenceB: string): DiffComputation {
       if (x >= n && y >= m) {
         trace.push(v.slice());
         distance = d;
+        success = true;
         break outer;
       }
     }
     trace.push(v.slice());
+  }
+
+  if (!success) {
+    // Return empty/partial result if failed
+    return {
+      mask: new Uint8Array(n),
+      positions: [],
+      stats: {
+        insertions: 0,
+        deletions: 0,
+        substitutions: 0,
+        matches: n,
+        lengthA: n,
+        lengthB: m,
+        identity: 0, 
+      },
+    };
   }
 
   type Span = { op: DiffOp; length: number };
