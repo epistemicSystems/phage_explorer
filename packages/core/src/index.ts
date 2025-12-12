@@ -55,3 +55,6 @@ export * from './analysis/virion-stability';
 
 // Amino acid database (detailed info for HUD)
 export * from './data/amino-acid-database';
+
+// Translation simulation (Ribosome Traffic)
+export * from './analysis/translation-simulation';

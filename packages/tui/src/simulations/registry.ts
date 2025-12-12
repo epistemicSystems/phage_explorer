@@ -10,7 +10,7 @@ import type {
   PackagingMotorState,
   InfectionKineticsState,
 } from '@phage-explorer/core';
-import { getDefaultParams, STANDARD_CONTROLS } from '@phage-explorer/core';
+import { getDefaultParams, STANDARD_CONTROLS, ribosomeTrafficSimulation } from '@phage-explorer/core';
 
 // Simple helper to clamp numbers
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -95,120 +95,6 @@ function makeLysogenySimulation(): Simulation<LysogenyCircuitState> {
       };
     },
     getSummary: (state) => `t=${state.time.toFixed(0)} CI=${state.ci.toFixed(2)} Cro=${state.cro.toFixed(2)} · ${state.phase}`,
-  };
-}
-
-function makeRibosomeSimulation(): Simulation<RibosomeTrafficState> {
-  return {
-    id: 'ribosome-traffic',
-    name: 'Ribosome Traffic',
-    description: 'TASEP-like translation with footprint, stalls, and initiation.',
-    controls: STANDARD_CONTROLS,
-    parameters: [
-      { id: 'length', label: 'mRNA length (codons)', type: 'number', min: 30, max: 300, step: 10, defaultValue: 120 },
-      { id: 'stallRate', label: 'Stall site fraction', type: 'number', min: 0, max: 0.3, step: 0.01, defaultValue: 0.08 },
-      { id: 'initRate', label: 'Initiation rate', type: 'number', min: 0, max: 2, step: 0.05, defaultValue: 0.6 },
-      { id: 'footprint', label: 'Ribosome footprint (codons)', type: 'number', min: 6, max: 12, step: 1, defaultValue: 9 },
-    ],
-    init: (_phage, params): RibosomeTrafficState => {
-      const base = getDefaultParams([
-        { id: 'length', label: '', type: 'number', defaultValue: 120 },
-        { id: 'stallRate', label: '', type: 'number', defaultValue: 0.08 },
-        { id: 'initRate', label: '', type: 'number', defaultValue: 0.6 },
-        { id: 'footprint', label: '', type: 'number', defaultValue: 9 },
-      ]);
-      const merged = { ...base, ...(params ?? {}) } as Record<string, number | boolean | string>;
-      const length = Number(merged.length ?? 120);
-      const stallRate = Number(merged.stallRate ?? 0.08);
-      const slowCount = Math.max(1, Math.floor(length * stallRate));
-      const codonRates = Array.from({ length }, () => 6 + Math.random() * 4); // 6-10 fast-ish
-      // Seed slow codons
-      for (let i = 0; i < slowCount; i++) {
-        const idx = Math.floor(Math.random() * length);
-        codonRates[idx] = 1 + Math.random() * 2; // very slow site
-      }
-      return {
-        type: 'ribosome-traffic',
-        time: 0,
-        running: true,
-        speed: 1,
-        params: merged,
-        mRnaId: 'gene-1',
-        ribosomes: [],
-        codonRates,
-        proteinsProduced: 0,
-        stallEvents: 0,
-        densityHistory: [],
-        productionHistory: [],
-      };
-    },
-    step: (state: RibosomeTrafficState, dt: number): RibosomeTrafficState => {
-      const length = Number(state.params.length ?? 120);
-      const initRate = Number(state.params.initRate ?? 0.6);
-      const footprint = Number(state.params.footprint ?? 9);
-
-      const ribosomes = [...state.ribosomes];
-      let stallEvents = state.stallEvents;
-
-      // Iterate from End (Leading, Oldest) to Start (Trailing, Newest)
-      // Array is [SmallestPos, ..., LargestPos]
-      // So Leading is at index length-1.
-      // But wait, unshift adds to 0. [New, Old].
-      // New = Small pos. Old = Large pos.
-      // So array is [Small, Large].
-      // Leading is at index length-1.
-      // Ahead of 'i' is 'i+1'.
-      
-      for (let i = ribosomes.length - 1; i >= 0; i--) {
-        const pos = ribosomes[i];
-        // Remove if finished (though usually we filter at end, but we can just mark/ignore)
-        if (pos >= length) continue;
-
-        const rate = state.codonRates[Math.min(pos, state.codonRates.length - 1)] ?? 5;
-        const stepSize = Math.max(1, Math.floor(rate * dt));
-        const target = Math.min(length, pos + stepSize);
-
-        // Check collision with ribosome ahead (i+1)
-        let blocked = false;
-        if (i < ribosomes.length - 1) {
-           const aheadPos = ribosomes[i + 1];
-           // If ahead ribosome is still on track and within footprint distance
-           if (aheadPos < length && aheadPos - pos < footprint) {
-             blocked = true;
-           }
-        }
-
-        if (blocked) {
-          stallEvents += 1;
-          continue;
-        }
-        ribosomes[i] = target;
-      }
-
-      // Attempt initiation at front (index 0)
-      // Check if index 0 (Smallest) is far enough
-      const firstPos = ribosomes.length > 0 ? ribosomes[0] : length + footprint; // effectively inf if empty
-      if (firstPos > footprint && Math.random() < initRate * dt) {
-        ribosomes.unshift(0);
-      }
-
-      const completed = ribosomes.filter(pos => pos >= length).length;
-      const active = ribosomes.filter(pos => pos < length);
-
-      const densityHistory = [...state.densityHistory, active.length].slice(-200);
-      const productionHistory = [...state.productionHistory, state.proteinsProduced + completed].slice(-200);
-
-      return {
-        ...state,
-        time: state.time + dt,
-        ribosomes: active,
-        proteinsProduced: state.proteinsProduced + completed,
-        stallEvents,
-        densityHistory,
-        productionHistory,
-      };
-    },
-    getSummary: (state) => `t=${state.time.toFixed(0)} ribosomes=${state.ribosomes.length} proteins=${state.proteinsProduced}`,
   };
 }
 
@@ -639,7 +525,7 @@ export function getSimulationRegistry(): SimulationRegistry {
   const reg: SimulationRegistry = new Map();
   const sims: Array<Simulation<SimState>> = [
     makeLysogenySimulation(),
-    makeRibosomeSimulation(),
+    ribosomeTrafficSimulation,
     makePlaqueSimulation(),
     makeEvolutionSimulation(),
     makePackagingSimulation(),

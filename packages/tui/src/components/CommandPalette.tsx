@@ -3,7 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { usePhageStore } from '@phage-explorer/state';
 import type { Theme } from '@phage-explorer/core';
-import { getCommands, setCommands, type CommandItem } from '../commands/registry';
+import { getCommands, type CommandItem } from '../commands/registry';
 
 interface CommandPaletteProps {
   onClose: () => void;
@@ -80,111 +80,21 @@ export function CommandPalette({ onClose }: CommandPaletteProps): React.ReactEle
   const theme = usePhageStore(s => s.currentTheme);
   const colors = theme.colors;
 
-  const nextPhage = usePhageStore(s => s.nextPhage);
-  const prevPhage = usePhageStore(s => s.prevPhage);
-  const toggleViewMode = usePhageStore(s => s.toggleViewMode);
-  const cycleReadingFrame = usePhageStore(s => s.cycleReadingFrame);
-  const cycleTheme = usePhageStore(s => s.cycleTheme);
-  const toggleDiff = usePhageStore(s => s.toggleDiff);
-  const openOverlay = usePhageStore(s => s.openOverlay);
-  const toggleOverlay = usePhageStore(s => s.toggleOverlay);
-  const openComparison = usePhageStore(s => s.openComparison);
-  const setError = usePhageStore(s => s.setError);
   const experienceLevel = usePhageStore(s => s.experienceLevel);
   const recentCommands = usePhageStore(s => s.recentCommands);
   const addRecentCommand = usePhageStore(s => s.addRecentCommand);
-  const toggle3DModel = usePhageStore(s => s.toggle3DModel);
-  const toggle3DModelPause = usePhageStore(s => s.toggle3DModelPause);
-  const toggle3DModelFullscreen = usePhageStore(s => s.toggle3DModelFullscreen);
-  const cycle3DModelQuality = usePhageStore(s => s.cycle3DModelQuality);
-
-  // Seed commands on mount/experience change
-  useEffect(() => {
-    const baseCommands = [
-      { id: 'nav-next', label: 'Next phage', description: 'Move down the list', keywords: ['arrow', 'down'], category: 'Navigation', shortcut: '↓', action: nextPhage },
-      { id: 'nav-prev', label: 'Previous phage', description: 'Move up the list', keywords: ['arrow', 'up'], category: 'Navigation', shortcut: '↑', action: prevPhage },
-      { id: 'view-toggle', label: 'Toggle DNA / AA view', description: 'Switch sequence mode', keywords: ['mode', 'view'], category: 'View', shortcut: 'Space', action: toggleViewMode },
-      { id: 'frame-cycle', label: 'Cycle reading frame', description: 'Frame 1 → 2 → 3', keywords: ['frame'], category: 'View', shortcut: 'F', action: cycleReadingFrame },
-      { id: 'theme-cycle', label: 'Cycle theme', description: 'Rotate color themes', keywords: ['colors'], category: 'View', shortcut: 'T', action: cycleTheme },
-      { id: 'diff-toggle', label: 'Toggle diff', description: 'Diff vs reference', keywords: ['compare'], category: 'Analysis', shortcut: 'D', action: toggleDiff, minLevel: 'intermediate' },
-      { id: 'search', label: 'Search phages', description: 'Open search overlay', keywords: ['find'], category: 'Navigation', shortcut: 'S or /', action: () => openOverlay('search') },
-      { id: 'comparison', label: 'Genome comparison', description: 'Open comparison overlay', keywords: ['compare', 'genome'], category: 'Analysis', shortcut: 'W', action: openComparison, minLevel: 'intermediate' },
-      { id: 'model-toggle', label: 'Toggle 3D model', description: 'Show/hide 3D model', keywords: ['3d', 'model'], category: '3D', shortcut: 'M', action: toggle3DModel },
-      { id: 'model-pause', label: 'Pause/resume 3D model', description: 'Pause/resume rotation (O key)', keywords: ['3d', 'pause'], category: '3D', shortcut: 'O/P', action: toggle3DModelPause },
-      { id: 'model-fullscreen', label: 'Fullscreen 3D model', description: 'Enter/exit fullscreen', keywords: ['3d', 'fullscreen'], category: '3D', shortcut: 'Z', action: toggle3DModelFullscreen },
-      { id: 'model-quality', label: 'Cycle 3D quality', description: 'Change shading quality', keywords: ['3d', 'quality'], category: '3D', shortcut: 'R', action: cycle3DModelQuality },
-    ];
-
-    const advancedCommands =
-      experienceLevel === 'novice'
-        ? []
-        : [
-            { id: 'analysis-menu', label: 'Analysis menu', description: 'Open analysis menu', keywords: ['menu', 'analysis'], category: 'Menu', shortcut: 'A', action: () => openOverlay('analysisMenu') },
-            { id: 'complexity', label: 'Sequence complexity', description: 'Open complexity overlay', keywords: ['entropy', 'complexity'], category: 'Overlay', shortcut: 'X', action: () => toggleOverlay('complexity') },
-            { id: 'gc-skew', label: 'GC skew', description: 'Open GC skew overlay', keywords: ['gc'], category: 'Overlay', shortcut: 'G', action: () => toggleOverlay('gcSkew') },
-            { id: 'bendability', label: 'Bendability', description: 'AT-rich bendability proxy overlay', keywords: ['bend', 'at'], category: 'Overlay', shortcut: 'B', action: () => toggleOverlay('bendability') },
-            { id: 'promoter', label: 'Promoter/RBS motifs', description: 'Scan for -10/-35 and Shine-Dalgarno', keywords: ['promoter', 'rbs'], category: 'Overlay', shortcut: 'P', action: () => toggleOverlay('promoter') },
-            { id: 'repeats', label: 'Repeats / palindromes', description: 'Detect short palindromic repeats', keywords: ['repeat', 'palindrome'], category: 'Overlay', shortcut: 'R', action: () => toggleOverlay('repeats') },
-            { id: 'kmer', label: 'K-mer anomaly', description: 'Highlight composition shifts', keywords: ['kmer', 'anomaly'], category: 'Overlay', shortcut: 'J', action: () => toggleOverlay('kmerAnomaly') },
-            { id: 'modules', label: 'Module coherence', description: 'Capsid/tail/lysis module view', keywords: ['module', 'stoichiometry'], category: 'Overlay', shortcut: 'L', action: () => toggleOverlay('modules') },
-            { id: 'pressure', label: 'Packaging pressure gauge', description: 'Estimate capsid filling pressure', keywords: ['pressure', 'packing'], category: 'Overlay', shortcut: 'V', action: () => toggleOverlay('pressure') },
-            { id: 'dot-plot', label: 'Self-homology dot plot', description: 'Direct vs inverted repeat map', keywords: ['dot', 'homology', 'repeat'], category: 'Overlay', shortcut: 'A→Dot', action: () => openOverlay('dotPlot') },
-            { id: 'cgr', label: 'CGR fractal fingerprint', description: 'Chaos Game Representation of sequence', keywords: ['cgr', 'fractal', 'kmer'], category: 'Overlay', shortcut: 'A→CGR', action: () => openOverlay('cgr') },
-            { id: 'hilbert', label: 'Hilbert genome atlas', description: 'Space-filling curve view', keywords: ['hilbert', 'map'], category: 'Overlay', shortcut: 'A→Hilbert', action: () => openOverlay('hilbert') },
-            { id: 'gel', label: 'Virtual agarose gel', description: 'Restriction digest simulation', keywords: ['gel', 'digest', 'restriction'], category: 'Overlay', shortcut: 'A→Gel', action: () => openOverlay('gel') },
-            { id: 'nonb', label: 'Non-B DNA structures', description: 'G4/Z-DNA motif scanner', keywords: ['non-b', 'g4', 'z-dna'], category: 'Overlay', shortcut: 'A→NonB', action: () => toggleOverlay('non-b-dna') },
-            { id: 'anomaly', label: 'Sequence anomaly scanner', description: 'Info-theoretic anomaly map (KL + compression)', keywords: ['anomaly', 'kl', 'compression'], category: 'Overlay', shortcut: 'Shift+A', action: () => toggleOverlay('anomaly') },
-            { id: 'phase-portraits', label: 'AA property phase portraits', description: 'PCA of hydropathy/charge/aromaticity trajectories', keywords: ['phase', 'portrait', 'protein', 'property'], category: 'Overlay', shortcut: 'Shift+P', action: () => toggleOverlay('phasePortrait') },
-            { id: 'bias-decomposition', label: 'Dinucleotide bias decomposition', description: 'PCA on dinucleotide frequencies across phages', keywords: ['bias', 'dinucleotide', 'pca'], category: 'Overlay', shortcut: 'A→Bias', action: () => toggleOverlay('biasDecomposition') },
-          ];
-
-    const powerCommands =
-      experienceLevel === 'power'
-        ? [
-            { id: 'command-palette', label: 'Command palette', description: 'Fuzzy commands (Ctrl+P / :)', keywords: ['palette', 'commands'], category: 'Menu', shortcut: 'Ctrl+P', action: () => openOverlay('commandPalette') },
-            { id: 'fold-quickview', label: 'Fold quickview', description: 'View fold embeddings (Ctrl+F)', keywords: ['fold', 'structure'], category: 'Analysis', shortcut: 'Ctrl+F', action: () => openOverlay('foldQuickview') },
-            { id: 'simulation-hub', label: 'Simulation hub', description: 'Open simulation hub', keywords: ['simulation', 'hub'], category: 'Simulation', shortcut: 'Shift+S', action: () => openOverlay('simulationHub') },
-          ]
-        : [];
-
-    const noviceHints =
-      experienceLevel === 'novice'
-        ? [
-            {
-              id: 'unlock-advanced',
-              label: 'Unlock advanced overlays',
-              description: 'Promote experience to access advanced tools',
-              keywords: ['unlock', 'advanced', 'promote'],
-              action: () => setError('Advanced overlays unlock automatically after time; ask to promote to power.'),
-            },
-          ]
-        : [];
-
-    setCommands([...baseCommands, ...advancedCommands, ...powerCommands, ...noviceHints]);
-  }, [
-    nextPhage,
-    prevPhage,
-    toggleViewMode,
-    cycleReadingFrame,
-    cycleTheme,
-    toggleDiff,
-    openOverlay,
-    toggleOverlay,
-    openComparison,
-    toggle3DModel,
-    toggle3DModelPause,
-    toggle3DModelFullscreen,
-    cycle3DModelQuality,
-    setError,
-    experienceLevel,
-  ]);
 
   const commands = useMemo(() => {
     const all = getCommands();
     return all.filter(cmd => {
-      if (!cmd.minLevel) return true;
+      // Min level check
       if (cmd.minLevel === 'intermediate' && experienceLevel === 'novice') return false;
       if (cmd.minLevel === 'power' && experienceLevel !== 'power') return false;
+
+      // Max level check
+      if (cmd.maxLevel === 'novice' && experienceLevel !== 'novice') return false;
+      if (cmd.maxLevel === 'intermediate' && experienceLevel === 'power') return false;
+
       return true;
     });
   }, [experienceLevel]);

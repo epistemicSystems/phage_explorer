@@ -258,6 +258,7 @@ export interface PhageExplorerActions {
   openGlossary: () => void;
   closeGlossary: () => void;
   startTour: (tourId: string) => void;
+  cancelTour: () => void;
   completeTour: (tourId: string) => void;
   completeModule: (moduleId: string) => void;
   resetBeginnerProgress: () => void;
@@ -710,6 +711,8 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
   closeGlossary: () => set({ glossarySidebarOpen: false }),
 
   startTour: (tourId) => set({ activeTourId: tourId }),
+
+  cancelTour: () => set({ activeTourId: null }),
 
   completeTour: (tourId) => {
     const { completedTours, activeTourId } = get();

@@ -55,6 +55,7 @@ import { BiasDecompositionOverlay } from './BiasDecompositionOverlay';
 import { analyzeHGTProvenance, analyzeTailFiberTropism } from '@phage-explorer/comparison';
 import type { FoldEmbedding, StructuralConstraintReport } from '@phage-explorer/core';
 import { analyzeStructuralConstraints } from '@phage-explorer/core';
+import { initializeCommands } from '../commands/definitions';
 
 const ANALYSIS_MENU_ID: OverlayId = 'analysisMenu';
 const SIMULATION_MENU_ID: OverlayId = 'simulationHub';
@@ -153,6 +154,11 @@ export function App({ repository, foldEmbeddings = [] }: AppProps): React.ReactE
   const currentPhage = usePhageStore(s => s.currentPhage);
   const quitConfirmPending = usePhageStore(s => s.quitConfirmPending);
   const setQuitConfirmPending = usePhageStore(s => s.setQuitConfirmPending);
+
+  // Initialize commands
+  useEffect(() => {
+    initializeCommands();
+  }, []);
 
   // Sequence state
   const [sequence, setSequence] = useState<string>('');
