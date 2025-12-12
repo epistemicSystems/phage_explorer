@@ -49,25 +49,33 @@ export function ControlDeck(): JSX.Element {
   const handleGeneNav = (direction: 'prev' | 'next') => {
     if (!currentPhage?.genes?.length) return;
     
-    // Simple logic: find gene with startPos closest to current scroll
-    // Better logic: find gene immediately before/after current scroll
     const sortedGenes = [...currentPhage.genes].sort((a, b) => a.startPos - b.startPos);
-    
-    if (direction === 'next') {
-      const nextGene = sortedGenes.find(g => g.startPos > scrollPosition + 50); // Buffer to avoid getting stuck
-      if (nextGene) setScrollPosition(nextGene.startPos);
-    } else {
-      // Find first gene that starts before current position
-      // Reverse iterate
+
+    const containingIndex = sortedGenes.findIndex((gene) => {
+      return scrollPosition >= gene.startPos && scrollPosition <= gene.endPos;
+    });
+
+    const indexBefore = (() => {
       for (let i = sortedGenes.length - 1; i >= 0; i--) {
-        if (sortedGenes[i].startPos < scrollPosition - 50) {
-          setScrollPosition(sortedGenes[i].startPos);
-          return;
-        }
+        if (sortedGenes[i].startPos < scrollPosition) return i;
       }
-      // If none found (at start), go to first gene if we are past it, else 0
-      if (scrollPosition > 0) setScrollPosition(0);
+      return -1;
+    })();
+
+    if (direction === 'next') {
+      const baseIndex = containingIndex === -1 ? indexBefore : containingIndex;
+      const nextGene = sortedGenes[baseIndex + 1] ?? null;
+      if (nextGene) setScrollPosition(nextGene.startPos);
+      return;
     }
+
+    const baseIndex = containingIndex === -1 ? indexBefore : containingIndex - 1;
+    const prevGene = sortedGenes[baseIndex] ?? null;
+    if (prevGene) {
+      setScrollPosition(prevGene.startPos);
+      return;
+    }
+    if (scrollPosition > 0) setScrollPosition(0);
   };
 
   // Cycle Frame
