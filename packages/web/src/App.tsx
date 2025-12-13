@@ -317,8 +317,10 @@ export default function App(): JSX.Element {
 
   // Scroll active phage list item into view when navigating with j/k
   useEffect(() => {
-    activePhageItemRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [currentPhageIndex]);
+    const node = activePhageItemRef.current;
+    if (!node) return;
+    node.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
+  }, [currentPhageIndex, reducedMotion]);
 
   // Touch feedback: set ripple origin vars and trigger light haptics when supported.
   useEffect(() => {

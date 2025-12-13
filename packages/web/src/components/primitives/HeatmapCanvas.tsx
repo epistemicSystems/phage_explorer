@@ -68,7 +68,7 @@ export function HeatmapCanvas({
         ctx.fillRect(padding + c * cellW, padding + r * cellH, cellW, cellH);
       }
     }
-  }, [backgroundColor, colorScale, height, matrix.cols, matrix.max, matrix.min, matrix.rows, matrix.values, padding, width]);
+  }, [backgroundColor, colorScale, height, matrix.cols, matrix.max, matrix.min, matrix.rows, matrix.values, padding, shouldRenderCell, width]);
 
   useEffect(() => {
     if (!onHover) return;
