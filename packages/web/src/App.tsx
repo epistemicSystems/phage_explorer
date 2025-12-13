@@ -395,14 +395,15 @@ export default function App(): JSX.Element {
   ]);
 
   const footerHints = useMemo(() => ([
-    { key: 'j/k', label: 'navigate' },
-    { key: '/', label: 'search' },
-    { key: ':', label: 'command' },
-    { key: 't', label: 'theme' },
-    { key: '?', label: 'help' },
-    { key: 'v/f', label: 'view/frame' },
-    { key: 'Home/End', label: 'jump' },
-    { key: 'Ctrl+B', label: 'beginner' },
+    { key: 'j/k', label: 'navigate', description: 'Next/previous phage' },
+    { key: '/', label: 'search', description: 'Search phages' },
+    { key: ':', label: 'command', description: 'Open command palette' },
+    { key: 't', label: 'theme', description: 'Cycle theme' },
+    { key: '?', label: 'help', description: 'Show keyboard shortcuts' },
+    { key: 'v/f', label: 'view/frame', description: 'Toggle DNA/AA view and reading frame' },
+    { key: 'Home/End', label: 'jump', description: 'Jump to start/end of sequence' },
+    { key: 'Esc', label: 'close', description: 'Close overlays' },
+    { key: 'Ctrl+B', label: 'beginner', description: 'Toggle beginner mode' },
   ]), []);
 
   const documentTitle = currentPhage

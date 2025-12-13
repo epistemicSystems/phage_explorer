@@ -9,6 +9,7 @@ import React from 'react';
 export interface KeyHint {
   key: string;
   label: string;
+  description?: string;
 }
 
 export interface FooterProps {
@@ -36,7 +37,14 @@ export const Footer: React.FC<FooterProps> = ({
         {hints.map((hint, i) => (
           <React.Fragment key={hint.key}>
             {i > 0 && <span className="hint-separator" aria-hidden="true">·</span>}
-            <span className="hint-item" role="listitem">
+            <span
+              className="hint-item"
+              role="listitem"
+              title={hint.description}
+              aria-label={
+                hint.description ? `${hint.key}: ${hint.description}` : `${hint.key}: ${hint.label}`
+              }
+            >
               <kbd className="key-hint">{hint.key}</kbd>
               <span className="hint-label">{hint.label}</span>
             </span>
