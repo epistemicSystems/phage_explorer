@@ -286,9 +286,22 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     };
   }, [scanlines, glow, postProcess, reducedMotion, initialZoomScale, enablePinchZoom, handleZoomChange, handleVisibleRangeFromRenderer, commitUiState]); // Recreate when visual pipeline changes
 
-  // Update theme
+  // Update theme - preserve scroll position across theme changes
   useEffect(() => {
-    rendererRef.current?.setTheme(theme);
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+
+    // Capture current scroll position before theme change
+    const currentPosition = renderer.getScrollPosition();
+
+    // Apply the new theme
+    renderer.setTheme(theme);
+
+    // Restore scroll position after render cycle completes
+    // Use requestAnimationFrame to ensure the theme render has finished
+    requestAnimationFrame(() => {
+      renderer.scrollToPosition(currentPosition, false);
+    });
   }, [theme]);
 
   // Update snapping preference without reconstructing renderer
