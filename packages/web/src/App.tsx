@@ -51,6 +51,8 @@ export default function App(): JSX.Element {
   const { theme, nextTheme } = useTheme();
   const reducedMotion = useReducedMotion();
   const highContrast = useWebPreferences((s) => s.highContrast);
+  const webPrefsHydrated = useWebPreferences((s) => s._hasHydrated);
+  const hasSeenWelcome = useWebPreferences((s) => s.hasSeenWelcome);
   const setHighContrast = useWebPreferences((s) => s.setHighContrast);
 
   useBeginnerModeInit();
@@ -71,6 +73,7 @@ export default function App(): JSX.Element {
   } = useBeginnerMode();
   const [beginnerToast, setBeginnerToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const welcomeOpenedRef = useRef(false);
 
   const phages = usePhageStore((s) => s.phages);
   const currentPhageIndex = usePhageStore((s) => s.currentPhageIndex);
@@ -170,6 +173,14 @@ export default function App(): JSX.Element {
     const cleanup = initializeStorePersistence();
     return cleanup;
   }, []);
+
+  useEffect(() => {
+    if (!webPrefsHydrated) return;
+    if (hasSeenWelcome) return;
+    if (welcomeOpenedRef.current) return;
+    welcomeOpenedRef.current = true;
+    openOverlayCtx('welcome');
+  }, [hasSeenWelcome, openOverlayCtx, webPrefsHydrated]);
 
   useEffect(() => {
     storeSetTheme(theme.id);

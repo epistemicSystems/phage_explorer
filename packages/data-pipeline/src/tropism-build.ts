@@ -64,7 +64,8 @@ function reverseComplement(seq: string): string {
 }
 
 function translateGene(genome: string, start: number, end: number, strand: string | null): string {
-  const s = Math.max(0, start - 1);
+  // DB stores 0-based start (inclusive) and end (exclusive)
+  const s = Math.max(0, start);
   const e = Math.min(genome.length, end);
   const window = genome.slice(s, e);
   const dna = strand === '-' ? reverseComplement(window) : window;

@@ -31,6 +31,8 @@ import { StructureConstraintOverlay } from './StructureConstraintOverlay';
 import { DotPlotOverlay } from './DotPlotOverlay';
 import { SyntenyOverlay } from './SyntenyOverlay';
 import { SettingsOverlay } from './SettingsOverlay';
+import { HelpOverlay } from './HelpOverlay';
+import { WelcomeModal } from './WelcomeModal';
 
 interface OverlayManagerProps {
   repository: PhageRepository | null;
@@ -40,6 +42,8 @@ interface OverlayManagerProps {
 export function OverlayManager({ repository, currentPhage }: OverlayManagerProps): React.ReactElement | null {
   return (
     <>
+      <WelcomeModal />
+      <HelpOverlay />
       <SearchOverlay repository={repository} currentPhage={currentPhage} />
       <AAKeyOverlay />
       <AALegend />
