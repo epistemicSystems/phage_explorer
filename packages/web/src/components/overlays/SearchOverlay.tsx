@@ -304,7 +304,7 @@ export function SearchOverlay({ repository, currentPhage }: SearchOverlayProps):
         {/* Show skeleton while worker or sequence is loading */}
         {isInitializing && (
           <div aria-busy="true" aria-label="Initializing search">
-            <SearchResultsSkeleton rows={4} />
+            <SearchResultsSkeleton count={4} />
           </div>
         )}
 
