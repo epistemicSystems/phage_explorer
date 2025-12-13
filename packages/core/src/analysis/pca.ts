@@ -8,6 +8,7 @@
  */
 
 import type { KmerVector } from './kmer-frequencies';
+import { indexToKmer } from './kmer-frequencies';
 
 export interface PCAProjection {
   phageId: number;
@@ -328,18 +329,6 @@ export function getTopLoadings(
   k: number = 4,
   topN: number = 10
 ): Array<Array<{ kmer: string; loading: number }>> {
-  // Import inline to avoid circular dependency
-  const indexToKmer = (index: number, kLen: number): string => {
-    const NUCLEOTIDES = ['A', 'C', 'G', 'T'];
-    let result = '';
-    let remaining = index;
-    for (let i = 0; i < kLen; i++) {
-      result = NUCLEOTIDES[remaining % 4] + result;
-      remaining = Math.floor(remaining / 4);
-    }
-    return result;
-  };
-
   return loadings.map(loading => {
     const indexed = Array.from(loading).map((value, index) => ({
       index,
