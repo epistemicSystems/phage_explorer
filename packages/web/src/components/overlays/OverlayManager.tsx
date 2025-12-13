@@ -37,6 +37,10 @@ import { FeatureTour } from './FeatureTour';
 import { GenomicSignaturePCAOverlay } from './GenomicSignaturePCAOverlay';
 import { CodonBiasOverlay } from './CodonBiasOverlay';
 import { SelectionPressureOverlay } from './SelectionPressureOverlay';
+import { ProteinDomainOverlay } from './ProteinDomainOverlay';
+import { AMGPathwayOverlay } from './AMGPathwayOverlay';
+import { CodonAdaptationOverlay } from './CodonAdaptationOverlay';
+import { DefenseArmsRaceOverlay } from './DefenseArmsRaceOverlay';
 
 interface OverlayManagerProps {
   repository: PhageRepository | null;
@@ -72,6 +76,10 @@ export function OverlayManager({ repository, currentPhage }: OverlayManagerProps
       <GenomicSignaturePCAOverlay repository={repository} currentPhage={currentPhage} />
       <CodonBiasOverlay repository={repository} currentPhage={currentPhage} />
       <SelectionPressureOverlay repository={repository} currentPhage={currentPhage} />
+      <ProteinDomainOverlay repository={repository} currentPhage={currentPhage} />
+      <AMGPathwayOverlay repository={repository} currentPhage={currentPhage} />
+      <CodonAdaptationOverlay repository={repository} currentPhage={currentPhage} />
+      <DefenseArmsRaceOverlay repository={repository} currentPhage={currentPhage} />
       <SettingsOverlay />
       <FeatureTour />
       <CommandPalette />

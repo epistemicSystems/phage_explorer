@@ -416,6 +416,176 @@ export class SqlJsRepository implements PhageRepository {
     this.codonCache.set(phageId, vector);
   }
 
+  /**
+   * Get protein domain annotations for a phage
+   */
+  async getProteinDomains(phageId: number): Promise<ProteinDomain[]> {
+    const cacheKey = `domains:${phageId}`;
+    const cached = this.cache.get(cacheKey) as CacheEntry<ProteinDomain[]> | undefined;
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+
+    try {
+      const stmt = this.db.prepare(`
+        SELECT id, phage_id as phageId, gene_id as geneId, locus_tag as locusTag,
+               domain_id as domainId, domain_name as domainName, domain_type as domainType,
+               start, end, score, e_value as eValue, description
+        FROM protein_domains
+        WHERE phage_id = ?
+        ORDER BY start ASC
+      `);
+      const results = this.execStatement<ProteinDomain>(stmt, [phageId]);
+      stmt.free();
+      this.cache.set(cacheKey, { data: results, timestamp: Date.now() });
+      return results;
+    } catch {
+      // Table may not exist yet
+      return [];
+    }
+  }
+
+  /**
+   * Get AMG annotations for a phage
+   */
+  async getAmgAnnotations(phageId: number): Promise<AmgAnnotation[]> {
+    const cacheKey = `amgs:${phageId}`;
+    const cached = this.cache.get(cacheKey) as CacheEntry<AmgAnnotation[]> | undefined;
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+
+    try {
+      const stmt = this.db.prepare(`
+        SELECT id, phage_id as phageId, gene_id as geneId, locus_tag as locusTag,
+               amg_type as amgType, kegg_ortholog as keggOrtholog, kegg_reaction as keggReaction,
+               kegg_pathway as keggPathway, pathway_name as pathwayName, confidence, evidence
+        FROM amg_annotations
+        WHERE phage_id = ?
+        ORDER BY id ASC
+      `);
+      const results = this.execStatement<AmgAnnotation>(stmt, [phageId]);
+      stmt.free();
+      this.cache.set(cacheKey, { data: results, timestamp: Date.now() });
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get defense system annotations for a phage
+   */
+  async getDefenseSystems(phageId: number): Promise<DefenseSystem[]> {
+    const cacheKey = `defense:${phageId}`;
+    const cached = this.cache.get(cacheKey) as CacheEntry<DefenseSystem[]> | undefined;
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+
+    try {
+      const stmt = this.db.prepare(`
+        SELECT id, phage_id as phageId, gene_id as geneId, locus_tag as locusTag,
+               system_type as systemType, system_family as systemFamily,
+               target_system as targetSystem, mechanism, confidence, source
+        FROM defense_systems
+        WHERE phage_id = ?
+        ORDER BY id ASC
+      `);
+      const results = this.execStatement<DefenseSystem>(stmt, [phageId]);
+      stmt.free();
+      this.cache.set(cacheKey, { data: results, timestamp: Date.now() });
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get host tRNA pools (optionally filtered by host name)
+   */
+  async getHostTrnaPools(hostName?: string): Promise<HostTrnaPool[]> {
+    const cacheKey = `trna:${hostName ?? 'all'}`;
+    const cached = this.cache.get(cacheKey) as CacheEntry<HostTrnaPool[]> | undefined;
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+
+    try {
+      let stmt: Statement;
+      let results: HostTrnaPool[];
+
+      if (hostName) {
+        stmt = this.db.prepare(`
+          SELECT id, host_name as hostName, host_tax_id as hostTaxId, anticodon,
+                 amino_acid as aminoAcid, codon, copy_number as copyNumber,
+                 relative_abundance as relativeAbundance
+          FROM host_trna_pools
+          WHERE host_name = ?
+          ORDER BY anticodon ASC
+        `);
+        results = this.execStatement<HostTrnaPool>(stmt, [hostName]);
+      } else {
+        stmt = this.db.prepare(`
+          SELECT id, host_name as hostName, host_tax_id as hostTaxId, anticodon,
+                 amino_acid as aminoAcid, codon, copy_number as copyNumber,
+                 relative_abundance as relativeAbundance
+          FROM host_trna_pools
+          ORDER BY host_name, anticodon ASC
+        `);
+        results = this.execStatement<HostTrnaPool>(stmt, []);
+      }
+
+      stmt.free();
+      this.cache.set(cacheKey, { data: results, timestamp: Date.now() });
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get codon adaptation scores for a phage (optionally filtered by host)
+   */
+  async getCodonAdaptation(phageId: number, hostName?: string): Promise<CodonAdaptation[]> {
+    const cacheKey = `adaptation:${phageId}:${hostName ?? 'all'}`;
+    const cached = this.cache.get(cacheKey) as CacheEntry<CodonAdaptation[]> | undefined;
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+
+    try {
+      let stmt: Statement;
+      let results: CodonAdaptation[];
+
+      if (hostName) {
+        stmt = this.db.prepare(`
+          SELECT id, phage_id as phageId, host_name as hostName, gene_id as geneId,
+                 locus_tag as locusTag, cai, tai, cpb, enc_prime as encPrime
+          FROM codon_adaptation
+          WHERE phage_id = ? AND host_name = ?
+          ORDER BY gene_id ASC
+        `);
+        results = this.execStatement<CodonAdaptation>(stmt, [phageId, hostName]);
+      } else {
+        stmt = this.db.prepare(`
+          SELECT id, phage_id as phageId, host_name as hostName, gene_id as geneId,
+                 locus_tag as locusTag, cai, tai, cpb, enc_prime as encPrime
+          FROM codon_adaptation
+          WHERE phage_id = ?
+          ORDER BY host_name, gene_id ASC
+        `);
+        results = this.execStatement<CodonAdaptation>(stmt, [phageId]);
+      }
+
+      stmt.free();
+      this.cache.set(cacheKey, { data: results, timestamp: Date.now() });
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
   async close(): Promise<void> {
     // Free prepared statements
     if (this.statements) {

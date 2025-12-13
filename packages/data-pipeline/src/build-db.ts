@@ -120,6 +120,89 @@ async function main() {
     );
     CREATE INDEX idx_tropism_phage ON tropism_predictions(phage_id);
     CREATE INDEX idx_tropism_gene ON tropism_predictions(gene_id);
+
+    -- Annotation tables (populated by annotation pipeline)
+    CREATE TABLE annotation_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at INTEGER
+    );
+
+    CREATE TABLE protein_domains (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phage_id INTEGER NOT NULL REFERENCES phages(id),
+      gene_id INTEGER REFERENCES genes(id),
+      locus_tag TEXT,
+      domain_id TEXT NOT NULL,
+      domain_name TEXT,
+      domain_type TEXT,
+      start INTEGER,
+      end INTEGER,
+      score REAL,
+      e_value REAL,
+      description TEXT
+    );
+    CREATE INDEX idx_domains_phage ON protein_domains(phage_id);
+    CREATE INDEX idx_domains_gene ON protein_domains(gene_id);
+    CREATE INDEX idx_domains_domain ON protein_domains(domain_id);
+
+    CREATE TABLE amg_annotations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phage_id INTEGER NOT NULL REFERENCES phages(id),
+      gene_id INTEGER REFERENCES genes(id),
+      locus_tag TEXT,
+      amg_type TEXT NOT NULL,
+      kegg_ortholog TEXT,
+      kegg_reaction TEXT,
+      kegg_pathway TEXT,
+      pathway_name TEXT,
+      confidence REAL,
+      evidence TEXT
+    );
+    CREATE INDEX idx_amg_phage ON amg_annotations(phage_id);
+    CREATE INDEX idx_amg_type ON amg_annotations(amg_type);
+
+    CREATE TABLE defense_systems (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phage_id INTEGER NOT NULL REFERENCES phages(id),
+      gene_id INTEGER REFERENCES genes(id),
+      locus_tag TEXT,
+      system_type TEXT NOT NULL,
+      system_family TEXT,
+      target_system TEXT,
+      mechanism TEXT,
+      confidence REAL,
+      source TEXT
+    );
+    CREATE INDEX idx_defense_phage ON defense_systems(phage_id);
+    CREATE INDEX idx_defense_type ON defense_systems(system_type);
+
+    CREATE TABLE host_trna_pools (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      host_name TEXT NOT NULL,
+      host_tax_id INTEGER,
+      anticodon TEXT NOT NULL,
+      amino_acid TEXT NOT NULL,
+      codon TEXT,
+      copy_number INTEGER,
+      relative_abundance REAL
+    );
+    CREATE INDEX idx_trna_host ON host_trna_pools(host_name);
+    CREATE INDEX idx_trna_anticodon ON host_trna_pools(anticodon);
+
+    CREATE TABLE codon_adaptation (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      phage_id INTEGER NOT NULL REFERENCES phages(id),
+      host_name TEXT NOT NULL,
+      gene_id INTEGER REFERENCES genes(id),
+      locus_tag TEXT,
+      cai REAL,
+      tai REAL,
+      cpb REAL,
+      enc_prime REAL
+    );
+    CREATE INDEX idx_adaptation_phage ON codon_adaptation(phage_id);
+    CREATE INDEX idx_adaptation_host ON codon_adaptation(host_name);
   `);
 
   console.log('Tables created.\n');

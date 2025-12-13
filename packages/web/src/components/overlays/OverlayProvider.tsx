@@ -49,7 +49,11 @@ export type OverlayId =
   | 'collaboration'
   | 'tour'
   | 'genomicSignaturePCA'
-  | 'codonBias';
+  | 'codonBias'
+  | 'proteinDomains'
+  | 'amgPathway'
+  | 'codonAdaptation'
+  | 'defenseArmsRace';
 
 export interface OverlayConfig {
   id: OverlayId;
