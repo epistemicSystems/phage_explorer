@@ -157,15 +157,21 @@ export function levenshteinWithOperations(
     // Estimate operation breakdown (rough approximation)
     const d = approx.distance;
     const lenDiff = Math.abs(a.length - b.length);
-    const substitutions = Math.round((d - lenDiff) / 2);
-    const insertions = a.length < b.length ? Math.round(lenDiff / 2) : 0;
-    const deletions = a.length > b.length ? Math.round(lenDiff / 2) : 0;
+    const remaining = Math.max(0, d - lenDiff);
+
+    // Heuristic: Assign remaining distance primarily to substitutions (cost 1),
+    // as biologically aligned sequences tend to have more SNPs than indels.
+    // Mandatory length difference is attributed to insertions or deletions.
+    
+    const substitutions = remaining;
+    const insertions = a.length < b.length ? lenDiff : 0;
+    const deletions = a.length > b.length ? lenDiff : 0;
 
     return {
       distance: d,
-      insertions: Math.max(0, insertions + Math.round(substitutions / 3)),
-      deletions: Math.max(0, deletions + Math.round(substitutions / 3)),
-      substitutions: Math.max(0, Math.round(substitutions / 3)),
+      insertions,
+      deletions,
+      substitutions,
     };
   }
 
