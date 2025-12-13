@@ -13,9 +13,11 @@ import type { PhageFull, GeneInfo } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
+import { InfoButton } from '../ui';
 import { GenomeTrack } from './primitives/GenomeTrack';
 import { HeatmapCanvas } from '../primitives/HeatmapCanvas';
 import type { GenomeTrackSegment, GenomeTrackInteraction, HeatmapHover, ColorScale } from '../primitives/types';
@@ -92,6 +94,9 @@ export function SyntenyOverlay({
   const { theme } = useTheme();
   const colors = theme.colors;
   const { isOpen, toggle } = useOverlay();
+  const { isEnabled: beginnerModeEnabled, showContextFor } = useBeginnerMode();
+  const overlayHelp = getOverlayContext('synteny');
+  const referenceSelectId = 'synteny-reference-phage';
   const workerRef = useRef<Worker | null>(null);
 
   // State
@@ -297,10 +302,22 @@ export function SyntenyOverlay({
             fontSize: '0.85rem',
           }}
         >
-          <strong style={{ color: colors.accent }}>Synteny Analysis</strong>: Compares gene
-          order conservation between two phage genomes. Syntenic blocks indicate conserved
-          functional modules and evolutionary relationships. Blue = forward orientation,
-          Red = inverted.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <strong style={{ color: colors.accent }}>Synteny Analysis</strong>
+            {beginnerModeEnabled && (
+              <InfoButton
+                size="sm"
+                label="Learn about synteny"
+                tooltip={overlayHelp?.summary ?? 'Synteny describes conservation of gene order between genomes.'}
+                onClick={() => showContextFor(overlayHelp?.glossary?.[0] ?? 'synteny')}
+              />
+            )}
+          </div>
+          <div>
+            Compares gene order conservation between two phage genomes. Syntenic blocks indicate
+            conserved functional modules and evolutionary relationships. Blue = forward orientation,
+            Red = inverted.
+          </div>
         </div>
 
         {/* Reference phage selector */}
@@ -312,13 +329,23 @@ export function SyntenyOverlay({
             fontSize: '0.85rem',
           }}
         >
-          <label style={{ color: colors.textMuted }}>
-            Reference Phage:
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor={referenceSelectId} style={{ color: colors.textMuted }}>
+              Reference Phage:
+            </label>
+            {beginnerModeEnabled && (
+              <InfoButton
+                size="sm"
+                label="Why choose a reference?"
+                tooltip="Synteny compares your current phage to a reference to highlight conserved gene order and rearrangements."
+                onClick={() => showContextFor('synteny')}
+              />
+            )}
             <select
+              id={referenceSelectId}
               value={referencePhageId ?? ''}
               onChange={(e) => setReferencePhageId(e.target.value ? Number(e.target.value) : null)}
               style={{
-                marginLeft: '0.5rem',
                 padding: '0.25rem',
                 backgroundColor: colors.backgroundAlt,
                 color: colors.text,
@@ -336,7 +363,7 @@ export function SyntenyOverlay({
                   </option>
                 ))}
             </select>
-          </label>
+          </div>
 
           {currentPhage && (
             <span style={{ color: colors.textDim }}>
@@ -436,9 +463,20 @@ export function SyntenyOverlay({
                     fontSize: '0.75rem',
                     color: colors.textMuted,
                     marginBottom: '0.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
                   }}
                 >
-                  Gene Similarity Matrix ({queryGenes.length} × {referenceGenes.length})
+                  <span>Gene Similarity Matrix ({queryGenes.length} × {referenceGenes.length})</span>
+                  {beginnerModeEnabled && (
+                    <InfoButton
+                      size="sm"
+                      label="What is this matrix?"
+                      tooltip="Each cell reflects similarity between a query gene and a reference gene; blocks of high similarity suggest conserved modules."
+                      onClick={() => showContextFor('synteny')}
+                    />
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <HeatmapCanvas
@@ -641,7 +679,17 @@ export function SyntenyOverlay({
                     borderRadius: '2px',
                   }}
                 />
-                <span style={{ color: colors.textMuted }}>Forward orientation</span>
+                <span style={{ color: colors.textMuted, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                  Forward orientation
+                  {beginnerModeEnabled && (
+                    <InfoButton
+                      size="sm"
+                      label="What does orientation mean?"
+                      tooltip="Forward blocks keep the same gene order; inverted blocks are reversed relative to the reference."
+                      onClick={() => showContextFor('synteny')}
+                    />
+                  )}
+                </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                 <span

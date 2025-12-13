@@ -33,6 +33,7 @@ export function ControlDeck(): JSX.Element {
   
   // Store Actions
   const toggleViewMode = usePhageStore(s => s.toggleViewMode);
+  const viewMode = usePhageStore(s => s.viewMode);
   const readingFrame = usePhageStore(s => s.readingFrame);
   const setReadingFrame = usePhageStore(s => s.setReadingFrame);
   const diffEnabled = usePhageStore(s => s.diffEnabled);
@@ -85,6 +86,9 @@ export function ControlDeck(): JSX.Element {
     setReadingFrame(frames[(idx + 1) % frames.length]);
   };
 
+  const viewModeLabel = viewMode === 'dna' ? 'DNA' : viewMode === 'aa' ? 'Amino Acids' : 'Dual';
+  const frameLabel = readingFrame === 0 ? '+1' : readingFrame > 0 ? `+${readingFrame + 1}` : `${readingFrame}`;
+
   return (
     <div className={`control-deck${isLandscapePhone ? ' is-landscape' : ''}${expanded ? ' is-expanded' : ''}`}>
       {/* Tab Content Area */}
@@ -92,19 +96,41 @@ export function ControlDeck(): JSX.Element {
         <div className="deck-content" aria-hidden={isLandscapePhone && !expanded}>
           {activeTab === 'view' && (
             <div className="deck-row">
-              <button className="deck-btn" onClick={toggleViewMode}>
+              <button
+                type="button"
+                className="deck-btn"
+                onClick={toggleViewMode}
+                aria-label={`Cycle view mode, current ${viewModeLabel}`}
+              >
                 <span className="icon">Aa</span>
                 <span className="label">Mode</span>
               </button>
-              <button className="deck-btn" onClick={cycleFrame}>
-                <span className="icon">F{readingFrame}</span>
+              <button
+                type="button"
+                className="deck-btn"
+                onClick={cycleFrame}
+                aria-label={`Cycle reading frame, current frame ${frameLabel}`}
+              >
+                <span className="icon">F{frameLabel}</span>
                 <span className="label">Frame</span>
               </button>
-              <button className={`deck-btn ${diffEnabled ? 'active' : ''}`} onClick={toggleDiff}>
+              <button
+                type="button"
+                className={`deck-btn ${diffEnabled ? 'active' : ''}`}
+                onClick={toggleDiff}
+                aria-pressed={diffEnabled}
+                aria-label={`Toggle diff mode, currently ${diffEnabled ? 'on' : 'off'}`}
+              >
                 <span className="icon">±</span>
                 <span className="label">Diff</span>
               </button>
-              <button className={`deck-btn ${show3DModel ? 'active' : ''}`} onClick={toggle3DModel}>
+              <button
+                type="button"
+                className={`deck-btn ${show3DModel ? 'active' : ''}`}
+                onClick={toggle3DModel}
+                aria-pressed={show3DModel}
+                aria-label={`Toggle 3D model, currently ${show3DModel ? 'on' : 'off'}`}
+              >
                 <span className="icon">🧊</span>
                 <span className="label">3D</span>
               </button>
@@ -113,20 +139,40 @@ export function ControlDeck(): JSX.Element {
 
           {activeTab === 'nav' && (
             <div className="deck-row">
-              <button className="deck-btn" onClick={() => open('search')}>
+              <button
+                type="button"
+                className="deck-btn"
+                onClick={() => open('search')}
+                aria-label="Open search"
+              >
                 <span className="icon">🔍</span>
                 <span className="label">Search</span>
               </button>
-              <button className="deck-btn" onClick={() => open('goto')}>
+              <button
+                type="button"
+                className="deck-btn"
+                onClick={() => open('goto')}
+                aria-label="Open go-to position"
+              >
                 <span className="icon">Go</span>
                 <span className="label">Goto</span>
               </button>
               {/* Gene Navigation */}
-              <button className="deck-btn" onClick={() => handleGeneNav('prev')}>
+              <button
+                type="button"
+                className="deck-btn"
+                onClick={() => handleGeneNav('prev')}
+                aria-label="Go to previous gene"
+              >
                 <span className="icon">←</span>
                 <span className="label">Prev Gene</span>
               </button>
-              <button className="deck-btn" onClick={() => handleGeneNav('next')}>
+              <button
+                type="button"
+                className="deck-btn"
+                onClick={() => handleGeneNav('next')}
+                aria-label="Go to next gene"
+              >
                 <span className="icon">→</span>
                 <span className="label">Next Gene</span>
               </button>
@@ -136,28 +182,34 @@ export function ControlDeck(): JSX.Element {
       )}
 
       {/* Bottom Tabs */}
-      <div className="deck-tabs">
+      <div className="deck-tabs" role="navigation" aria-label="Mobile control deck">
         <button 
+          type="button"
           className={`tab-btn ${activeTab === 'view' ? 'active' : ''}`} 
           onClick={() => {
             setActiveTab('view');
             if (isLandscapePhone && !expanded) setExpanded(true);
           }}
+          aria-current={activeTab === 'view' ? 'page' : undefined}
         >
           View
         </button>
         <button 
+          type="button"
           className={`tab-btn ${activeTab === 'nav' ? 'active' : ''}`} 
           onClick={() => {
             setActiveTab('nav');
             if (isLandscapePhone && !expanded) setExpanded(true);
           }}
+          aria-current={activeTab === 'nav' ? 'page' : undefined}
         >
           Navigate
         </button>
         <button 
+          type="button"
           className="tab-btn"
           onClick={() => open('commandPalette')}
+          aria-label="Open tools"
         >
           Tools
         </button>

@@ -19,7 +19,7 @@ export type OverlayPosition = 'center' | 'top' | 'bottom' | 'left' | 'right';
 interface OverlayProps {
   id: OverlayId;
   title: string;
-  icon?: string;
+  icon?: ReactNode;
   hotkey?: string;
   size?: OverlaySize;
   position?: OverlayPosition;
@@ -59,7 +59,7 @@ export function Overlay({
   footer,
   className = '',
 }: OverlayProps): React.ReactElement | null {
-  const { isOpen, close } = useOverlay();
+  const { isOpen, close, stack } = useOverlay();
   const zIndex = useOverlayZIndex(id);
   const { theme } = useTheme();
   const colors = theme.colors;
@@ -68,6 +68,9 @@ export function Overlay({
   const [isBackdropHovered, setIsBackdropHovered] = useState(false);
 
   const overlayIsOpen = isOpen(id);
+  const overlayStackItem = stack.find((item) => item.id === id);
+  const closeOnEscape = overlayStackItem?.config.closeOnEscape ?? true;
+  const closeOnBackdrop = overlayStackItem?.config.closeOnBackdrop ?? true;
   const isPhone = typeof window !== 'undefined' && (window.matchMedia?.('(max-width: 640px)')?.matches ?? false);
   const effectivePosition: OverlayPosition = isPhone && position === 'center' ? 'bottom' : position;
   const isBottomSheet = isPhone && effectivePosition === 'bottom';
@@ -83,16 +86,19 @@ export function Overlay({
 
   // Handle backdrop click
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
+    if (!showBackdrop) return;
+    if (!closeOnBackdrop) return;
     if (e.target === e.currentTarget) {
       handleClose();
     }
-  }, [handleClose]);
+  }, [closeOnBackdrop, handleClose, showBackdrop]);
 
   const handleBackdropMouseMove = useCallback((e: React.MouseEvent) => {
     if (!showBackdrop) return;
+    if (!closeOnBackdrop) return;
     const hoveringBackdrop = e.target === e.currentTarget;
     setIsBackdropHovered((prev) => (prev === hoveringBackdrop ? prev : hoveringBackdrop));
-  }, [showBackdrop]);
+  }, [closeOnBackdrop, showBackdrop]);
 
   const handleBackdropMouseLeave = useCallback(() => {
     setIsBackdropHovered(false);
@@ -114,13 +120,13 @@ export function Overlay({
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
 
-    if (focusableElements.length === 0) return;
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
     const handleTab = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      if (!firstElement || !lastElement) return;
 
       if (e.shiftKey) {
         if (document.activeElement === firstElement) {
@@ -136,23 +142,35 @@ export function Overlay({
     };
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        handleClose();
-      }
+      if (e.key !== 'Escape') return;
+      if (!closeOnEscape) return;
+      e.stopPropagation();
+      handleClose();
     };
 
-    overlay.addEventListener('keydown', handleTab);
     overlay.addEventListener('keydown', handleEscape);
+    if (focusableElements.length > 0) {
+      overlay.addEventListener('keydown', handleTab);
+    }
 
     return () => {
-      overlay.removeEventListener('keydown', handleTab);
       overlay.removeEventListener('keydown', handleEscape);
-      if (previousFocus.current && typeof previousFocus.current.focus === 'function') {
+      if (focusableElements.length > 0) {
+        overlay.removeEventListener('keydown', handleTab);
+      }
+
+      const activeElement = document.activeElement as HTMLElement | null;
+      const shouldRestoreFocus =
+        !activeElement ||
+        activeElement === document.body ||
+        activeElement === document.documentElement ||
+        overlay.contains(activeElement);
+
+      if (shouldRestoreFocus && previousFocus.current && typeof previousFocus.current.focus === 'function') {
         previousFocus.current.focus();
       }
     };
-  }, [overlayIsOpen, handleClose]);
+  }, [overlayIsOpen, handleClose, closeOnEscape]);
 
   // Don't render if not open - AFTER all hooks
   if (!overlayIsOpen) {
@@ -176,7 +194,7 @@ export function Overlay({
     alignItems: effectivePosition === 'top' ? 'flex-start' : effectivePosition === 'bottom' ? 'flex-end' : 'center',
     padding: isBottomSheet ? 0 : isPhone ? '1rem' : effectivePosition === 'center' ? '2rem' : 0,
     zIndex,
-    cursor: showBackdrop && isBackdropHovered ? 'pointer' : 'default',
+    cursor: showBackdrop && closeOnBackdrop && isBackdropHovered ? 'pointer' : 'default',
     transition: showBackdrop ? 'background-color var(--duration-fast) var(--ease-out)' : undefined,
   };
 
@@ -240,7 +258,9 @@ export function Overlay({
         {/* Header */}
         <div style={headerStyle}>
           <div style={titleStyle}>
-            <span style={{ color: colors.primary, fontSize: '1.1rem' }}>{icon}</span>
+            <span style={{ color: colors.primary, fontSize: '1.1rem', display: 'inline-flex', alignItems: 'center' }}>
+              {icon}
+            </span>
             <span
               id={`overlay-title-${id}`}
               style={{ color: colors.primary, fontWeight: 'bold', fontSize: '1rem' }}

@@ -11,7 +11,7 @@ export const BeginnerModeIndicator: React.FC = () => {
     <>
       Beginner Mode is on.
       <br />
-      Click to open Learn. Press Ctrl+B to disable.
+      Click to open the glossary. Press Ctrl+B to disable.
     </>
   );
 
@@ -22,7 +22,7 @@ export const BeginnerModeIndicator: React.FC = () => {
           type="button"
           className="beginner-indicator__button"
           onClick={openGlossary}
-          aria-label="Open Beginner Learn menu"
+          aria-label="Open glossary"
         >
           <span className="beginner-indicator__dot" aria-hidden />
           <span className="beginner-indicator__text">Beginner Mode</span>

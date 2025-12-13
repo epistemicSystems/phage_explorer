@@ -40,7 +40,7 @@ const overlayContext: Record<string, ContextHelpEntry> = {
   complexity: {
     heading: 'Sequence Complexity',
     summary: 'Entropy-style view showing how repetitive or information-dense a window of DNA is.',
-    glossary: ['sequence-complexity', 'dna-sequence', 'gc-content'],
+    glossary: ['sequence-complexity', 'shannon-entropy', 'k-mer', 'dna-sequence', 'gc-content'],
     modules: ['genomics-basics'],
     tips: [
       'Low complexity windows often align with repeats or homopolymers that can trip assemblers.',
@@ -130,7 +130,7 @@ const overlayContext: Record<string, ContextHelpEntry> = {
   dotplot: {
     heading: 'Dot Plot',
     summary: 'Self-comparison matrix to reveal repeats, inversions, and rearrangements.',
-    glossary: ['synteny', 'dna-sequence', 'gene'],
+    glossary: ['dot-plot', 'synteny', 'dna-sequence', 'gene'],
     modules: ['genomics-basics'],
     tips: [
       'Diagonal lines reflect conserved order; off-diagonals highlight duplications or inversions.',

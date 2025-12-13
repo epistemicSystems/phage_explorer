@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useMemo, useId } from 'react';
+import type { GeneInfo } from '@phage-explorer/core';
 import { usePhageStore } from '@phage-explorer/state';
 import { useTheme } from '../hooks/useTheme';
 
@@ -19,12 +20,14 @@ interface GeneMapCanvasProps {
   height?: number;
   className?: string;
   onGeneClick?: (startPos: number) => void;
+  onGeneSelect?: (gene: GeneInfo | null) => void;
 }
 
 export function GeneMapCanvas({
   height = 60,
   className,
   onGeneClick,
+  onGeneSelect,
 }: GeneMapCanvasProps): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
@@ -68,7 +71,7 @@ export function GeneMapCanvas({
     moved: boolean;
     longPressed: boolean;
     posBase: number;
-    gene: any | null;
+    gene: GeneInfo | null;
   } | null>(null);
 
   const clearLongPressTimer = () => {
@@ -105,7 +108,7 @@ export function GeneMapCanvas({
     return posBase;
   };
 
-  const getHitInfo = (clientX: number, clientY: number) => {
+  const getHitInfo = (clientX: number, clientY: number): { posBase: number; gene: GeneInfo | null; clientX: number; clientY: number } | undefined => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -118,7 +121,10 @@ export function GeneMapCanvas({
     if (x < 0 || x > width) return;
     if (y < 0 || y > heightPx) return;
 
-    const posBase = Math.floor((x / width) * genomeLength);
+    const posBase = Math.min(
+      genomeLength - 1,
+      Math.max(0, Math.floor((x / width) * genomeLength))
+    );
 
     const trackHeight = 12;
     const forwardY = 10;
@@ -127,7 +133,7 @@ export function GeneMapCanvas({
     const inForward = y >= forwardY && y <= forwardY + trackHeight;
     const inReverse = y >= reverseY && y <= reverseY + trackHeight;
 
-    let bestGene: any | null = null;
+    let bestGene: GeneInfo | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
 
     if (inForward || inReverse) {
@@ -156,7 +162,7 @@ export function GeneMapCanvas({
     return { posBase, gene: bestGene, clientX, clientY };
   };
 
-  const showTooltip = (gene: any, clientX: number, clientY: number) => {
+  const showTooltip = (gene: GeneInfo, clientX: number, clientY: number) => {
     setHoveredGene({
       name: gene.name || gene.locusTag || 'Unknown',
       product: gene.product,
@@ -172,14 +178,15 @@ export function GeneMapCanvas({
 
   // Handle click to navigate (mouse); touch taps handled separately.
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!onGeneClick || !genomeLength) return;
+    if (!genomeLength) return;
     if (performance.now() - lastTouchEndRef.current < 500) return;
 
     const hit = getHitInfo(e.clientX, e.clientY);
     if (!hit) return;
 
     const targetBase = hit.gene ? hit.gene.startPos : hit.posBase;
-    onGeneClick(toScrollUnits(targetBase));
+    onGeneSelect?.(hit.gene ?? null);
+    onGeneClick?.(toScrollUnits(targetBase));
   };
 
   // Handle mouse move for tooltips
@@ -224,6 +231,7 @@ export function GeneMapCanvas({
         if (!session || session.moved) return;
         session.longPressed = true;
         showTooltip(hit.gene, hit.clientX, hit.clientY - 40);
+        onGeneSelect?.(hit.gene ?? null);
       }, LONG_PRESS_MS);
     }
   };
@@ -271,8 +279,8 @@ export function GeneMapCanvas({
       return;
     }
 
-    // Tap: navigate; also show a brief tooltip flash for discovery.
-    if (!onGeneClick || !genomeLength) return;
+    // Tap: navigate (if enabled); also show a brief tooltip flash for discovery.
+    if (!genomeLength) return;
     if (e.changedTouches.length !== 1) return;
 
     const touch = e.changedTouches[0];
@@ -280,7 +288,8 @@ export function GeneMapCanvas({
     if (!hit) return;
 
     const targetBase = hit.gene ? hit.gene.startPos : hit.posBase;
-    onGeneClick(toScrollUnits(targetBase));
+    onGeneSelect?.(hit.gene ?? null);
+    onGeneClick?.(toScrollUnits(targetBase));
 
     if (hit.gene) {
       showTooltip(hit.gene, hit.clientX, hit.clientY - 40);

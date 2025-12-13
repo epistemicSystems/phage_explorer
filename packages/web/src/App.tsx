@@ -2,12 +2,14 @@ import React, {
   Suspense,
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   lazy,
   useMemo,
   useRef,
   useState,
 } from 'react';
+import type { GeneInfo } from '@phage-explorer/core';
 import { AppShell } from './components/layout/AppShell';
 import OverlayManager from './components/overlays/OverlayManager';
 import { useOverlay } from './components/overlays/OverlayProvider';
@@ -27,7 +29,7 @@ import {
   useWebPreferences,
 } from './store';
 import { preloadWorkers } from './workers';
-import { useBeginnerMode, useBeginnerModeInit, TourEngine } from './education';
+import { getGeneProductContext, useBeginnerMode, useBeginnerModeInit, TourEngine } from './education';
 import { GeneMapCanvas } from './components/GeneMapCanvas';
 import { SequenceView } from './components/SequenceView';
 import { BeginnerModeIndicator } from './components/BeginnerModeIndicator';
@@ -38,6 +40,7 @@ import { LearnMenu } from './components/LearnMenu';
 // Mobile controls
 import { ControlDeck } from './components/mobile/ControlDeck';
 import { DataFreshnessIndicator } from './components/ui/DataFreshnessIndicator';
+import { IconSettings } from './components/ui/icons';
 
 /** Number of bases to show in the sequence preview */
 const SEQUENCE_PREVIEW_LENGTH = 500;
@@ -53,9 +56,9 @@ export default function App(): JSX.Element {
   const { theme, nextTheme } = useTheme();
   const reducedMotion = useReducedMotion();
   const highContrast = useWebPreferences((s) => s.highContrast);
+  const backgroundEffects = useWebPreferences((s) => s.backgroundEffects);
   const webPrefsHydrated = useWebPreferences((s) => s._hasHydrated);
   const hasSeenWelcome = useWebPreferences((s) => s.hasSeenWelcome);
-  const setHighContrast = useWebPreferences((s) => s.setHighContrast);
 
   useBeginnerModeInit();
   const {
@@ -72,6 +75,7 @@ export default function App(): JSX.Element {
     isEnabled: beginnerModeEnabled,
     isGlossaryOpen,
     closeGlossary,
+    showContextFor,
   } = useBeginnerMode();
   const [beginnerToast, setBeginnerToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
@@ -111,10 +115,38 @@ export default function App(): JSX.Element {
   const pendingSequence = usePendingSequence();
   const [sequencePreview, setSequencePreview] = useState<string>('');
   const [fullSequence, setFullSequence] = useState<string>('');
+  const [selectedGene, setSelectedGene] = useState<GeneInfo | null>(null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const glossaryShellRef = useRef<HTMLDivElement | null>(null);
+  const glossaryOpenerRef = useRef<HTMLElement | null>(null);
+  const wasGlossaryOpenRef = useRef(false);
+  const glossaryTitleId = useId();
   const activePhageItemRef = useRef<HTMLButtonElement>(null);
-  const enableBackgroundEffects = !reducedMotion;
+  const enableBackgroundEffects = backgroundEffects && !reducedMotion;
+  const geneHint = useMemo(() => {
+    if (!beginnerModeEnabled || !selectedGene) return null;
+
+    const haystack = `${selectedGene.name ?? ''} ${selectedGene.locusTag ?? ''} ${selectedGene.product ?? ''}`.toLowerCase();
+    const key =
+      haystack.includes('tail fiber') || haystack.includes('tail-fiber') || haystack.includes('tailspike')
+        ? 'tail-fiber'
+        : haystack.includes('capsid') || haystack.includes('coat protein') || haystack.includes('head protein')
+          ? 'capsid'
+          : haystack.includes('holin')
+            ? 'holin'
+            : haystack.includes('endolysin') || haystack.includes('lysin') || haystack.includes('lysozyme')
+              ? 'endolysin'
+              : haystack.includes('integrase') || haystack.includes('repressor') || haystack.includes('lysogen')
+                ? 'lysogeny'
+                : null;
+
+    return key ? getGeneProductContext(key) ?? null : null;
+  }, [beginnerModeEnabled, selectedGene]);
+
+  useEffect(() => {
+    setSelectedGene(null);
+  }, [currentPhage?.id]);
   const getLayoutSnapshot = useCallback(() => {
     if (typeof window === 'undefined') {
       return { isNarrow: false, isMobile: false, isLandscape: false };
@@ -452,6 +484,97 @@ export default function App(): JSX.Element {
     };
   }, [handleNextPhage, handlePrevPhage, hasBlockingOverlay, isMobile, mobileListOpen]);
 
+  useEffect(() => {
+    if (!isGlossaryOpen) return;
+    if (typeof window === 'undefined') return;
+
+    const active = document.activeElement as HTMLElement | null;
+    glossaryOpenerRef.current =
+      active && active !== document.body && active !== document.documentElement ? active : null;
+
+    const shell = glossaryShellRef.current;
+    if (!shell) return;
+
+    const raf = window.requestAnimationFrame(() => {
+      const target =
+        shell.querySelector<HTMLElement>('[data-glossary-search]') ??
+        shell.querySelector<HTMLElement>('[data-glossary-listbox]') ??
+        shell.querySelector<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ??
+        shell;
+
+      target.focus();
+    });
+
+    const handleTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+
+      const focusables = Array.from(
+        shell.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      ).filter((el) => {
+        if (el.getAttribute('aria-hidden') === 'true') return false;
+        if (el.tabIndex < 0) return false;
+        if (
+          (el instanceof HTMLButtonElement ||
+            el instanceof HTMLInputElement ||
+            el instanceof HTMLSelectElement ||
+            el instanceof HTMLTextAreaElement) &&
+          el.disabled
+        ) {
+          return false;
+        }
+        return true;
+      });
+
+      if (focusables.length === 0) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (!first || !last) return;
+
+      const active = document.activeElement;
+      if (event.shiftKey) {
+        if (active === first) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    shell.addEventListener('keydown', handleTab);
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+      shell.removeEventListener('keydown', handleTab);
+    };
+  }, [isGlossaryOpen]);
+
+  useEffect(() => {
+    const wasOpen = wasGlossaryOpenRef.current;
+    wasGlossaryOpenRef.current = isGlossaryOpen;
+
+    if (!wasOpen || isGlossaryOpen) return;
+    if (typeof window === 'undefined') return;
+
+    const opener = glossaryOpenerRef.current;
+    glossaryOpenerRef.current = null;
+    if (!opener || !opener.isConnected) return;
+
+    const raf = window.requestAnimationFrame(() => {
+      const active = document.activeElement as HTMLElement | null;
+      const shouldRestore = !active || active === document.body || active === document.documentElement;
+      if (shouldRestore) {
+        opener.focus();
+      }
+    });
+
+    return () => window.cancelAnimationFrame(raf);
+  }, [isGlossaryOpen]);
+
   const headerSubtitle = useMemo(() => {
     if (error) return 'db: error';
     if (isLoading) return 'db: loading';
@@ -503,8 +626,12 @@ export default function App(): JSX.Element {
     },
     {
       combo: { key: 'Escape' },
-      description: 'Close overlays',
+      description: 'Close overlays or glossary',
       action: () => {
+        if (isGlossaryOpen && !hasBlockingOverlay) {
+          closeGlossary();
+          return;
+        }
         closeAllOverlaysCtx();
         storeCloseAllOverlays();
       },
@@ -520,7 +647,7 @@ export default function App(): JSX.Element {
     { key: '?', label: 'help', description: 'Show keyboard shortcuts' },
     { key: 'v/f', label: 'view/frame', description: 'Toggle DNA/AA view and reading frame' },
     { key: 'Home/End', label: 'jump', description: 'Jump to start/end of sequence' },
-    { key: 'Esc', label: 'close', description: 'Close overlays' },
+    { key: 'Esc', label: 'close', description: 'Close overlays or glossary' },
     { key: 'Ctrl+B', label: 'beginner', description: 'Toggle beginner mode' },
   ]), []);
 
@@ -568,29 +695,12 @@ export default function App(): JSX.Element {
             <>
               <button
                 className="btn"
-                onClick={nextTheme}
                 type="button"
-                aria-label={`Switch theme, current theme ${theme.name}`}
+                onClick={() => openOverlayCtx('settings')}
+                aria-label="Open settings"
               >
-                Theme: {theme.name}
-              </button>
-              <button
-                className="btn"
-                onClick={() => setHighContrast(!highContrast)}
-                type="button"
-                aria-pressed={highContrast}
-                aria-label={highContrast ? 'Disable high contrast mode' : 'Enable high contrast mode'}
-              >
-                Contrast: {highContrast ? 'High' : 'Standard'}
-              </button>
-              <button
-                className="btn"
-                onClick={handleToggleBeginnerMode}
-                type="button"
-                aria-pressed={beginnerModeEnabled}
-                aria-label={beginnerModeEnabled ? 'Disable Beginner Mode' : 'Enable Beginner Mode'}
-              >
-                Beginner: {beginnerModeEnabled ? 'On' : 'Off'}
+                <IconSettings size={14} />
+                Settings
               </button>
               <LearnMenu />
             </>
@@ -738,7 +848,74 @@ export default function App(): JSX.Element {
                         <GeneMapCanvas 
                           height={60} 
                           onGeneClick={(pos) => usePhageStore.getState().setScrollPosition(pos)} 
+                          onGeneSelect={(gene) => setSelectedGene(gene)}
                         />
+                      )}
+                      {selectedGene && (
+                        <div className="panel panel-compact" aria-label="Selected gene details" style={{ marginTop: '0.5rem' }}>
+                          <div className="panel-header" style={{ marginBottom: '0.5rem' }}>
+                            <h3 style={{ fontSize: '0.95rem' }}>Selected gene</h3>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => setSelectedGene(null)}
+                              aria-label="Clear selected gene"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <div style={{ color: theme.colors.text, fontWeight: 700 }}>
+                              {selectedGene.name ?? selectedGene.locusTag ?? 'Gene'}
+                            </div>
+                            {selectedGene.product && (
+                              <div className="text-dim" style={{ fontSize: '0.85rem' }}>
+                                {selectedGene.product}
+                              </div>
+                            )}
+                            <div className="text-dim" style={{ fontSize: '0.85rem' }}>
+                              {selectedGene.startPos?.toLocaleString() ?? '—'}–{selectedGene.endPos?.toLocaleString() ?? '—'}{' '}
+                              {selectedGene.strand ? `(${selectedGene.strand} strand)` : ''}
+                            </div>
+                          </div>
+
+                          {beginnerModeEnabled && (
+                            <details style={{ marginTop: '0.5rem' }}>
+                              <summary style={{ cursor: 'pointer', color: theme.colors.textMuted, fontSize: '0.85rem' }}>
+                                Beginner hints
+                              </summary>
+                              <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {geneHint ? (
+                                  <>
+                                    <div style={{ color: theme.colors.text, fontWeight: 600 }}>{geneHint.heading}</div>
+                                    <div className="text-dim" style={{ fontSize: '0.9rem' }}>{geneHint.summary}</div>
+                                    {geneHint.tips?.length ? (
+                                      <ul style={{ margin: 0, paddingLeft: '1.1rem', color: theme.colors.textMuted, fontSize: '0.85rem' }}>
+                                        {geneHint.tips.slice(0, 3).map((tip) => (
+                                          <li key={tip}>{tip}</li>
+                                        ))}
+                                      </ul>
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm"
+                                      onClick={() => {
+                                        const target = geneHint.glossary?.[0];
+                                        if (target) showContextFor(String(target));
+                                      }}
+                                    >
+                                      Open glossary context
+                                    </button>
+                                  </>
+                                ) : (
+                                  <div className="text-dim" style={{ fontSize: '0.9rem' }}>
+                                    Tip: gene <strong>start/end</strong> show where the coding region sits on the genome; the <strong>strand</strong> indicates which DNA strand encodes the protein.
+                                  </div>
+                                )}
+                              </div>
+                            </details>
+                          )}
+                        </div>
                       )}
                       <SequenceView
                         sequence={fullSequence}
@@ -813,19 +990,25 @@ export default function App(): JSX.Element {
         <>
           <button
             type="button"
+            tabIndex={-1}
             aria-label="Close glossary"
             className="glossary-backdrop"
             onClick={closeGlossary}
           />
           <div
-            role="complementary"
-            aria-label="Glossary"
+            ref={glossaryShellRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={glossaryTitleId}
             className={`glossary-shell is-open ${beginnerModeEnabled ? 'glossary-shell--beginner' : ''}`}
+            tabIndex={-1}
           >
             <div className="glossary-shell__header">
               <div>
                 {beginnerModeEnabled && <div className="glossary-drawer__eyebrow">Beginner Mode</div>}
-                <div className="glossary-shell__title">Glossary</div>
+                <div className="glossary-shell__title" id={glossaryTitleId}>
+                  Glossary
+                </div>
               </div>
               <button className="btn btn-ghost btn-sm" type="button" onClick={closeGlossary}>
                 Close

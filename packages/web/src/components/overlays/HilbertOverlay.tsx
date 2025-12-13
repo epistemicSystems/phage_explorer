@@ -213,7 +213,7 @@ const [colorMode, setColorMode] = useState<ColorMode>('nucleotide');
     setLoading(true);
     setError(null);
 
-    const colorMap = buildColorMap(theme.colors, colorMode);
+    const colorMap = buildColorMap(theme, colorMode);
 
     const run = async () => {
       try {
@@ -474,7 +474,8 @@ function StatCard({
   );
 }
 
-function buildColorMap(themeColors: HudTheme, mode: ColorMode): Record<string, { r: number; g: number; b: number }> {
+function buildColorMap(theme: Theme, mode: ColorMode): Record<string, { r: number; g: number; b: number }> {
+  const themeColors = theme.colors;
   if (mode === 'gc-bias') {
     const low = hexToRgb(themeColors.gradientLow);
     const high = hexToRgb(themeColors.gradientHigh);
@@ -489,7 +490,7 @@ function buildColorMap(themeColors: HudTheme, mode: ColorMode): Record<string, {
 
   const map: Record<string, { r: number; g: number; b: number }> = {};
   for (const n of ['A', 'C', 'G', 'T', 'N']) {
-    const pair = getNucleotideColor({ colors: themeColors } as unknown as Theme, n);
+    const pair = getNucleotideColor(theme, n);
     map[n] = hexToRgb(pair.bg);
   }
   return map;

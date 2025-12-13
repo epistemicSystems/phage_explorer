@@ -21,7 +21,7 @@ export { usePhageStore } from '@phage-explorer/state';
 export type { PhageExplorerStore, PhageExplorerState, PhageExplorerActions } from '@phage-explorer/state';
 
 // Version for migration logic
-const STORE_VERSION = 3;
+const STORE_VERSION = 4;
 
 /**
  * Web-specific preferences that persist to localStorage
@@ -35,6 +35,7 @@ export interface WebPreferencesState {
   glow: boolean;
   tuiMode: boolean;
   highContrast: boolean;
+  backgroundEffects: boolean;
   // Control palette state
   controlDrawerOpen: boolean;
   // Command history (session only, not persisted)
@@ -50,6 +51,7 @@ export interface WebPreferencesActions {
   setGlow: (enabled: boolean) => void;
   setTuiMode: (enabled: boolean) => void;
   setHighContrast: (enabled: boolean) => void;
+  setBackgroundEffects: (enabled: boolean) => void;
   setControlDrawerOpen: (open: boolean) => void;
   toggleControlDrawer: () => void;
   pushCommand: (label: string) => void;
@@ -79,6 +81,7 @@ const defaultWebPreferences: WebPreferencesState = {
   glow: true,
   tuiMode: false,
   highContrast: false,
+  backgroundEffects: true,
   controlDrawerOpen: false,
   commandHistory: [],
   _hasHydrated: false,
@@ -115,10 +118,22 @@ function migrateWebPrefs(
     };
   }
 
+  if (version < 4) {
+    // Version 3 -> 4: Add backgroundEffects toggle
+    return {
+      ...defaultWebPreferences,
+      ...state,
+      scanlineIntensity: state.scanlineIntensity ?? 0.15,
+      backgroundEffects: state.backgroundEffects ?? true,
+      _hasHydrated: false,
+    };
+  }
+
   return {
     ...defaultWebPreferences,
     ...state,
     scanlineIntensity: state.scanlineIntensity ?? 0.15, // Ensure default
+    backgroundEffects: state.backgroundEffects ?? true,
     _hasHydrated: false, // Always reset hydration on load
   };
 }
@@ -137,6 +152,7 @@ export const useWebPreferences = create<WebPreferencesStore>()(
       setGlow: (enabled) => set({ glow: enabled }),
       setTuiMode: (enabled) => set({ tuiMode: enabled }),
       setHighContrast: (enabled) => set({ highContrast: enabled }),
+      setBackgroundEffects: (enabled) => set({ backgroundEffects: enabled }),
       setControlDrawerOpen: (open) => set({ controlDrawerOpen: open }),
       toggleControlDrawer: () =>
         set((state) => ({ controlDrawerOpen: !state.controlDrawerOpen })),
@@ -161,6 +177,7 @@ export const useWebPreferences = create<WebPreferencesStore>()(
         glow: state.glow,
         tuiMode: state.tuiMode,
         highContrast: state.highContrast,
+        backgroundEffects: state.backgroundEffects,
         controlDrawerOpen: state.controlDrawerOpen,
         // commandHistory intentionally not persisted
       }),

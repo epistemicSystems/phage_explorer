@@ -16,9 +16,11 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
+import { InfoButton } from '../ui';
 import { HeatmapCanvas } from '../primitives/HeatmapCanvas';
 import type { HeatmapHover, ColorScale } from '../primitives/types';
 
@@ -64,6 +66,8 @@ export function DotPlotOverlay({
   const { theme } = useTheme();
   const colors = theme.colors;
   const { isOpen, toggle } = useOverlay();
+  const { isEnabled: beginnerModeEnabled, showContextFor } = useBeginnerMode();
+  const overlayHelp = getOverlayContext('dotPlot');
   const workerRef = useRef<Worker | null>(null);
   const sequenceCache = useRef<Map<number, string>>(new Map());
 
@@ -82,6 +86,8 @@ export function DotPlotOverlay({
   const [viewMode, setViewMode] = useState<ViewMode>('combined');
   const [resolution, setResolution] = useState(80);
   const [hoverInfo, setHoverInfo] = useState<HeatmapHover | null>(null);
+  const viewSelectId = 'dotplot-view';
+  const resolutionSelectId = 'dotplot-resolution';
 
   // Hotkey to toggle overlay (Alt+D)
   useHotkey(
@@ -254,10 +260,22 @@ export function DotPlotOverlay({
             fontSize: '0.85rem',
           }}
         >
-          <strong style={{ color: colors.accent }}>Dot Plot</strong>: Self-similarity matrix
-          showing direct repeats (diagonal patterns) and inverted repeats (off-diagonal). The
-          main diagonal represents self-identity. Parallel diagonals indicate tandem repeats,
-          while perpendicular patterns suggest palindromes or inversions.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <strong style={{ color: colors.accent }}>Dot Plot</strong>
+            {beginnerModeEnabled && (
+              <InfoButton
+                size="sm"
+                label="Learn about dot plots"
+                tooltip={overlayHelp?.summary ?? 'Dot plots are self-comparison matrices that reveal repeats and rearrangements.'}
+                onClick={() => showContextFor(overlayHelp?.glossary?.[0] ?? 'dot-plot')}
+              />
+            )}
+          </div>
+          <div>
+            Self-similarity matrix showing direct repeats (diagonal patterns) and inverted repeats
+            (off-diagonal). The main diagonal represents self-identity. Parallel diagonals indicate
+            tandem repeats, while perpendicular patterns suggest palindromes or inversions.
+          </div>
         </div>
 
         {/* Controls */}
@@ -270,13 +288,23 @@ export function DotPlotOverlay({
             fontSize: '0.85rem',
           }}
         >
-          <label style={{ color: colors.textMuted }}>
-            View:
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor={viewSelectId} style={{ color: colors.textMuted }}>
+              View:
+            </label>
+            {beginnerModeEnabled && (
+              <InfoButton
+                size="sm"
+                label="What are direct vs inverted repeats?"
+                tooltip="Switch between direct repeats, inverted repeats, or a combined view to interpret repeat structure."
+                onClick={() => showContextFor('dot-plot')}
+              />
+            )}
             <select
+              id={viewSelectId}
               value={viewMode}
               onChange={(e) => setViewMode(e.target.value as ViewMode)}
               style={{
-                marginLeft: '0.5rem',
                 padding: '0.25rem',
                 backgroundColor: colors.backgroundAlt,
                 color: colors.text,
@@ -288,15 +316,25 @@ export function DotPlotOverlay({
               <option value="direct">Direct Repeats</option>
               <option value="inverted">Inverted Repeats</option>
             </select>
-          </label>
+          </div>
 
-          <label style={{ color: colors.textMuted }}>
-            Resolution:
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor={resolutionSelectId} style={{ color: colors.textMuted }}>
+              Resolution:
+            </label>
+            {beginnerModeEnabled && (
+              <InfoButton
+                size="sm"
+                label="What does resolution mean?"
+                tooltip="Higher resolution uses more bins (smaller windows), showing finer structure but taking longer to compute."
+                onClick={() => showContextFor('sliding-window')}
+              />
+            )}
             <select
+              id={resolutionSelectId}
               value={resolution}
               onChange={(e) => setResolution(Number(e.target.value))}
               style={{
-                marginLeft: '0.5rem',
                 padding: '0.25rem',
                 backgroundColor: colors.backgroundAlt,
                 color: colors.text,
@@ -309,7 +347,7 @@ export function DotPlotOverlay({
               <option value={120}>High (120x120)</option>
               <option value={200}>Very High (200x200)</option>
             </select>
-          </label>
+          </div>
 
           {currentPhage && (
             <span style={{ color: colors.textDim }}>
@@ -474,7 +512,17 @@ export function DotPlotOverlay({
                 color: colors.textDim,
               }}
             >
-              <strong>Reading the plot:</strong>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <strong>Reading the plot:</strong>
+                {beginnerModeEnabled && (
+                  <InfoButton
+                    size="sm"
+                    label="Dot plot interpretation tips"
+                    tooltip="Use the diagonal as a reference; parallel lines indicate repeats and off-diagonals can indicate inversions."
+                    onClick={() => showContextFor('dot-plot')}
+                  />
+                )}
+              </span>
               <ul style={{ margin: '0.5rem 0 0 1rem', padding: 0 }}>
                 <li>
                   <strong>Main diagonal</strong>: Self-identity (always bright)

@@ -12,9 +12,11 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
+import { InfoButton } from '../ui';
 import { GenomeTrack } from './primitives/GenomeTrack';
 import type { GenomeTrackSegment, GenomeTrackInteraction } from './primitives/types';
 import { computeDinucleotideFrequencies } from '@phage-explorer/core';
@@ -256,6 +258,9 @@ export function HGTOverlay({
   const { theme } = useTheme();
   const colors = theme.colors;
   const { isOpen, toggle } = useOverlay();
+  const { isEnabled: beginnerModeEnabled, showContextFor } = useBeginnerMode();
+  const overlayHelp = getOverlayContext('hgt');
+  const windowSelectId = 'hgt-window-size';
   const sequenceCache = useRef<Map<number, string>>(new Map());
   const [sequence, setSequence] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -374,10 +379,22 @@ export function HGTOverlay({
             fontSize: '0.85rem',
           }}
         >
-          <strong style={{ color: colors.accent }}>HGT Detection</strong>: Identifies
-          putative horizontal gene transfer islands based on compositional anomalies.
-          Regions with atypical GC content or dinucleotide bias may indicate recent
-          acquisition from other organisms.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <strong style={{ color: colors.accent }}>HGT Detection</strong>
+            {beginnerModeEnabled && (
+              <InfoButton
+                size="sm"
+                label="Learn about horizontal gene transfer"
+                tooltip={overlayHelp?.summary ?? 'Horizontal gene transfer moves genes between organisms outside of parent-to-offspring inheritance.'}
+                onClick={() => showContextFor(overlayHelp?.glossary?.[0] ?? 'horizontal-gene-transfer')}
+              />
+            )}
+          </div>
+          <div>
+            Identifies putative horizontal gene transfer islands based on compositional anomalies.
+            Regions with atypical GC content or dinucleotide bias may indicate recent acquisition
+            from other organisms.
+          </div>
         </div>
 
         {loading ? (
@@ -398,13 +415,23 @@ export function HGTOverlay({
                 fontSize: '0.8rem',
               }}
             >
-              <label style={{ color: colors.textMuted }}>
-                Window:
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label htmlFor={windowSelectId} style={{ color: colors.textMuted }}>
+                  Window:
+                </label>
+                {beginnerModeEnabled && (
+                  <InfoButton
+                    size="sm"
+                    label="What is a sliding window?"
+                    tooltip="Analyses scan the genome in overlapping windows; larger windows smooth noise, smaller windows show finer detail."
+                    onClick={() => showContextFor('sliding-window')}
+                  />
+                )}
                 <select
+                  id={windowSelectId}
                   value={windowSize}
                   onChange={(e) => setWindowSize(Number(e.target.value))}
                   style={{
-                    marginLeft: '0.5rem',
                     padding: '0.25rem',
                     backgroundColor: colors.backgroundAlt,
                     color: colors.text,
@@ -417,7 +444,7 @@ export function HGTOverlay({
                   <option value={1000}>1000 bp</option>
                   <option value={2000}>2000 bp</option>
                 </select>
-              </label>
+              </div>
 
               <span style={{ color: colors.textMuted }}>
                 Genome GC: {(analysis.genomeGC * 100).toFixed(1)}% |{' '}
@@ -432,9 +459,20 @@ export function HGTOverlay({
                   fontSize: '0.75rem',
                   color: colors.textMuted,
                   marginBottom: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
                 }}
               >
-                HGT Islands (click for details)
+                <span>HGT Islands (click for details)</span>
+                {beginnerModeEnabled && (
+                  <InfoButton
+                    size="sm"
+                    label="What are HGT islands?"
+                    tooltip="HGT islands are genome regions whose composition looks more like a different donor than the rest of the phage."
+                    onClick={() => showContextFor('horizontal-gene-transfer')}
+                  />
+                )}
               </div>
               <GenomeTrack
                 genomeLength={sequence.length}
@@ -454,9 +492,20 @@ export function HGTOverlay({
                   fontSize: '0.75rem',
                   color: colors.textMuted,
                   marginBottom: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
                 }}
               >
-                GC% Deviation (blue = high GC, red = low GC)
+                <span>GC% Deviation (blue = high GC, red = low GC)</span>
+                {beginnerModeEnabled && (
+                  <InfoButton
+                    size="sm"
+                    label="What is GC deviation?"
+                    tooltip="GC deviation compares a window’s GC% to the genome average; large shifts can indicate atypical regions."
+                    onClick={() => showContextFor('gc-content')}
+                  />
+                )}
               </div>
               <GenomeTrack
                 genomeLength={sequence.length}
@@ -575,10 +624,20 @@ export function HGTOverlay({
                 color: colors.textDim,
               }}
             >
-              <strong>Interpretation:</strong> High scores indicate regions with compositional
-              signatures inconsistent with the bulk genome. These may represent recent horizontal
-              transfer events, prophages, mobile elements, or regions under different selection
-              pressures. Consider in context with gene annotations.
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <strong>Interpretation:</strong>
+                {beginnerModeEnabled && (
+                  <InfoButton
+                    size="sm"
+                    label="Learn about HGT interpretation"
+                    tooltip="Treat HGT calls as hypotheses; corroborate with gene annotations and other overlays (k-mer anomaly, synteny breaks)."
+                    onClick={() => showContextFor('horizontal-gene-transfer')}
+                  />
+                )}
+              </span>{' '}
+              High scores indicate regions with compositional signatures inconsistent with the bulk genome. These may represent recent
+              horizontal transfer events, prophages, mobile elements, or regions under different selection pressures. Consider in context
+              with gene annotations.
             </div>
           </>
         )}

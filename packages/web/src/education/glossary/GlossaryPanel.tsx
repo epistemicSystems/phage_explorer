@@ -9,7 +9,7 @@ interface GlossaryPanelProps {
 }
 
 export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElement {
-  const { terms, categories, searchTerms, filterByCategory, linkText } = useGlossary();
+  const { terms, categories, searchTerms, filterByCategory, linkText, getTerm } = useGlossary();
   const contextTopic = useContextTopic();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<GlossaryCategory | 'all'>('all');
@@ -56,6 +56,23 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
   useEffect(() => {
     setAlpha('all');
   }, [category]);
+
+  useEffect(() => {
+    if (!contextTopic) return;
+    setQuery('');
+    setCategory('all');
+    setAlpha('all');
+    setActiveId(contextTopic);
+
+    if (typeof window === 'undefined') return;
+    const raf = window.requestAnimationFrame(() => {
+      const element = listRef.current?.querySelector<HTMLElement>(`[data-term-id="${contextTopic}"]`);
+      if (!element) return;
+      element.scrollIntoView({ block: 'nearest' });
+      element.focus();
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [contextTopic]);
 
   useEffect(() => {
     if (filtered.length === 0) {
@@ -107,6 +124,7 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <input
+              data-glossary-search
               aria-label="Search glossary"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -208,6 +226,7 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
         >
           <div
             ref={listRef}
+            data-glossary-listbox
             tabIndex={0}
             onKeyDown={handleKeyDown}
             role="listbox"
@@ -240,11 +259,9 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
                     cursor: 'pointer',
                   }}
                 >
-                  <div style={{ fontWeight: 700 }}>
-                    <GlossaryTermLink termId={term.id}>{term.term}</GlossaryTermLink>
-                  </div>
+                  <div style={{ fontWeight: 700 }}>{term.term}</div>
                   <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                    {renderLinked(term.shortDef)}
+                    {term.shortDef}
                   </div>
                 </button>
               );
@@ -296,7 +313,7 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
                           display: 'inline-block',
                         }}
                       >
-                        {rel}
+                        {getTerm(rel)?.term ?? String(rel)}
                       </span>
                     </GlossaryTermLink>
                   ))}
@@ -313,4 +330,3 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
 }
 
 export default GlossaryPanel;
-

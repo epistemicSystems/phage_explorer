@@ -6,8 +6,10 @@
 
 import React, { useEffect, useRef, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
+import { InfoButton } from '../ui';
 
 interface ComplexityOverlayProps {
   sequence?: string;
@@ -74,6 +76,8 @@ export function ComplexityOverlay({ sequence = '' }: ComplexityOverlayProps): Re
   const colors = theme.colors;
   const { isOpen, toggle } = useOverlay();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { isEnabled: beginnerModeEnabled, showContextFor } = useBeginnerMode();
+  const overlayHelp = getOverlayContext('complexity');
 
   const { entropy, linguistic } = useMemo(() => {
     return calculateComplexityProfile(sequence);
@@ -182,9 +186,21 @@ export function ComplexityOverlay({ sequence = '' }: ComplexityOverlayProps): Re
           color: colors.textDim,
           fontSize: '0.9rem',
         }}>
-          <strong style={{ color: colors.primary }}>Sequence Complexity</strong> measures information content.
-          Low complexity regions (highlighted in red) may indicate repetitive sequences, biased composition,
-          or functional elements like promoters.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <strong style={{ color: colors.primary }}>Sequence Complexity</strong>
+            {beginnerModeEnabled && (
+              <InfoButton
+                size="sm"
+                label="Learn about sequence complexity"
+                tooltip={overlayHelp?.summary ?? 'Sequence complexity measures how repetitive or information-dense a window is.'}
+                onClick={() => showContextFor(overlayHelp?.glossary?.[0] ?? 'sequence-complexity')}
+              />
+            )}
+          </div>
+          <div>
+            Measures information content. Low complexity regions (highlighted in red) may indicate repetitive
+            sequences, biased composition, or functional elements like promoters.
+          </div>
         </div>
 
         {/* Stats */}
@@ -194,15 +210,45 @@ export function ComplexityOverlay({ sequence = '' }: ComplexityOverlayProps): Re
           gap: '1rem',
         }}>
           <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: colors.backgroundAlt, borderRadius: '4px' }}>
-            <div style={{ color: colors.primary, fontSize: '0.75rem' }}>Avg Shannon Entropy</div>
+            <div style={{ color: colors.primary, fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              Avg Shannon Entropy
+              {beginnerModeEnabled && (
+                <InfoButton
+                  size="sm"
+                  label="What is Shannon entropy?"
+                  tooltip="Shannon entropy measures how unpredictable the base composition is within a window (higher = more diverse)."
+                  onClick={() => showContextFor('shannon-entropy')}
+                />
+              )}
+            </div>
             <div style={{ color: colors.text, fontFamily: 'monospace', fontSize: '1.25rem' }}>{avgEntropy}</div>
           </div>
           <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: colors.backgroundAlt, borderRadius: '4px' }}>
-            <div style={{ color: colors.accent, fontSize: '0.75rem' }}>Avg Linguistic Complexity</div>
+            <div style={{ color: colors.accent, fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              Avg Linguistic Complexity
+              {beginnerModeEnabled && (
+                <InfoButton
+                  size="sm"
+                  label="What is linguistic complexity?"
+                  tooltip="Here, linguistic complexity approximates how many unique k-mers appear in the window (higher = less repetitive)."
+                  onClick={() => showContextFor('k-mer')}
+                />
+              )}
+            </div>
             <div style={{ color: colors.text, fontFamily: 'monospace', fontSize: '1.25rem' }}>{avgLinguistic}</div>
           </div>
           <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: colors.backgroundAlt, borderRadius: '4px' }}>
-            <div style={{ color: colors.error, fontSize: '0.75rem' }}>Low Complexity Regions</div>
+            <div style={{ color: colors.error, fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              Low Complexity Regions
+              {beginnerModeEnabled && (
+                <InfoButton
+                  size="sm"
+                  label="What does low complexity mean?"
+                  tooltip="Low-complexity windows are more repetitive or compositionally biased; they can coincide with repeats or regulatory motifs."
+                  onClick={() => showContextFor('sequence-complexity')}
+                />
+              )}
+            </div>
             <div style={{ color: colors.text, fontFamily: 'monospace', fontSize: '1.25rem' }}>{lowComplexityCount}</div>
           </div>
         </div>

@@ -7,8 +7,10 @@
 
 import React, { useEffect, useRef, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
+import { InfoButton } from '../ui';
 
 interface GCSkewOverlayProps {
   sequence?: string;
@@ -66,6 +68,8 @@ export function GCSkewOverlay({ sequence = '' }: GCSkewOverlayProps): React.Reac
   const colors = theme.colors;
   const { isOpen, toggle } = useOverlay();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { isEnabled: beginnerModeEnabled, showContextFor } = useBeginnerMode();
+  const overlayHelp = getOverlayContext('gcSkew');
 
   // Calculate GC skew data
   const { cumulative } = useMemo(() => {
@@ -188,8 +192,21 @@ export function GCSkewOverlay({ sequence = '' }: GCSkewOverlayProps): React.Reac
           color: colors.textDim,
           fontSize: '0.9rem',
         }}>
-          <strong style={{ color: colors.primary }}>Cumulative GC Skew</strong> helps identify the origin (ori) and terminus (ter) of replication.
-          The minimum typically corresponds to the origin, maximum to the terminus.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <strong style={{ color: colors.primary }}>Cumulative GC Skew</strong>
+            {beginnerModeEnabled && (
+              <InfoButton
+                size="sm"
+                label="Learn about GC skew"
+                tooltip={overlayHelp?.summary ?? 'GC skew compares the abundance of G vs C bases along the genome.'}
+                onClick={() => showContextFor(overlayHelp?.glossary?.[0] ?? 'gc-skew')}
+              />
+            )}
+          </div>
+          <div>
+            Helps identify the origin (ori) and terminus (ter) of replication. The minimum typically
+            corresponds to the origin, maximum to the terminus.
+          </div>
         </div>
 
         {/* Stats */}
@@ -242,14 +259,33 @@ export function GCSkewOverlay({ sequence = '' }: GCSkewOverlayProps): React.Reac
           color: colors.textMuted,
           fontSize: '0.85rem',
         }}>
-          <span>
-            <span style={{ color: colors.primary }}>━</span> Cumulative GC Skew
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ color: colors.primary }}>━</span>
+            <span>Cumulative GC Skew</span>
+            {beginnerModeEnabled && (
+              <InfoButton
+                size="sm"
+                label="What is GC skew?"
+                tooltip="GC skew highlights replication patterns by tracking G vs C imbalance along the genome."
+                onClick={() => showContextFor('gc-skew')}
+              />
+            )}
           </span>
-          <span>
-            <span style={{ color: colors.error }}>●</span> Origin (minimum)
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ color: colors.error }}>●</span>
+            <span>Origin (minimum)</span>
+            {beginnerModeEnabled && (
+              <InfoButton
+                size="sm"
+                label="What is the replication origin?"
+                tooltip="The origin is where DNA replication typically starts; in cumulative skew it often aligns with the minimum."
+                onClick={() => showContextFor('replication-origin')}
+              />
+            )}
           </span>
-          <span>
-            <span style={{ color: colors.success }}>●</span> Terminus (maximum)
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ color: colors.success }}>●</span>
+            <span>Terminus (maximum)</span>
           </span>
         </div>
 
