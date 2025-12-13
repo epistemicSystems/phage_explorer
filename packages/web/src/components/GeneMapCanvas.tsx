@@ -85,10 +85,18 @@ export function GeneMapCanvas({
     }
   };
 
+  // RAF-based throttle for canvas redraws (60fps max)
+  const rafIdRef = useRef<number | null>(null);
+  const drawPendingRef = useRef(false);
+
   useEffect(() => {
     return () => {
       clearLongPressTimer();
       clearTooltipDismissTimer();
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     };
   }, []);
 
@@ -288,25 +296,52 @@ export function GeneMapCanvas({
     setHoveredGene(null);
   };
 
-  useEffect(() => {
+  // Store latest values in refs for the RAF callback to use
+  const scrollPositionRef = useRef(scrollPosition);
+  const colorsRef = useRef(colors);
+  const genesRef = useRef(genes);
+  const genomeLengthRef = useRef(genomeLength);
+  const viewModeRef = useRef(viewMode);
+  const heightRef = useRef(height);
+  const currentPhageRef = useRef(currentPhage);
+
+  // Keep refs in sync
+  useEffect(() => { scrollPositionRef.current = scrollPosition; }, [scrollPosition]);
+  useEffect(() => { colorsRef.current = colors; }, [colors]);
+  useEffect(() => { genesRef.current = genes; }, [genes]);
+  useEffect(() => { genomeLengthRef.current = genomeLength; }, [genomeLength]);
+  useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
+  useEffect(() => { heightRef.current = height; }, [height]);
+  useEffect(() => { currentPhageRef.current = currentPhage; }, [currentPhage]);
+
+  // Actual draw function - reads from refs to use latest values
+  const drawCanvas = React.useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !currentPhage) return;
+    const phage = currentPhageRef.current;
+    if (!canvas || !phage) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    const h = heightRef.current;
+    const c = colorsRef.current;
+    const g = genesRef.current;
+    const gl = genomeLengthRef.current;
+    const sp = scrollPositionRef.current;
+    const vm = viewModeRef.current;
 
     // Handle high DPI
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * dpr;
-    canvas.height = height * dpr;
+    canvas.height = h * dpr;
     ctx.scale(dpr, dpr);
 
     const width = rect.width;
-    
+
     // Clear
-    ctx.fillStyle = colors.background;
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = c.background;
+    ctx.fillRect(0, 0, width, h);
 
     // Track vertical layout
     const trackHeight = 12;
@@ -315,24 +350,24 @@ export function GeneMapCanvas({
     const rulerY = 25;
 
     // Draw background tracks
-    ctx.fillStyle = colors.backgroundAlt;
+    ctx.fillStyle = c.backgroundAlt;
     ctx.fillRect(0, forwardY, width, trackHeight);
     ctx.fillRect(0, reverseY, width, trackHeight);
 
     // Draw genes
-    genes.forEach(gene => {
-      const startX = (gene.startPos / genomeLength) * width;
-      const endX = (gene.endPos / genomeLength) * width;
+    g.forEach(gene => {
+      const startX = (gene.startPos / gl) * width;
+      const endX = (gene.endPos / gl) * width;
       const geneWidth = Math.max(1, endX - startX); // Ensure at least 1px visible
 
       const isForward = gene.strand !== '-';
       const y = isForward ? forwardY : reverseY;
-      
+
       // Color based on strand
-      ctx.fillStyle = isForward 
-        ? (colors.geneForward ?? '#22c55e') 
-        : (colors.geneReverse ?? '#ef4444');
-        
+      ctx.fillStyle = isForward
+        ? (c.geneForward ?? '#22c55e')
+        : (c.geneReverse ?? '#ef4444');
+
       ctx.fillRect(startX, y, geneWidth, trackHeight);
 
       // Draw gene name if width permits (basic LOD)
@@ -346,7 +381,7 @@ export function GeneMapCanvas({
     });
 
     // Draw ruler line
-    ctx.strokeStyle = colors.borderLight;
+    ctx.strokeStyle = c.borderLight;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, rulerY);
@@ -356,26 +391,42 @@ export function GeneMapCanvas({
     // Draw viewport/scroll indicator
     // Assuming SequenceView shows ~100-200 bases depending on screen
     // We'll just draw a single cursor line for now since the viewport is tiny relative to genome
-    const effectivePos = viewMode === 'aa' ? scrollPosition * 3 : scrollPosition;
-    const cursorX = (effectivePos / genomeLength) * width;
+    const effectivePos = vm === 'aa' ? sp * 3 : sp;
+    const cursorX = (effectivePos / gl) * width;
 
     // Cursor line
-    ctx.strokeStyle = colors.accent;
+    ctx.strokeStyle = c.accent;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(cursorX, 0);
-    ctx.lineTo(cursorX, height);
+    ctx.lineTo(cursorX, h);
     ctx.stroke();
 
     // Cursor head
-    ctx.fillStyle = colors.accent;
+    ctx.fillStyle = c.accent;
     ctx.beginPath();
     ctx.moveTo(cursorX - 4, 0);
     ctx.lineTo(cursorX + 4, 0);
     ctx.lineTo(cursorX, 6);
     ctx.fill();
+  }, []);
 
-  }, [currentPhage, genes, genomeLength, scrollPosition, viewMode, colors, height]);
+  // Schedule a redraw via RAF (throttles to 60fps)
+  useEffect(() => {
+    // Mark that a redraw is needed
+    drawPendingRef.current = true;
+
+    // If no RAF is scheduled, schedule one
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        if (drawPendingRef.current) {
+          drawPendingRef.current = false;
+          drawCanvas();
+        }
+      });
+    }
+  }, [currentPhage, genes, genomeLength, scrollPosition, viewMode, colors, height, drawCanvas]);
 
   return (
     <div
