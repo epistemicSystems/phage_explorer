@@ -109,7 +109,7 @@
 
 .deck-btn.active {
   background: var(--color-primary);
-  color: #000;
+  color: var(--color-background);
   border-color: var(--color-primary);
 }
 

@@ -1069,7 +1069,7 @@
   .panel,
   .detail-card {
     break-inside: avoid;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-border-light);
     box-shadow: none;
   }
 }

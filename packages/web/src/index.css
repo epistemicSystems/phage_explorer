@@ -1,12 +1,13 @@
 :root {
   color-scheme: dark;
-  --bg: #0b1021;
-  --panel: #111830;
-  --border: #1f2a44;
-  --text: #d9e1ff;
-  --muted: #8fa0c2;
-  --accent: #9ae6ff;
-  --shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  /* Local aliases that reference global tokens from variables.css */
+  --bg: var(--color-background);
+  --panel: var(--color-background-elevated);
+  --border: var(--color-border);
+  --text: var(--color-text);
+  --muted: var(--color-text-dim);
+  --accent: var(--color-primary);
+  --shadow: var(--shadow-lg);
   font-family: 'Inter', 'SF Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
@@ -20,9 +21,10 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at 20% 20%, #152040 0%, #0b1021 35%),
-    radial-gradient(circle at 80% 10%, #1b2747 0%, #0b1021 30%),
-    #0b1021;
+  /* Gradient uses color-mix for semantic derivation from background token */
+  background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--color-background) 70%, var(--color-primary) 8%) 0%, var(--color-background) 35%),
+    radial-gradient(circle at 80% 10%, color-mix(in srgb, var(--color-background) 75%, var(--color-primary) 12%) 0%, var(--color-background) 30%),
+    var(--color-background);
   color: var(--text);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
