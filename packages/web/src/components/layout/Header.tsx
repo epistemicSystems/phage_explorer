@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { Badge, WarningBadge } from '../ui/Badge';
 
 export interface HeaderProps {
   title?: string;
@@ -30,28 +31,23 @@ export const Header: React.FC<HeaderProps> = ({
             {subtitle}
           </span>
         )}
-        <span className="badge" aria-label="Platform: Web">WEB</span>
+        <Badge aria-label="Platform: Web">WEB</Badge>
         {mode && (
-          <span 
-            className="badge" 
+          <Badge
             style={{ background: 'var(--color-secondary)' }}
-            role="status"
-            aria-live="polite"
             aria-label={`Keyboard Mode: ${mode}`}
           >
             {mode}
-          </span>
+          </Badge>
         )}
         {pendingSequence && (
-          <span
-            className="badge animate-pulse"
-            style={{ background: 'var(--color-warning)', color: '#000' }}
-            role="status"
-            aria-live="assertive"
+          <WarningBadge
+            pulse
+            style={{ color: '#000' }}
             aria-label={`Pending Key Sequence: ${pendingSequence}`}
           >
             {pendingSequence}
-          </span>
+          </WarningBadge>
         )}
       </div>
       <div className="header-right" role="navigation" aria-label="Quick actions">

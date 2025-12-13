@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePhageStore } from '@phage-explorer/state';
 import type { PhageFull } from '@phage-explorer/core';
 import { Model3DSkeleton } from './ui/Skeleton';
+import { Badge, SubtleBadge } from './ui/Badge';
 import {
   ACESFilmicToneMapping,
   AmbientLight,
@@ -867,7 +868,7 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       <div className="panel" aria-label="3D structure viewer">
         <div className="panel-header">
           <h3>3D Structure</h3>
-          <span className="badge">Not Available</span>
+          <Badge>Not Available</Badge>
         </div>
         <div
           className="three-container"
@@ -907,9 +908,9 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
       <div className="panel-header">
         <h3>3D Structure</h3>
         <div className="badge-row">
-          <span className="badge">{hasNoStructure ? 'No Data' : stateLabel}</span>
-          {atomCount !== null && <span className="badge subtle">{atomCount} atoms</span>}
-          {!hasNoStructure && <span className="badge subtle">FPS {fps || '—'}</span>}
+          <Badge>{hasNoStructure ? 'No Data' : stateLabel}</Badge>
+          {atomCount !== null && <SubtleBadge>{atomCount} atoms</SubtleBadge>}
+          {!hasNoStructure && <SubtleBadge>FPS {fps || '—'}</SubtleBadge>}
         </div>
       </div>
 
@@ -986,9 +987,9 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
         ) : null}
 
         {/* Auto quality indicator (read-only) */}
-        <span className="badge subtle" style={{ marginLeft: 'auto', fontSize: '11px' }}>
+        <SubtleBadge style={{ marginLeft: 'auto', fontSize: '11px' }}>
           {quality}
-        </span>
+        </SubtleBadge>
       </div>
 
       <div
@@ -1077,8 +1078,8 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
         {fullscreen && (
           <div className="three-overlay" style={{ right: '1rem', top: '1rem', left: 'auto', width: 'auto' }}>
             <div className="badge-row" style={{ gap: '6px' }}>
-              <span className="badge">FPS {fps || '—'}</span>
-              <span className="badge subtle">Quality {quality}</span>
+              <Badge>FPS {fps || '—'}</Badge>
+              <SubtleBadge>Quality {quality}</SubtleBadge>
             </div>
           </div>
         )}

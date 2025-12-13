@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOverlay } from './OverlayProvider';
 import { Overlay } from './Overlay';
+import { Badge } from '../ui/Badge';
 import { useTheme } from '../../hooks/useTheme';
 import type { PhageRepository } from '../../db';
 import type { GenomeComparisonResult } from '@phage-explorer/comparison';
@@ -217,7 +218,7 @@ export const ComparisonOverlay: React.FC<ComparisonOverlayProps> = ({ repository
         <div className="panel">
           <div className="panel-header">
             <h3>Overall Similarity</h3>
-            <span className="badge">{formatSimilarity(summary.overallSimilarity)}</span>
+            <Badge>{formatSimilarity(summary.overallSimilarity)}</Badge>
           </div>
           <p className="text-dim">{summary.similarityCategory}</p>
           <div className="metrics-grid">

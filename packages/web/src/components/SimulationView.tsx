@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Overlay } from './overlays/Overlay';
+import { Badge, ErrorBadge, SuccessBadge } from './ui/Badge';
 import { useOverlay } from './overlays/OverlayProvider';
 import { useTheme } from '../hooks/useTheme';
 import { TimeControls, ParameterPanel } from './simulations';
@@ -170,13 +171,13 @@ export default function SimulationView(): React.ReactElement | null {
               {metadata?.name ?? simId}
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              {isLoading && <span className="badge">Loading</span>}
-              {error && <span className="badge badge-error">Error</span>}
-              {isRunning && <span className="badge badge-success">Running</span>}
+              {isLoading && <Badge>Loading</Badge>}
+              {error && <ErrorBadge>Error</ErrorBadge>}
+              {isRunning && <SuccessBadge>Running</SuccessBadge>}
               {!!avgStepMs && (
-                <span className="badge">
+                <Badge>
                   {avgStepMs.toFixed(1)} ms/step
-                </span>
+                </Badge>
               )}
             </div>
           </div>
