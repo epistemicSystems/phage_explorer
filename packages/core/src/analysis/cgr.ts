@@ -53,7 +53,7 @@ export function computeCGR(sequence: string, k: number = 6): CGRResult {
     y = (y + corner.y) / 2;
 
     // Only start plotting after k steps (transient removal)
-    if (i >= k) {
+    if (i >= k - 1) {
       // Map to grid coordinates
       const gridX = Math.floor(x * resolution);
       const gridY = Math.floor(y * resolution);

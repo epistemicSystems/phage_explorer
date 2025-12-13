@@ -68,3 +68,6 @@ export * from './analysis/kmer-frequencies';
 
 // Principal Component Analysis
 export * from './analysis/pca';
+
+// Codon usage bias analysis
+export * from './analysis/codon-bias';
