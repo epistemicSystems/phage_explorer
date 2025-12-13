@@ -704,11 +704,18 @@ export class CanvasSequenceGridRenderer {
     // Collect diff cells for batch rendering
     const diffCells: Array<{ x: number; y: number; char: string; fillStyle: string }> = [];
 
+    // Pre-validate diffMask length to avoid checking in inner loop
+    const validDiffMask = diffMask && diffMask.length === sequence.length ? diffMask : null;
+
     // Render row by row
     for (let row = startRow; row < endRow; row++) {
       const rowY = (row - startRow) * rowHeight + offsetY;
       const rowStart = row * layout.cols;
       const rowEnd = Math.min(rowStart + layout.cols, sequence.length);
+
+      // Diff coalescing state
+      let pendingDiffStartCol = -1;
+      let pendingDiffType = 0;
 
       for (let i = rowStart; i < rowEnd; i++) {
         const col = i - rowStart;
@@ -717,42 +724,57 @@ export class CanvasSequenceGridRenderer {
 
         let diffCode = 0;
         if (diffEnabled) {
-          if (diffMask && diffMask.length === sequence.length) {
-            diffCode = diffMask[i] ?? 0;
+          if (validDiffMask) {
+            diffCode = validDiffMask[i] ?? 0;
           } else if (diffSequence) {
             diffCode = diffSequence[i] && diffSequence[i] !== char ? 1 : 0;
           }
         }
 
         if (diffCode > 0) {
-          let fillStyle: string;
-          switch (diffCode) {
-            case 1:
-              fillStyle = this.theme.colors.diffHighlight ?? '#facc15'; // substitution
-              break;
-            case 2:
-              fillStyle = '#22c55e'; // insertion relative to A
-              break;
-            case 3:
-              fillStyle = '#ef4444'; // deletion from A
-              break;
-            default:
-              fillStyle = this.theme.colors.diffHighlight ?? '#facc15';
+          // Coalesce diffs
+          if (diffCode !== pendingDiffType) {
+            // Flush pending diff run
+            if (pendingDiffStartCol !== -1) {
+              const runWidth = (col - pendingDiffStartCol) * cellWidth;
+              this.drawDiffRect(ctx, pendingDiffStartCol * cellWidth, rowY, runWidth, cellHeight, pendingDiffType);
+            }
+            pendingDiffStartCol = col;
+            pendingDiffType = diffCode;
           }
-          ctx.fillStyle = fillStyle;
-          ctx.fillRect(x, rowY, cellWidth, cellHeight);
 
           // Collect for batch text rendering
           if (shouldDrawDiffText) {
+            let fillStyle: string;
+            switch (diffCode) {
+              case 1: fillStyle = this.theme.colors.diffHighlight ?? '#facc15'; break;
+              case 2: fillStyle = '#22c55e'; break;
+              case 3: fillStyle = '#ef4444'; break;
+              default: fillStyle = this.theme.colors.diffHighlight ?? '#facc15';
+            }
             diffCells.push({ x, y: rowY, char, fillStyle });
           }
         } else {
+          // Flush pending diff run if we hit non-diff
+          if (pendingDiffStartCol !== -1) {
+            const runWidth = (col - pendingDiffStartCol) * cellWidth;
+            this.drawDiffRect(ctx, pendingDiffStartCol * cellWidth, rowY, runWidth, cellHeight, pendingDiffType);
+            pendingDiffStartCol = -1;
+            pendingDiffType = 0;
+          }
+
           if (drawAmino) {
             this.glyphAtlas.drawAminoAcid(ctx, char, x, rowY, cellWidth, cellHeight);
           } else {
             this.glyphAtlas.drawNucleotide(ctx, char, x, rowY, cellWidth, cellHeight);
           }
         }
+      }
+
+      // Flush pending diff at end of row
+      if (pendingDiffStartCol !== -1) {
+        const runWidth = ((rowEnd - rowStart) - pendingDiffStartCol) * cellWidth;
+        this.drawDiffRect(ctx, pendingDiffStartCol * cellWidth, rowY, runWidth, cellHeight, pendingDiffType);
       }
     }
 
@@ -770,6 +792,25 @@ export class CanvasSequenceGridRenderer {
 
       ctx.restore();
     }
+  }
+
+  private drawDiffRect(
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    diffCode: number
+  ): void {
+    let fillStyle: string;
+    switch (diffCode) {
+      case 1: fillStyle = this.theme.colors.diffHighlight ?? '#facc15'; break;
+      case 2: fillStyle = '#22c55e'; break;
+      case 3: fillStyle = '#ef4444'; break;
+      default: fillStyle = this.theme.colors.diffHighlight ?? '#facc15';
+    }
+    ctx.fillStyle = fillStyle;
+    ctx.fillRect(x, y, width, height);
   }
 
   /**
@@ -794,6 +835,7 @@ export class CanvasSequenceGridRenderer {
       ? ((Math.abs(rawFrame) - 1) as 0 | 1 | 2)
       : (rawFrame as 0 | 1 | 2);
     const seqLength = sequence.length;
+    const validDiffMask = diffMask && diffMask.length === sequence.length ? diffMask : null;
 
     for (let row = startRow; row < endRow; row++) {
       const rowY = (row - startRow) * rowHeight + offsetY;
@@ -801,6 +843,9 @@ export class CanvasSequenceGridRenderer {
       const rowEnd = Math.min(rowStart + layout.cols, sequence.length);
 
       // First pass: nucleotides (top row)
+      let pendingDiffStartCol = -1;
+      let pendingDiffType = 0;
+
       for (let i = rowStart; i < rowEnd; i++) {
         const col = i - rowStart;
         const x = col * cellWidth;
@@ -808,61 +853,59 @@ export class CanvasSequenceGridRenderer {
 
         let diffCode = 0;
         if (diffEnabled) {
-          if (diffMask && diffMask.length === sequence.length) {
-            diffCode = diffMask[i] ?? 0;
+          if (validDiffMask) {
+            diffCode = validDiffMask[i] ?? 0;
           } else if (diffSequence) {
             diffCode = diffSequence[i] && diffSequence[i] !== char ? 1 : 0;
           }
         }
 
         if (diffCode > 0) {
-          let fillStyle: string;
-          switch (diffCode) {
-            case 1:
-              fillStyle = this.theme.colors.diffHighlight ?? '#facc15';
-              break;
-            case 2:
-              fillStyle = '#22c55e';
-              break;
-            case 3:
-              fillStyle = '#ef4444';
-              break;
-            default:
-              fillStyle = this.theme.colors.diffHighlight ?? '#facc15';
+          if (diffCode !== pendingDiffType) {
+            if (pendingDiffStartCol !== -1) {
+              const runWidth = (col - pendingDiffStartCol) * cellWidth;
+              this.drawDiffRect(ctx, pendingDiffStartCol * cellWidth, rowY, runWidth, rowHeight, pendingDiffType);
+            }
+            pendingDiffStartCol = col;
+            pendingDiffType = diffCode;
           }
-          ctx.fillStyle = fillStyle;
-          ctx.fillRect(x, rowY, cellWidth, rowHeight);
         } else {
+          if (pendingDiffStartCol !== -1) {
+            const runWidth = (col - pendingDiffStartCol) * cellWidth;
+            this.drawDiffRect(ctx, pendingDiffStartCol * cellWidth, rowY, runWidth, rowHeight, pendingDiffType);
+            pendingDiffStartCol = -1;
+            pendingDiffType = 0;
+          }
           this.glyphAtlas.drawNucleotide(ctx, char, x, rowY, cellWidth, cellHeight);
         }
       }
+      if (pendingDiffStartCol !== -1) {
+        const runWidth = ((rowEnd - rowStart) - pendingDiffStartCol) * cellWidth;
+        this.drawDiffRect(ctx, pendingDiffStartCol * cellWidth, rowY, runWidth, rowHeight, pendingDiffType);
+      }
 
-      // Second pass: amino acids (bottom row, aligned per codon)
-      // Align start index to reading frame to ensure we hit codon boundaries
+      // Second pass: amino acids (bottom row)
       let aaRowStart = rowStart;
       if (!isReverse) {
-        // Forward: (i - forwardFrame) % 3 === 0
         while ((aaRowStart - forwardFrame) % 3 !== 0) aaRowStart++;
       } else {
-        // Reverse: (seqLength - 3 - i - forwardFrame) % 3 === 0
-        // We need to find the first i >= rowStart that satisfies this
-        // Note: JS modulo of negative numbers is negative, so use manual wrap if needed
-        // but simple loop is robust enough for small stride
         while ((seqLength - 3 - aaRowStart - forwardFrame) % 3 !== 0) aaRowStart++;
       }
+
+      // Batch codon boundary lines
+      ctx.strokeStyle = this.theme.colors.borderLight ?? '#374151';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
 
       for (let i = aaRowStart; i < rowEnd; i += 3) {
         let aaIndex: number;
         if (!isReverse) {
           const codonOffset = i - forwardFrame;
-          // if (codonOffset < 0 || codonOffset % 3 !== 0) continue; // Aligned by loop
           if (codonOffset < 0) continue;
           aaIndex = Math.floor(codonOffset / 3);
         } else {
-          // Reverse frames map codons from the 3' end back toward 5'
           const rcStart = seqLength - 3 - i;
           const codonOffset = rcStart - forwardFrame;
-          // if (codonOffset < 0 || codonOffset % 3 !== 0) continue; // Aligned by loop
           if (codonOffset < 0) continue;
           aaIndex = Math.floor(codonOffset / 3);
         }
@@ -873,14 +916,13 @@ export class CanvasSequenceGridRenderer {
         const destWidth = Math.min(cellWidth * 3, (rowEnd - i) * cellWidth);
         this.glyphAtlas.drawAminoAcid(ctx, aaChar, x, rowY + cellHeight, destWidth, cellHeight);
 
-        // Optional codon boundary line (subtle)
-        ctx.strokeStyle = this.theme.colors.borderLight ?? '#374151';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(x + destWidth, rowY);
-        ctx.lineTo(x + destWidth, rowY + rowHeight);
-        ctx.stroke();
+        // Add line to batch
+        const lineX = x + destWidth;
+        ctx.moveTo(lineX, rowY);
+        ctx.lineTo(lineX, rowY + rowHeight);
       }
+      
+      ctx.stroke();
 
       // Separator between DNA and AA rows
       ctx.strokeStyle = this.theme.colors.border ?? '#4b5563';
