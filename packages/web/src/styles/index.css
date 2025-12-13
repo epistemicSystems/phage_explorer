@@ -171,6 +171,13 @@ body {
 
 /* === BUTTON STYLES === */
 /* Note: Enhanced button styles in components.css - these are minimal fallbacks */
+.btn:not(:focus-visible):hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.btn:not(:focus-visible):active {
+  box-shadow: var(--shadow-inner);
+}
 
 /* === INPUT STYLES === */
 
