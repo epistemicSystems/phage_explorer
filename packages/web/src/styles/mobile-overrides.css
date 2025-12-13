@@ -250,3 +250,33 @@
     margin-left: 4px;
   }
 }
+
+/* =============================================================================
+   MOBILE-ONLY UTILITY
+   Elements that should only be visible on mobile devices
+   ============================================================================= */
+
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-only {
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* Data freshness indicator styling */
+.data-freshness-indicator {
+  position: fixed;
+  bottom: calc(var(--space-2) + 60px);
+  right: var(--space-2);
+  z-index: 50;
+  opacity: 0.8;
+  transition: opacity var(--transition-fast);
+}
+
+.data-freshness-indicator:hover {
+  opacity: 1;
+}

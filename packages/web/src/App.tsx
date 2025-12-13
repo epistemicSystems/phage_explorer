@@ -37,6 +37,7 @@ import { LearnMenu } from './components/LearnMenu';
 
 // Mobile controls
 import { ControlDeck } from './components/mobile/ControlDeck';
+import { DataFreshnessIndicator } from './components/ui/DataFreshnessIndicator';
 
 /** Number of bases to show in the sequence preview */
 const SEQUENCE_PREVIEW_LENGTH = 500;
@@ -844,6 +845,7 @@ export default function App(): JSX.Element {
         </div>
       )}
       <ControlDeck />
+      <DataFreshnessIndicator isCached={isCached} isLoading={isLoading} />
     </>
   );
 }

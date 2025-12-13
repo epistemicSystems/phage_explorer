@@ -15,7 +15,7 @@ import type {
   SimulationWorkerAPI,
   Simulation,
 } from './types';
-import { SIMULATION_METADATA, getAllSimulations } from '@phage-explorer/core';
+import { getAllSimulations } from '@phage-explorer/core';
 
 // Simple RNG with seed support for reproducibility
 class SeededRandom {

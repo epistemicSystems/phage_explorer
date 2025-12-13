@@ -33,38 +33,12 @@ interface ThumbnailProps {
   mutedColor: string;
 }
 
-function LyticCycleThumbnail({ accentColor, mutedColor }: ThumbnailProps): React.ReactElement {
-  return (
-    <svg width="48" height="32" viewBox="0 0 48 32">
-      <circle cx="16" cy="16" r="10" fill="none" stroke={mutedColor} strokeWidth="1.5" />
-      <circle cx="16" cy="16" r="6" fill={accentColor} opacity="0.3" />
-      <path d="M26 16 L38 10 M26 16 L38 16 M26 16 L38 22" stroke={accentColor} strokeWidth="1.5" />
-      <circle cx="40" cy="10" r="3" fill={accentColor} opacity="0.7" />
-      <circle cx="42" cy="16" r="3" fill={accentColor} opacity="0.7" />
-      <circle cx="40" cy="22" r="3" fill={accentColor} opacity="0.7" />
-    </svg>
-  );
-}
-
 function LysogenicSwitchThumbnail({ accentColor, mutedColor }: ThumbnailProps): React.ReactElement {
   return (
     <svg width="48" height="32" viewBox="0 0 48 32">
       <path d="M4 16 Q12 8 20 16 Q28 24 36 16 L44 16" fill="none" stroke={accentColor} strokeWidth="2" />
       <circle cx="20" cy="16" r="4" fill={mutedColor} />
       <path d="M18 14 L22 18 M18 18 L22 14" stroke={accentColor} strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function BurstSizeThumbnail({ accentColor, mutedColor }: ThumbnailProps): React.ReactElement {
-  return (
-    <svg width="48" height="32" viewBox="0 0 48 32">
-      <path d="M4 28 L12 24 L20 20 L28 12 L36 6 L44 4" fill="none" stroke={accentColor} strokeWidth="2" />
-      <rect x="4" y="28" width="6" height="2" fill={mutedColor} opacity="0.5" />
-      <rect x="12" y="24" width="6" height="6" fill={mutedColor} opacity="0.5" />
-      <rect x="20" y="18" width="6" height="12" fill={mutedColor} opacity="0.5" />
-      <rect x="28" y="10" width="6" height="20" fill={mutedColor} opacity="0.6" />
-      <rect x="36" y="4" width="6" height="26" fill={accentColor} opacity="0.4" />
     </svg>
   );
 }
@@ -111,17 +85,6 @@ function TranscriptionThumbnail({ accentColor, mutedColor }: ThumbnailProps): Re
   );
 }
 
-function ReceptorBindingThumbnail({ accentColor, mutedColor }: ThumbnailProps): React.ReactElement {
-  return (
-    <svg width="48" height="32" viewBox="0 0 48 32">
-      <circle cx="14" cy="16" r="8" fill="none" stroke={accentColor} strokeWidth="1.5" />
-      <path d="M14 12 L14 8 M10 14 L6 12 M18 14 L22 12" stroke={accentColor} strokeWidth="1" />
-      <rect x="30" y="10" width="12" height="12" rx="2" fill="none" stroke={mutedColor} strokeWidth="1.5" />
-      <path d="M22 16 L30 16" stroke={accentColor} strokeWidth="1.5" strokeDasharray="2,2" />
-    </svg>
-  );
-}
-
 function ResistanceEvolutionThumbnail({ accentColor, mutedColor }: ThumbnailProps): React.ReactElement {
   return (
     <svg width="48" height="32" viewBox="0 0 48 32">
@@ -130,16 +93,6 @@ function ResistanceEvolutionThumbnail({ accentColor, mutedColor }: ThumbnailProp
       <circle cx="24" cy="24" r="2" fill={accentColor} />
       <circle cx="34" cy="14" r="2" fill={accentColor} />
       <path d="M4 8 L14 12 L24 8 L34 18 L44 22" fill="none" stroke={mutedColor} strokeWidth="1.5" strokeDasharray="3,2" />
-    </svg>
-  );
-}
-
-function RecombinationThumbnail({ accentColor, mutedColor }: ThumbnailProps): React.ReactElement {
-  return (
-    <svg width="48" height="32" viewBox="0 0 48 32">
-      <path d="M4 10 L20 10 L28 22 L44 22" fill="none" stroke={accentColor} strokeWidth="2" />
-      <path d="M4 22 L20 22 L28 10 L44 10" fill="none" stroke={mutedColor} strokeWidth="1.5" />
-      <circle cx="24" cy="16" r="3" fill={accentColor} opacity="0.5" />
     </svg>
   );
 }
