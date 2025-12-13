@@ -318,9 +318,16 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
 
     const aaSeq = computeAA();
     if (viewMode === 'aa') {
+      // For negative frames in single-view AA mode, we must reverse the sequence
+      // to map N->C (logical) to Left->Right (spatial/5'->3' relative to forward DNA).
+      // (N-term is at 3' end of Forward, so it should be on the Right).
+      if (readingFrame < 0) {
+        return { displaySequence: aaSeq.split('').reverse().join(''), aminoSequence: aaSeq };
+      }
       return { displaySequence: aaSeq, aminoSequence: aaSeq };
     }
-    // dual mode: keep DNA as display, but supply AA sequence separately
+    // dual mode: keep DNA as display, but supply AA sequence separately (unreversed)
+    // The renderer handles coordinate mapping for dual mode.
     return { displaySequence: sequence, aminoSequence: aaSeq };
   }, [sequence, viewMode, readingFrame]);
 
