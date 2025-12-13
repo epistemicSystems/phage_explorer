@@ -72,7 +72,7 @@ export function calculateSelectionPressure(
     let S_sites = 0; // Synonymous sites
     let N_sites = 0; // Non-synonymous sites
 
-    for (let j = start; j < end - 3; j += 3) {
+    for (let j = start; j < end; j += 3) {
       const codonA = seqA.slice(j, j + 3).toUpperCase();
       const codonB = seqB.slice(j, j + 3).toUpperCase();
 

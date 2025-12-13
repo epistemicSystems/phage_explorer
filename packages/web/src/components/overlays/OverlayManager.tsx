@@ -36,6 +36,7 @@ import { WelcomeModal } from './WelcomeModal';
 import { FeatureTour } from './FeatureTour';
 import { GenomicSignaturePCAOverlay } from './GenomicSignaturePCAOverlay';
 import { CodonBiasOverlay } from './CodonBiasOverlay';
+import { SelectionPressureOverlay } from './SelectionPressureOverlay';
 
 interface OverlayManagerProps {
   repository: PhageRepository | null;
@@ -70,6 +71,7 @@ export function OverlayManager({ repository, currentPhage }: OverlayManagerProps
       <SyntenyOverlay repository={repository} currentPhage={currentPhage} />
       <GenomicSignaturePCAOverlay repository={repository} currentPhage={currentPhage} />
       <CodonBiasOverlay repository={repository} currentPhage={currentPhage} />
+      <SelectionPressureOverlay repository={repository} currentPhage={currentPhage} />
       <SettingsOverlay />
       <FeatureTour />
       <CommandPalette />

@@ -17,7 +17,6 @@ import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
 import type { HilbertWorkerAPI, HilbertWorkerResult } from '../../workers/hilbert.worker';
-import type { HudTheme } from '@phage-explorer/core/src/themes';
 
 interface HilbertOverlayProps {
   repository: PhageRepository | null;
@@ -497,4 +496,3 @@ function buildColorMap(theme: Theme, mode: ColorMode): Record<string, { r: numbe
 }
 
 export default HilbertOverlay;
-

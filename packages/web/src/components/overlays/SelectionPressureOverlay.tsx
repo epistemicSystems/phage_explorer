@@ -1,28 +1,57 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { usePhageStore } from '@phage-explorer/state';
+import type { PhageFull } from '@phage-explorer/core';
+import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { calculateSelectionPressure } from '@phage-explorer/core';
+import { AnalysisPanelSkeleton } from '../ui/Skeleton';
 
-// Mock repository access or use store if data available
-// For Web, we might need to fetch data.
-// Assuming we can get sequences via props or store.
-
-interface Props {
-  targetSequence?: string;
-  referenceSequence?: string;
+interface SelectionPressureOverlayProps {
+  repository: PhageRepository | null;
+  currentPhage: PhageFull | null;
 }
 
-export function SelectionPressureOverlay({ targetSequence, referenceSequence }: Props): React.ReactElement | null {
+export function SelectionPressureOverlay({ repository, currentPhage }: SelectionPressureOverlayProps): React.ReactElement | null {
   const { theme } = useTheme();
   const colors = theme.colors;
   const { isOpen } = useOverlay();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const diffEnabled = usePhageStore(s => s.diffEnabled);
+  const diffReferenceSequence = usePhageStore(s => s.diffReferenceSequence);
+
+  const [targetSequence, setTargetSequence] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+
+  // Fetch target sequence when overlay is open
+  useEffect(() => {
+    if (!isOpen('pressure') || !repository || !currentPhage) {
+      if (!isOpen('pressure')) setTargetSequence('');
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+
+    repository.getFullGenomeLength(currentPhage.id)
+      .then(len => repository.getSequenceWindow(currentPhage.id, 0, len))
+      .then(seq => {
+        if (!cancelled) setTargetSequence(seq);
+      })
+      .catch(err => console.error('Failed to load target sequence', err))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [isOpen, repository, currentPhage]);
+
   const analysis = useMemo(() => {
-    if (!targetSequence || !referenceSequence) return null;
-    return calculateSelectionPressure(targetSequence, referenceSequence, 300);
-  }, [targetSequence, referenceSequence]);
+    if (!diffEnabled || !targetSequence || !diffReferenceSequence) return null;
+    return calculateSelectionPressure(targetSequence, diffReferenceSequence, 150);
+  }, [diffEnabled, targetSequence, diffReferenceSequence]);
 
   useEffect(() => {
     if (!isOpen('pressure') || !canvasRef.current || !analysis) return;
@@ -79,7 +108,7 @@ export function SelectionPressureOverlay({ targetSequence, referenceSequence }: 
       id="pressure"
       title="SELECTION PRESSURE (dN/dS)"
       icon="⚡"
-      hotkey="v" // Using 'v' as mapped in TUI/Menu
+      hotkey="v" 
       size="lg"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -93,9 +122,11 @@ export function SelectionPressureOverlay({ targetSequence, referenceSequence }: 
           <strong style={{ color: colors.accent }}>Evolutionary Pressure</strong>: Blue = Purifying (Conserved), Red = Positive (Adaptive/Arms Race).
         </div>
 
-        {!analysis ? (
+        {loading ? (
+           <AnalysisPanelSkeleton />
+        ) : !analysis ? (
            <div style={{ padding: '2rem', textAlign: 'center', color: colors.textMuted }}>
-             Requires reference comparison (Diff mode).
+             {!diffEnabled ? 'Requires reference comparison (enable Diff mode).' : 'Preparing analysis...'}
            </div>
         ) : (
            <>
