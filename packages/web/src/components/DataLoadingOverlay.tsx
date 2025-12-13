@@ -4,7 +4,7 @@
  * Displays progress while loading the SQLite database.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import type { DatabaseLoadProgress } from '../db';
 import { Skeleton } from './ui/Skeleton';
@@ -25,6 +25,10 @@ export function DataLoadingOverlay({
 
   // Track if loading is taking longer than expected
   const [isSlowLoad, setIsSlowLoad] = useState(false);
+  const [estimatedRemainingSeconds, setEstimatedRemainingSeconds] = useState<number | null>(null);
+  const progressSamplesRef = useRef<Array<{ timeMs: number; percent: number }>>([]);
+  const lastStageRef = useRef<DatabaseLoadProgress['stage'] | null>(null);
+  const lastPercentRef = useRef<number | null>(null);
 
   useEffect(() => {
     // After 15 seconds without completion, show slow load message
@@ -35,6 +39,69 @@ export function DataLoadingOverlay({
     }, 15000);
 
     return () => clearTimeout(timer);
+  }, [progress]);
+
+  useEffect(() => {
+    if (!progress || progress.percent <= 0 || progress.percent >= 100 || progress.stage === 'ready' || progress.stage === 'error') {
+      progressSamplesRef.current = [];
+      lastStageRef.current = progress?.stage ?? null;
+      lastPercentRef.current = progress?.percent ?? null;
+      setEstimatedRemainingSeconds(null);
+      return;
+    }
+
+    const nowMs = Date.now();
+
+    if (lastStageRef.current !== progress.stage) {
+      progressSamplesRef.current = [];
+      lastStageRef.current = progress.stage;
+      lastPercentRef.current = null;
+    }
+
+    const prevPercent = lastPercentRef.current;
+    if (prevPercent === null || progress.percent !== prevPercent) {
+      if (prevPercent !== null && progress.percent < prevPercent) {
+        progressSamplesRef.current = [];
+      }
+      progressSamplesRef.current.push({ timeMs: nowMs, percent: progress.percent });
+      lastPercentRef.current = progress.percent;
+    }
+
+    const samples = progressSamplesRef.current;
+    const MAX_SAMPLES = 8;
+    if (samples.length > MAX_SAMPLES) {
+      samples.splice(0, samples.length - MAX_SAMPLES);
+    }
+
+    if (samples.length < 2) {
+      setEstimatedRemainingSeconds(null);
+      return;
+    }
+
+    const first = samples[0];
+    const last = samples[samples.length - 1];
+    const deltaPercent = last.percent - first.percent;
+    const deltaSeconds = (last.timeMs - first.timeMs) / 1000;
+    const secondsSinceLastUpdate = (nowMs - last.timeMs) / 1000;
+
+    if (secondsSinceLastUpdate > 5) {
+      setEstimatedRemainingSeconds(null);
+      return;
+    }
+
+    if (deltaSeconds <= 0.5 || deltaPercent <= 0.5) {
+      setEstimatedRemainingSeconds(null);
+      return;
+    }
+
+    const ratePercentPerSecond = deltaPercent / deltaSeconds;
+    const remainingSeconds = Math.ceil((100 - last.percent) / ratePercentPerSecond);
+    if (!Number.isFinite(remainingSeconds) || remainingSeconds <= 0) {
+      setEstimatedRemainingSeconds(null);
+      return;
+    }
+
+    setEstimatedRemainingSeconds(Math.min(30 * 60, remainingSeconds));
   }, [progress]);
 
   if (error) {
@@ -88,9 +155,22 @@ export function DataLoadingOverlay({
 
   // Show initial loading state when no progress data yet
   // This ensures the overlay is never invisible
-  const displayProgress = progress ?? {
+  const displayProgress: DatabaseLoadProgress = progress ?? {
+    stage: 'initializing',
     percent: 0,
     message: 'Initializing...',
+  };
+
+  const formatDuration = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    if (minutes < 60) {
+      return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
   };
 
   return (
@@ -146,10 +226,23 @@ export function DataLoadingOverlay({
         )}
 
         {/* Status message */}
-        <div style={{ color: colors.textDim, fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+        <div style={{ color: colors.textDim, fontSize: '0.9rem', marginBottom: estimatedRemainingSeconds ? '0.25rem' : '0.5rem' }}>
           {displayProgress.message}
           {displayProgress.percent > 0 && ` (${displayProgress.percent}%)`}
         </div>
+
+        {estimatedRemainingSeconds !== null && (
+          <div
+            aria-hidden="true"
+            style={{
+              color: colors.textMuted,
+              fontSize: '0.8rem',
+              marginBottom: '0.5rem',
+            }}
+          >
+            About {formatDuration(estimatedRemainingSeconds)} remaining
+          </div>
+        )}
 
         {/* Slow load warning */}
         {isSlowLoad && (
