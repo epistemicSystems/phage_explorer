@@ -229,8 +229,12 @@ export function parseGenBank(genbank: string): NCBISequenceResult {
 
 // Parse feature location string to find total extent (min start, max end)
 function parseLocation(location: string, feature: Partial<NCBIFeature>): void {
-  // Extract all integers from the location string
-  const numbers = location.match(/\d+/g)?.map(n => parseInt(n, 10));
+  // Remove accession references (e.g., "NC_001234.1:") to avoid parsing version numbers as coordinates
+  // Also remove simple accessions "J02459:"
+  const localLocation = location.replace(/[a-zA-Z][a-zA-Z0-9_.]*:/g, '');
+
+  // Extract all integers from the cleaned location string
+  const numbers = localLocation.match(/\d+/g)?.map(n => parseInt(n, 10));
   
   if (!numbers || numbers.length === 0) {
     return;
