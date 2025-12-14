@@ -1,18 +1,89 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Use Chromium for all mobile emulation to avoid WebKit dependency issues
+const chromiumMobile = (device: typeof devices[keyof typeof devices]) => ({
+  ...device,
+  // Force Chromium channel instead of WebKit
+  channel: undefined,
+});
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60000,
+  expect: {
+    timeout: 10000,
+  },
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: [
+    ['html', { outputFolder: 'playwright-report' }],
+    ['list'],
+  ],
   use: {
     baseURL: 'http://localhost:5173',
     headless: true,
     screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure',
   },
   outputDir: 'test-results',
   projects: [
+    // Desktop browsers
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+    },
+    // Mobile devices - Portrait (all using Chromium engine for consistency)
+    {
+      name: 'mobile-small',
+      use: {
+        ...devices['iPhone SE'],
+        // Override to use Chromium
+        defaultBrowserType: 'chromium',
+      },
+    },
+    {
+      name: 'mobile-medium',
+      use: {
+        ...devices['iPhone 14'],
+        defaultBrowserType: 'chromium',
+      },
+    },
+    {
+      name: 'mobile-large',
+      use: {
+        ...devices['iPhone 14 Pro Max'],
+        defaultBrowserType: 'chromium',
+      },
+    },
+    {
+      name: 'android-phone',
+      use: { ...devices['Pixel 7'] },
+    },
+    // Mobile devices - Landscape
+    {
+      name: 'mobile-landscape',
+      use: {
+        ...devices['iPhone 14 landscape'],
+        defaultBrowserType: 'chromium',
+      },
+    },
+    // Tablets
+    {
+      name: 'tablet-small',
+      use: {
+        ...devices['iPad Mini'],
+        defaultBrowserType: 'chromium',
+      },
+    },
+    {
+      name: 'tablet-large',
+      use: {
+        ...devices['iPad Pro 11'],
+        defaultBrowserType: 'chromium',
+      },
     },
   ],
 });
