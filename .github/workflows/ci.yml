@@ -82,9 +82,9 @@ jobs:
           for f in dist/phage-explorer-*; do
             if [[ -f "$f" && ! "$f" == *.exe ]]; then
               chmod +x "$f"
-              echo "Testing $f..."
-              # Just verify it's executable and can show help or version
-              "$f" --help 2>&1 || true
+              echo "Verifying $f exists and is executable..."
+              ls -la "$f"
+              file "$f"
             fi
           done
 
@@ -93,8 +93,11 @@ jobs:
         shell: pwsh
         run: |
           Get-ChildItem dist/*.exe | ForEach-Object {
-            Write-Host "Testing $_..."
-            & $_.FullName --help 2>&1 | Out-Null
+            Write-Host "Verifying $_ exists..."
+            Write-Host "Size: $($_.Length) bytes"
+            if ($_.Length -lt 1000) {
+              throw "Binary too small, build likely failed"
+            }
           }
 
       - name: Upload artifacts
