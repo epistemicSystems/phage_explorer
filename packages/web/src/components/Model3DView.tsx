@@ -3,6 +3,7 @@ import { usePhageStore } from '@phage-explorer/state';
 import type { PhageFull } from '@phage-explorer/core';
 import { Model3DSkeleton } from './ui/Skeleton';
 import { Badge, SubtleBadge } from './ui/Badge';
+import { IconCamera, IconCube, IconDna, IconFlask, IconRepeat } from './ui';
 import {
   ACESFilmicToneMapping,
   AmbientLight,
@@ -886,7 +887,9 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
           role="alert"
           aria-live="polite"
         >
-          <div style={{ fontSize: '48px', opacity: 0.6 }}>🧊</div>
+          <div style={{ opacity: 0.6 }} aria-hidden="true">
+            <IconCube size={48} />
+          </div>
           <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>3D Viewer Not Available</h4>
           <p className="text-dim" style={{ margin: 0, maxWidth: '320px' }}>
             Your browser doesn't support WebGL, which is required for 3D visualization.
@@ -957,18 +960,20 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
           className="btn compact"
           onClick={handleResetView}
           style={{ minHeight: '36px', minWidth: '40px' }}
+          aria-label="Reset view"
           title="Reset view"
         >
-          ⟳
+          <IconRepeat size={18} />
         </button>
         <button
           type="button"
           className="btn compact"
           onClick={handleScreenshot}
           style={{ minHeight: '36px', minWidth: '40px' }}
+          aria-label="Save screenshot"
           title="Save screenshot"
         >
-          📷
+          <IconCamera size={18} />
         </button>
 
         {/* Functional groups - only show if available */}
@@ -979,9 +984,10 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
               type="button"
               className={`btn compact ${showFunctionalGroups ? 'active' : ''}`}
               onClick={() => setShowFunctionalGroups(v => !v)}
+              aria-label="Toggle functional group highlights"
               title="Toggle functional group highlights"
             >
-              🔬
+              <IconFlask size={18} />
             </button>
           </>
         ) : null}
@@ -1058,7 +1064,9 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
             role="status"
             aria-live="polite"
           >
-            <div style={{ fontSize: '40px', opacity: 0.5 }}>🧬</div>
+            <div style={{ opacity: 0.5 }} aria-hidden="true">
+              <IconDna size={40} />
+            </div>
             <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>No Structure Available</h4>
             <p className="text-dim" style={{ margin: 0, maxWidth: '280px' }}>
               This phage doesn't have a 3D structure in our database.

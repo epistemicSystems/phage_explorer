@@ -151,7 +151,6 @@ export default function SimulationView(): React.ReactElement | null {
     <Overlay
       id="simulationView"
       title={`SIMULATION: ${metadata?.name ?? simId}`}
-      icon="🧪"
       size="xl"
       onClose={() => close('simulationView')}
     >
