@@ -307,7 +307,7 @@ export function NonBDNAOverlay({
     { key: 'n', modifiers: { alt: true } },
     'Non-B-DNA Structures (G4, Z-DNA, Cruciform)',
     () => toggle('nonBDNA'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
   );
 
   // Fetch full genome when overlay opens or phage changes
@@ -378,7 +378,7 @@ export function NonBDNAOverlay({
   if (!isOpen('nonBDNA')) return null;
 
   return (
-    <Overlay id="nonBDNA" title="NON-B-DNA STRUCTURES" icon="N" hotkey="Alt+N" size="lg">
+    <Overlay id="nonBDNA" title="NON-B-DNA STRUCTURES" hotkey="Alt+N" size="lg">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Description */}
         <div

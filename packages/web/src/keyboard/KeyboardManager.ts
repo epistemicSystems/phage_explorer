@@ -12,7 +12,9 @@ import type {
   KeyboardState,
   KeyboardEvent,
   KeyboardEventListener,
+  ExperienceLevel,
 } from './types';
+import { meetsExperienceLevel } from './types';
 
 const SEQUENCE_TIMEOUT = 1000; // 1 second to complete a sequence
 const ALL_MODES: KeyboardMode[] = ['NORMAL', 'SEARCH', 'COMMAND', 'VISUAL', 'INSERT'];
@@ -78,6 +80,7 @@ export class KeyboardManager {
   private listeners: Set<KeyboardEventListener>;
   private boundHandler: (e: globalThis.KeyboardEvent) => void;
   private sequenceTimeoutId: number | null = null;
+  private experienceLevel: ExperienceLevel = 'novice';
 
   constructor() {
     this.state = {
@@ -89,6 +92,20 @@ export class KeyboardManager {
     this.hotkeys = new Map();
     this.listeners = new Set();
     this.boundHandler = this.handleKeyDown.bind(this);
+  }
+
+  /**
+   * Get current experience level
+   */
+  getExperienceLevel(): ExperienceLevel {
+    return this.experienceLevel;
+  }
+
+  /**
+   * Set experience level for hotkey filtering
+   */
+  setExperienceLevel(level: ExperienceLevel): void {
+    this.experienceLevel = level;
   }
 
   /**
@@ -284,7 +301,20 @@ export class KeyboardManager {
         const targetSequence = def.combo.sequence.join('');
 
         if (targetSequence === sequenceStr) {
-          // Complete match!
+          // Complete match! Check experience level
+          if (!meetsExperienceLevel(this.experienceLevel, def.minLevel)) {
+            event.preventDefault();
+            event.stopPropagation();
+            this.clearSequence();
+            this.emit({
+              type: 'hotkey_blocked',
+              combo: def.combo,
+              description: def.description,
+              requiredLevel: def.minLevel!,
+              currentLevel: this.experienceLevel,
+            });
+            return true;
+          }
           event.preventDefault();
           event.stopPropagation();
           this.clearSequence();
@@ -343,7 +373,20 @@ export class KeyboardManager {
       if (!this.isModeAllowed(def)) continue;
       if (!modifiersMatch(modifiers, def.combo.modifiers)) continue;
 
-      // Match found!
+      // Match found! Check experience level
+      if (!meetsExperienceLevel(this.experienceLevel, def.minLevel)) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.emit({
+          type: 'hotkey_blocked',
+          combo: def.combo,
+          description: def.description,
+          requiredLevel: def.minLevel!,
+          currentLevel: this.experienceLevel,
+        });
+        return true;
+      }
+
       event.preventDefault();
       event.stopPropagation();
       this.emit({

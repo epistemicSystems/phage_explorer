@@ -90,7 +90,7 @@ export function DefenseArmsRaceOverlay({
     { key: 'e', modifiers: { alt: true } },
     'Defense Arms Race',
     () => toggle('defenseArmsRace'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
   );
 
   // Fetch defense systems when overlay opens
@@ -163,7 +163,6 @@ export function DefenseArmsRaceOverlay({
     <Overlay
       id="defenseArmsRace"
       title="DEFENSE ARMS RACE"
-      icon="E"
       hotkey="Alt+E"
       size="lg"
     >

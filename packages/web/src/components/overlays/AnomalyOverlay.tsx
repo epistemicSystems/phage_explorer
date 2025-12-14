@@ -77,7 +77,7 @@ export function AnomalyOverlay({
     { key: 'y', modifiers: { alt: true } },
     'Anomaly overlay',
     () => toggle('anomaly'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
   );
 
   // Spin up worker once
@@ -247,7 +247,6 @@ export function AnomalyOverlay({
     <Overlay
       id="anomaly"
       title="ANOMALY DETECTION"
-      icon="⚠️"
       hotkey="Alt+Y"
       size="xl"
     >
@@ -517,4 +516,3 @@ export function AnomalyOverlay({
 }
 
 export default AnomalyOverlay;
-

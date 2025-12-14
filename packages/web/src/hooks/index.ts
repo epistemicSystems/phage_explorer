@@ -17,3 +17,10 @@ export { useSequenceGrid, type UseSequenceGridOptions, type UseSequenceGridResul
 export { useReducedMotion } from './useReducedMotion';
 export { useFileSystem } from './useFileSystem';
 export { useOrientation } from './useOrientation';
+export {
+  useExperienceLevelSync,
+  useBlockedHotkeyNotification,
+  getExperienceLevelLabel,
+  getNextExperienceLevel,
+  type BlockedHotkeyInfo,
+} from './useExperienceLevelSync';

@@ -75,7 +75,7 @@ export function ProteinDomainOverlay({
     { key: 'd', modifiers: { alt: true } },
     'Protein Domains',
     () => toggle('proteinDomains'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
   );
 
   // Fetch domains when overlay opens
@@ -159,7 +159,6 @@ export function ProteinDomainOverlay({
     <Overlay
       id="proteinDomains"
       title="PROTEIN DOMAINS"
-      icon="D"
       hotkey="Alt+D"
       size="lg"
     >

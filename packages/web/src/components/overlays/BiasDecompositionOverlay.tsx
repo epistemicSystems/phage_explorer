@@ -101,7 +101,7 @@ export function BiasDecompositionOverlay({
     { key: 'b', modifiers: { alt: true } },
     'Bias Decomposition (Dinucleotide PCA)',
     () => toggle('biasDecomposition'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
   );
 
   // Fetch full genome when overlay opens or phage changes
@@ -222,7 +222,6 @@ export function BiasDecompositionOverlay({
     <Overlay
       id="biasDecomposition"
       title="BIAS DECOMPOSITION (Dinucleotide PCA)"
-      icon="B"
       hotkey="Alt+B"
       size="lg"
     >

@@ -11,6 +11,7 @@ import type {
   HotkeyDefinition,
   KeyboardMode,
   KeyboardEvent,
+  ExperienceLevel,
 } from '../keyboard/types';
 
 /**
@@ -20,6 +21,7 @@ import type {
  * useHotkey({ key: 't' }, 'Cycle theme', nextTheme);
  * useHotkey({ key: '?', modifiers: { shift: true } }, 'Show help', showHelp);
  * useHotkey({ sequence: ['g', 'g'] }, 'Go to top', goToTop);
+ * useHotkey({ key: 'a', modifiers: { alt: true } }, 'Advanced feature', doAdvanced, { minLevel: 'power' });
  */
 export function useHotkey(
   combo: KeyCombo,
@@ -29,6 +31,7 @@ export function useHotkey(
     modes?: KeyboardMode[];
     category?: string;
     priority?: number;
+    minLevel?: ExperienceLevel;  // Minimum experience level to activate (default: novice)
   }
 ): void {
   useEffect(() => {
@@ -40,10 +43,11 @@ export function useHotkey(
       modes: options?.modes,
       category: options?.category,
       priority: options?.priority,
+      minLevel: options?.minLevel,
     });
 
     return unregister;
-  }, [combo, description, action, options?.modes, options?.category, options?.priority]);
+  }, [combo, description, action, options?.modes, options?.category, options?.priority, options?.minLevel]);
 }
 
 /**

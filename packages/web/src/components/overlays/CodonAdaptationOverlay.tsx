@@ -60,7 +60,7 @@ export function CodonAdaptationOverlay({
     { key: 't', modifiers: { alt: true } },
     'Codon Adaptation',
     () => toggle('codonAdaptation'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
   );
 
   // Fetch data when overlay opens
@@ -133,7 +133,6 @@ export function CodonAdaptationOverlay({
     <Overlay
       id="codonAdaptation"
       title="CODON ADAPTATION"
-      icon="T"
       hotkey="Alt+T"
       size="lg"
     >

@@ -87,7 +87,7 @@ export function PhasePortraitOverlay({ repository, currentPhage }: PhasePortrait
     { key: 'p', modifiers: { alt: true, shift: true } },
     'Phase Portrait (Amino Acid Properties)',
     () => toggle('phasePortrait'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
   );
 
   // Fetch full genome when overlay opens or phage changes
@@ -191,7 +191,6 @@ export function PhasePortraitOverlay({ repository, currentPhage }: PhasePortrait
     <Overlay
       id="phasePortrait"
       title="PHASE PORTRAIT (Amino Acid Properties)"
-      icon="*"
       hotkey="Alt+Shift+P"
       size="lg"
     >

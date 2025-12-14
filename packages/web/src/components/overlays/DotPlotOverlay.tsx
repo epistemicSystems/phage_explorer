@@ -94,7 +94,7 @@ export function DotPlotOverlay({
     { key: 'o', modifiers: { alt: true } },
     'Dot Plot Analysis',
     () => toggle('dotPlot'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
   );
 
   // Initialize worker
@@ -248,7 +248,7 @@ export function DotPlotOverlay({
   if (!isOpen('dotPlot')) return null;
 
   return (
-    <Overlay id="dotPlot" title="DOT PLOT ANALYSIS" icon="O" hotkey="Alt+O" size="lg">
+    <Overlay id="dotPlot" title="DOT PLOT ANALYSIS" hotkey="Alt+O" size="lg">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Description */}
         <div

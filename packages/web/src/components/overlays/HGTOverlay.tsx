@@ -280,7 +280,7 @@ export function HGTOverlay({
     { key: 'h', modifiers: { alt: true } },
     'HGT Island Detection',
     () => toggle('hgt'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
   );
 
   // Fetch full genome when overlay opens or phage changes
@@ -364,7 +364,6 @@ export function HGTOverlay({
     <Overlay
       id="hgt"
       title="HGT ISLAND DETECTION"
-      icon="H"
       hotkey="Alt+H"
       size="lg"
     >

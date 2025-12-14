@@ -72,7 +72,7 @@ export function AMGPathwayOverlay({
     { key: 'a', modifiers: { alt: true } },
     'AMG Pathways',
     () => toggle('amgPathway'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
   );
 
   // Fetch AMGs when overlay opens
@@ -151,7 +151,6 @@ export function AMGPathwayOverlay({
     <Overlay
       id="amgPathway"
       title="AUXILIARY METABOLIC GENES"
-      icon="A"
       hotkey="Alt+A"
       size="lg"
     >

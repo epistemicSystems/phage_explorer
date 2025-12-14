@@ -71,7 +71,7 @@ export function CGROverlay({ repository, currentPhage }: CGROverlayProps): React
     { key: 'c', modifiers: { alt: true, shift: true } },
     'Chaos Game Representation',
     () => toggle('cgr'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
   );
 
   // Fetch full genome when overlay opens or phage changes
@@ -187,7 +187,6 @@ export function CGROverlay({ repository, currentPhage }: CGROverlayProps): React
     <Overlay
       id="cgr"
       title="CHAOS GAME REPRESENTATION"
-      icon="🧬"
       hotkey="Alt+Shift+C"
       size="xl"
     >
@@ -381,4 +380,3 @@ function StatCard({
 }
 
 export default CGROverlay;
-

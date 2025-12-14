@@ -329,7 +329,7 @@ export function StructureConstraintOverlay({
     { key: 'r', modifiers: { alt: true } },
     'RNA Structure Constraints (RBS, Terminators)',
     () => toggle('structureConstraint'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
   );
 
   // Fetch full genome when overlay opens or phage changes
@@ -424,7 +424,7 @@ export function StructureConstraintOverlay({
   if (!isOpen('structureConstraint')) return null;
 
   return (
-    <Overlay id="structureConstraint" title="RNA STRUCTURE CONSTRAINTS" icon="R" hotkey="Alt+R" size="lg">
+    <Overlay id="structureConstraint" title="RNA STRUCTURE CONSTRAINTS" hotkey="Alt+R" size="lg">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Description */}
         <div

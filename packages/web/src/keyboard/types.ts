@@ -5,6 +5,11 @@
  */
 
 /**
+ * Experience levels for progressive disclosure of hotkeys
+ */
+export type ExperienceLevel = 'novice' | 'intermediate' | 'power';
+
+/**
  * Keyboard modes (vim-inspired)
  */
 export type KeyboardMode = 'NORMAL' | 'SEARCH' | 'COMMAND' | 'VISUAL' | 'INSERT';
@@ -50,6 +55,7 @@ export interface HotkeyDefinition {
   action: () => void | Promise<void>;
   category?: string;       // For grouping in help overlay
   priority?: number;       // Higher priority wins on conflict (default: 0)
+  minLevel?: ExperienceLevel;  // Minimum experience level to activate (default: novice)
 }
 
 /**
@@ -85,6 +91,7 @@ export interface KeyboardState {
 export type KeyboardEvent =
   | { type: 'mode_change'; mode: KeyboardMode; previousMode: KeyboardMode }
   | { type: 'hotkey_triggered'; combo: KeyCombo; description: string }
+  | { type: 'hotkey_blocked'; combo: KeyCombo; description: string; requiredLevel: ExperienceLevel; currentLevel: ExperienceLevel }
   | { type: 'sequence_started'; key: string }
   | { type: 'sequence_completed'; sequence: string[] }
   | { type: 'sequence_cancelled' };
@@ -145,6 +152,26 @@ export const HotkeyCategories = {
   SIMULATION: 'Simulation',
   GENERAL: 'General',
 } as const;
+
+/**
+ * Experience level ordering for comparison
+ */
+export const EXPERIENCE_LEVEL_ORDER: Record<ExperienceLevel, number> = {
+  novice: 0,
+  intermediate: 1,
+  power: 2,
+};
+
+/**
+ * Check if user meets the required experience level
+ */
+export function meetsExperienceLevel(
+  userLevel: ExperienceLevel,
+  requiredLevel?: ExperienceLevel
+): boolean {
+  if (!requiredLevel) return true;  // No requirement means available to all
+  return EXPERIENCE_LEVEL_ORDER[userLevel] >= EXPERIENCE_LEVEL_ORDER[requiredLevel];
+}
 
 /**
  * Type guard for sequence key combo

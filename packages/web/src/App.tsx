@@ -19,9 +19,12 @@ import {
   useHotkeys,
   useKeyboardMode,
   usePendingSequence,
+  useExperienceLevelSync,
+  useBlockedHotkeyNotification,
 } from './hooks';
 import { useTheme } from './hooks/useTheme';
 import { useReducedMotion } from './hooks';
+import { BlockedHotkeyToast } from './components/BlockedHotkeyToast';
 import type { PhageRepository } from './db';
 import {
   initializeStorePersistence,
@@ -113,6 +116,10 @@ export default function App(): JSX.Element {
   const { open: openOverlayCtx, closeAll: closeAllOverlaysCtx, hasBlockingOverlay } = useOverlay();
   const { mode } = useKeyboardMode();
   const pendingSequence = usePendingSequence();
+
+  // Sync experience level to keyboard manager and handle blocked hotkey notifications
+  useExperienceLevelSync();
+  const { blockedHotkey, dismiss: dismissBlockedHotkey } = useBlockedHotkeyNotification();
   const [sequencePreview, setSequencePreview] = useState<string>('');
   const [fullSequence, setFullSequence] = useState<string>('');
   const [selectedGene, setSelectedGene] = useState<GeneInfo | null>(null);
@@ -1029,6 +1036,7 @@ export default function App(): JSX.Element {
           {beginnerToast}
         </div>
       )}
+      <BlockedHotkeyToast info={blockedHotkey} onDismiss={dismissBlockedHotkey} />
       <ControlDeck />
       <DataFreshnessIndicator isCached={isCached} isLoading={isLoading} />
     </>

@@ -133,7 +133,7 @@ const [colorMode, setColorMode] = useState<ColorMode>('nucleotide');
     { key: 'h', modifiers: { alt: true, shift: true } },
     'Hilbert Curve',
     () => toggle('hilbert'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
   );
 
   // Fetch full genome when overlay opens
@@ -296,7 +296,6 @@ const [colorMode, setColorMode] = useState<ColorMode>('nucleotide');
     <Overlay
       id="hilbert"
       title="HILBERT CURVE"
-      icon="🌀"
       hotkey="Alt+Shift+H"
       size="xl"
     >
