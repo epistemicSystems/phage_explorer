@@ -19,7 +19,7 @@
   right: 0;
   background: var(--color-background-elevated);
   border-top: 1px solid var(--color-border);
-  z-index: 100;
+  z-index: var(--z-fixed); /* 300 - below modals (500+) */
   padding-bottom: env(safe-area-inset-bottom);
   box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
 }
@@ -29,10 +29,12 @@
     display: flex;
     flex-direction: column;
   }
-  
-  /* Hide standard footer on mobile when deck is active */
-  .app-footer {
-    display: none;
+
+  /* Hide standard footer on mobile when control deck is active.
+     Using higher specificity to override other .app-footer rules */
+  .app-shell > .app-footer,
+  footer.app-footer {
+    display: none !important;
   }
 
   /* Prevent content from being covered by the fixed deck */

@@ -200,11 +200,32 @@
     min-width: 44px;
   }
 
-  /* Checkbox and radio targets */
+  /* Checkbox and radio targets - use transform for visual scaling without breaking layout */
   input[type="checkbox"],
   input[type="radio"] {
+    width: 24px;
+    height: 24px;
+    /* Expand touch target without changing visual size */
+    position: relative;
+  }
+
+  /* Invisible touch area expansion via pseudo-element */
+  input[type="checkbox"]::after,
+  input[type="radio"]::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    /* Ensure it captures touch events */
+    z-index: 1;
+  }
+
+  /* Labels wrapping checkboxes need adequate height */
+  label:has(input[type="checkbox"]),
+  label:has(input[type="radio"]) {
     min-height: 44px;
-    min-width: 44px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 8px);
   }
 
   /* Select dropdowns */
@@ -267,6 +288,49 @@
   }
 }
 
+/* =============================================================================
+   PHAGE LIST MOBILE FIXES
+   ============================================================================= */
+@media (max-width: 640px) {
+  /* List items need larger touch targets */
+  .phage-list [role="option"] {
+    min-height: 48px;
+    padding: 12px 12px !important;
+  }
+
+  /* Hide keyboard navigation hint on mobile - useless for touch */
+  .phage-list kbd {
+    display: none;
+  }
+
+  /* Hide the entire keyboard hint row on mobile */
+  .phage-list > div:last-child:has(kbd) {
+    display: none;
+  }
+}
+
+/* =============================================================================
+   COMMAND PALETTE MOBILE FIXES
+   ============================================================================= */
+@media (max-width: 640px) {
+  /* Experience level buttons need larger touch targets */
+  .overlay-commandPalette [role="group"] button[aria-pressed] {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  /* Hide verbose description on mobile to save space */
+  .overlay-commandPalette [role="group"] > span:last-child {
+    display: none;
+  }
+
+  /* Command list items need proper touch targets */
+  .overlay-commandPalette [role="listbox"] [role="option"] {
+    min-height: 48px;
+    padding: 12px;
+  }
+}
+
 /* Data freshness indicator styling */
 .data-freshness-indicator {
   position: fixed;
@@ -279,4 +343,19 @@
 
 .data-freshness-indicator:hover {
   opacity: 1;
+}
+
+/* On mobile, move indicator above FAB and control deck */
+@media (max-width: 900px) {
+  .data-freshness-indicator {
+    bottom: calc(80px + env(safe-area-inset-bottom));
+    right: calc(16px + env(safe-area-inset-right));
+  }
+}
+
+/* On phones with control deck, position above it */
+@media (max-width: 640px) {
+  .data-freshness-indicator {
+    bottom: calc(var(--control-deck-reserved-height, 140px) + 16px + env(safe-area-inset-bottom));
+  }
 }

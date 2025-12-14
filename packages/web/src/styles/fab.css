@@ -14,7 +14,8 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 1200;
+  /* Use --z-fixed (300) - same layer as control deck, below overlays (500+) */
+  z-index: var(--z-fixed);
   transition: transform var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out),
     background var(--duration-fast) var(--ease-out);
