@@ -292,7 +292,7 @@ export function GelOverlay({
   if (!isOpen('gel')) return null;
 
   return (
-    <Overlay id="gel" title="VIRTUAL GEL ELECTROPHORESIS" icon="G" hotkey="Alt+G" size="lg">
+    <Overlay id="gel" title="VIRTUAL GEL ELECTROPHORESIS" hotkey="Alt+G" size="lg">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Description */}
         <div

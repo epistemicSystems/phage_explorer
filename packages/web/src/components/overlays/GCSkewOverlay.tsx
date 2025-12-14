@@ -179,7 +179,6 @@ export function GCSkewOverlay({ sequence = '' }: GCSkewOverlayProps): React.Reac
     <Overlay
       id="gcSkew"
       title="GC SKEW ANALYSIS"
-      icon="📈"
       hotkey="g"
       size="lg"
     >

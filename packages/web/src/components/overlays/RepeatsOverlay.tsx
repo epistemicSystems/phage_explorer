@@ -125,7 +125,6 @@ export function RepeatsOverlay({ sequence = '' }: RepeatsOverlayProps): React.Re
     <Overlay
       id="repeats"
       title="REPEATS & PALINDROMES"
-      icon="🔄"
       hotkey="r"
       size="lg"
     >

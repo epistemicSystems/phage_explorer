@@ -88,7 +88,6 @@ export function PromoterOverlay({ sequence = '' }: PromoterOverlayProps): React.
     <Overlay
       id="promoter"
       title="PROMOTER & RBS SITES"
-      icon="🎯"
       hotkey="p"
       size="lg"
     >

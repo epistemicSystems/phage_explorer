@@ -92,7 +92,6 @@ export function PackagingPressureOverlay(): React.ReactElement | null {
     <Overlay
       id="pressure"
       title="PACKAGING PRESSURE"
-      icon="🧲"
       hotkey="v"
       size="md"
     >
@@ -184,4 +183,3 @@ export function PackagingPressureOverlay(): React.ReactElement | null {
 }
 
 export default PackagingPressureOverlay;
-

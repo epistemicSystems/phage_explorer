@@ -134,7 +134,6 @@ export function VirionStabilityOverlay(): React.ReactElement | null {
     <Overlay
       id="stability"
       title="VIRION STABILITY"
-      icon="🛡️"
       hotkey="Alt+V"
       size="lg"
     >
@@ -314,4 +313,3 @@ export function VirionStabilityOverlay(): React.ReactElement | null {
 }
 
 export default VirionStabilityOverlay;
-

@@ -126,7 +126,6 @@ export function TranscriptionFlowOverlay({ sequence = '', genomeLength = 0 }: Tr
     <Overlay
       id="transcriptionFlow"
       title="TRANSCRIPTION FLOW"
-      icon="🧪"
       hotkey="y"
       size="lg"
     >

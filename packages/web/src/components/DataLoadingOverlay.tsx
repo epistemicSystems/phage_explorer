@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import type { DatabaseLoadProgress } from '../db';
 import { Skeleton } from './ui/Skeleton';
+import { IconAlertTriangle } from './ui';
 
 interface DataLoadingOverlayProps {
   progress: DatabaseLoadProgress | null;
@@ -129,11 +130,14 @@ export function DataLoadingOverlay({
             backgroundColor: 'rgba(255, 0, 0, 0.1)',
           }}
         >
-          <div style={{ fontSize: '2rem', marginBottom: '1rem' }} aria-hidden="true">⚠️</div>
+          <div style={{ marginBottom: '1rem', color: colors.error }} aria-hidden="true">
+            <IconAlertTriangle size={32} />
+          </div>
           <h2 style={{ color: colors.error, marginBottom: '1rem' }}>Database Load Failed</h2>
           <p style={{ color: colors.text, marginBottom: '1.5rem' }}>{error}</p>
           {onRetry && (
             <button
+              type="button"
               onClick={onRetry}
               style={{
                 padding: '0.5rem 1rem',

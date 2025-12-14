@@ -238,7 +238,6 @@ export function TropismOverlay({ repository, phage }: TropismOverlayProps): Reac
     <Overlay
       id="tropism"
       title="TROPISM & RECEPTOR PREDICTIONS"
-      icon="🎯"
       hotkey="0 / T"
       size="xl"
     >

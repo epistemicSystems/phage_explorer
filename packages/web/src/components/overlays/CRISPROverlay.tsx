@@ -197,7 +197,6 @@ export function CRISPROverlay({ repository, phage }: CRISPROverlayProps): React.
     <Overlay
       id="crispr"
       title="CRISPR PRESSURE MAP"
-      icon="🧬"
       hotkey="Alt+C"
       size="xl"
     >
@@ -422,4 +421,3 @@ export function CRISPROverlay({ repository, phage }: CRISPROverlayProps): React.
 }
 
 export default CRISPROverlay;
-

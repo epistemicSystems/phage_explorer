@@ -32,14 +32,14 @@ export function ModuleOverlay(): React.ReactElement | null {
 
   if (!report || !phage) {
     return (
-      <Overlay id="modules" title="MODULE COHERENCE" icon="🧩" hotkey="l">
+      <Overlay id="modules" title="MODULE COHERENCE" hotkey="l">
         <div style={{ color: colors.textDim }}>No phage loaded.</div>
       </Overlay>
     );
   }
 
   return (
-    <Overlay id="modules" title={`MODULE COHERENCE — ${phage.name}`} icon="🧩" hotkey="l" size="lg">
+    <Overlay id="modules" title={`MODULE COHERENCE — ${phage.name}`} hotkey="l" size="lg">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         
         {/* Score Header */}

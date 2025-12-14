@@ -173,7 +173,6 @@ export function ComplexityOverlay({ sequence = '' }: ComplexityOverlayProps): Re
     <Overlay
       id="complexity"
       title="SEQUENCE COMPLEXITY"
-      icon="🎲"
       hotkey="x"
       size="lg"
     >

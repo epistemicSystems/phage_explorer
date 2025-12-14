@@ -127,7 +127,6 @@ export function HelpOverlay(): React.ReactElement | null {
     <Overlay
       id="help"
       title="KEYBOARD SHORTCUTS"
-      icon="⌨"
       hotkey="?"
       size="lg"
     >

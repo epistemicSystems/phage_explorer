@@ -232,7 +232,6 @@ export function CodonBiasOverlay({
     <Overlay
       id="codonBias"
       title="CODON USAGE BIAS (RSCU Analysis)"
-      icon="U"
       hotkey="Alt+U"
       size="lg"
     >

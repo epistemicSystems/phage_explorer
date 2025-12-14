@@ -107,7 +107,6 @@ export function SelectionPressureOverlay({ repository, currentPhage }: Selection
     <Overlay
       id="selectionPressure"
       title="SELECTION PRESSURE (dN/dS)"
-      icon="ω"
       size="lg"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

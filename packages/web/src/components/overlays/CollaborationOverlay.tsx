@@ -25,7 +25,6 @@ export function CollaborationOverlay(): React.ReactElement | null {
     <Overlay
       id="collaboration"
       title="COLLABORATION"
-      icon="👥"
       size="md"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

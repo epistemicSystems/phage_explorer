@@ -214,7 +214,6 @@ export function SimulationHub(): React.ReactElement | null {
     <Overlay
       id="simulationHub"
       title="SIMULATION HUB"
-      icon="🧪"
       hotkey="S"
       size="xl"
     >

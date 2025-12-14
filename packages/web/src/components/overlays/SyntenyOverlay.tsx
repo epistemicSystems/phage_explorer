@@ -290,7 +290,7 @@ export function SyntenyOverlay({
   const referenceGenes = referencePhage?.genes ?? [];
 
   return (
-    <Overlay id="synteny" title="SYNTENY ANALYSIS" icon="S" hotkey="Alt+S" size="lg">
+    <Overlay id="synteny" title="SYNTENY ANALYSIS" hotkey="Alt+S" size="lg">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Description */}
         <div

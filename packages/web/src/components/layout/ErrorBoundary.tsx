@@ -1,5 +1,6 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { DEFAULT_THEME } from '../../theme/themes';
+import { IconAlertTriangle } from '../ui';
 
 interface Props {
   children: ReactNode;
@@ -42,27 +43,33 @@ export class ErrorBoundary extends Component<Props, State> {
       const colors = DEFAULT_THEME.colors;
 
       return (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          backgroundColor: colors.background,
-          color: colors.text,
-          fontFamily: 'monospace',
-          padding: '2rem',
-          textAlign: 'center',
-        }}>
-          <div style={{
-            border: `2px solid ${colors.error}`,
-            borderRadius: '8px',
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            backgroundColor: colors.background,
+            color: colors.text,
+            fontFamily: 'monospace',
             padding: '2rem',
-            maxWidth: '600px',
-            backgroundColor: colors.backgroundAlt,
-            boxShadow: `0 0 20px ${colors.shadow}`,
-          }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              border: `2px solid ${colors.error}`,
+              borderRadius: '8px',
+              padding: '2rem',
+              maxWidth: '600px',
+              backgroundColor: colors.backgroundAlt,
+              boxShadow: `0 0 20px ${colors.shadow}`,
+            }}
+          >
+            <div style={{ marginBottom: '1rem', color: colors.error }} aria-hidden="true">
+              <IconAlertTriangle size={48} />
+            </div>
             <h1 style={{ color: colors.error, marginBottom: '1rem' }}>System Failure</h1>
             <p style={{ marginBottom: '1.5rem', color: colors.textDim }}>
               The application encountered an unexpected error.
@@ -86,6 +93,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
               <button
+                type="button"
                 onClick={this.handleReset}
                 style={{
                   padding: '0.75rem 1.5rem',
@@ -101,6 +109,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 Reload Application
               </button>
               <button
+                type="button"
                 onClick={() => window.open('https://github.com/Dicklesworthstone/phage_explorer/issues', '_blank')}
                 style={{
                   padding: '0.75rem 1.5rem',

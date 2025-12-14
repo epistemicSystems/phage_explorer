@@ -254,7 +254,6 @@ export function GenomicSignaturePCAOverlay({
     <Overlay
       id="genomicSignaturePCA"
       title="GENOMIC SIGNATURE PCA (Tetranucleotide Frequencies)"
-      icon="P"
       hotkey="Alt+P"
       size="lg"
     >

@@ -44,7 +44,6 @@ export function AAKeyOverlay(): React.ReactElement | null {
     <Overlay
       id="aaKey"
       title="AMINO ACID KEY"
-      icon="🧬"
       hotkey="k"
       size="lg"
     >
@@ -119,4 +118,3 @@ export function AAKeyOverlay(): React.ReactElement | null {
 }
 
 export default AAKeyOverlay;
-

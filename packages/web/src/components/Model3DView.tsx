@@ -3,7 +3,7 @@ import { usePhageStore } from '@phage-explorer/state';
 import type { PhageFull } from '@phage-explorer/core';
 import { Model3DSkeleton } from './ui/Skeleton';
 import { Badge, SubtleBadge } from './ui/Badge';
-import { IconCamera, IconCube, IconDna, IconFlask, IconRepeat } from './ui';
+import { IconAlertTriangle, IconCamera, IconCube, IconDna, IconFlask, IconRepeat } from './ui';
 import {
   ACESFilmicToneMapping,
   AmbientLight,
@@ -1030,7 +1030,9 @@ export function Model3DView({ phage }: Model3DViewProps): JSX.Element {
             role="alert"
             aria-live="polite"
           >
-            <div style={{ fontSize: '40px', opacity: 0.6 }}>⚠️</div>
+            <div style={{ opacity: 0.6, color: 'var(--color-error)' }} aria-hidden="true">
+              <IconAlertTriangle size={40} />
+            </div>
             <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>Unable to Load Structure</h4>
             <p className="text-dim" style={{ margin: 0, maxWidth: '280px' }}>
               {error}

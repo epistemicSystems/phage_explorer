@@ -195,7 +195,6 @@ export function KmerAnomalyOverlay({ sequence = '' }: KmerAnomalyOverlayProps): 
     <Overlay
       id="kmerAnomaly"
       title="K-MER ANOMALY CARTOGRAPHY"
-      icon="🔬"
       hotkey="j"
       size="lg"
     >

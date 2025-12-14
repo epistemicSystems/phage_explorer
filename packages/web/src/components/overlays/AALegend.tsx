@@ -44,7 +44,6 @@ export function AALegend(): React.ReactElement | null {
     <Overlay
       id="aaLegend"
       title="AMINO ACID LEGEND"
-      icon="🔖"
       hotkey="l"
       size="md"
     >
@@ -102,4 +101,3 @@ export function AALegend(): React.ReactElement | null {
 }
 
 export default AALegend;
-

@@ -299,7 +299,7 @@ export function SearchOverlay({ repository, currentPhage }: SearchOverlayProps):
   const isInitializing = !workerReady || status === 'loading';
 
   return (
-    <Overlay id="search" title="SEARCH" icon="🔍" hotkey="/" size="xl" onClose={() => close('search')}>
+    <Overlay id="search" title="SEARCH" hotkey="/" size="xl" onClose={() => close('search')}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Show skeleton while worker or sequence is loading */}
         {isInitializing && (
@@ -447,4 +447,3 @@ export function SearchOverlay({ repository, currentPhage }: SearchOverlayProps):
 }
 
 export default SearchOverlay;
-

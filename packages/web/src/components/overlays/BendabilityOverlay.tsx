@@ -134,7 +134,6 @@ export function BendabilityOverlay({ sequence = '' }: BendabilityOverlayProps): 
     <Overlay
       id="bendability"
       title="DNA BENDABILITY"
-      icon="🌀"
       hotkey="b"
       size="lg"
     >

@@ -16,6 +16,17 @@ import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { usePhageStore } from '@phage-explorer/state';
 import { formatFasta, downloadString, copyToClipboard, buildSequenceClipboardPayload } from '../../utils/export';
+import {
+  IconAperture,
+  IconArrowRight,
+  IconBookmark,
+  IconContrast,
+  IconDownload,
+  IconLayers,
+  IconLearn,
+  IconTrendingUp,
+  IconZap,
+} from '../ui';
 
 // Experience levels for progressive disclosure
 type ExperienceLevel = 'novice' | 'intermediate' | 'power';
@@ -114,16 +125,18 @@ function meetsLevelRequirement(userLevel: ExperienceLevel, requiredLevel?: Exper
 }
 
 // Category icons for visual scanning
-const CATEGORY_ICONS: Record<string, string> = {
-  Theme: '🎨',
-  Navigation: '🧭',
-  Analysis: '📊',
-  Advanced: '🔬',
-  View: '👁',
-  Export: '📤',
-  Simulation: '⚙️',
-  Reference: '📖',
-  Education: '🎓',
+const CATEGORY_ICON_SIZE = 14;
+const DEFAULT_CATEGORY_ICON = <IconLayers size={CATEGORY_ICON_SIZE} />;
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  Theme: <IconContrast size={CATEGORY_ICON_SIZE} />,
+  Navigation: <IconArrowRight size={CATEGORY_ICON_SIZE} />,
+  Analysis: <IconTrendingUp size={CATEGORY_ICON_SIZE} />,
+  Advanced: <IconLayers size={CATEGORY_ICON_SIZE} />,
+  View: <IconAperture size={CATEGORY_ICON_SIZE} />,
+  Export: <IconDownload size={CATEGORY_ICON_SIZE} />,
+  Simulation: <IconZap size={CATEGORY_ICON_SIZE} />,
+  Reference: <IconBookmark size={CATEGORY_ICON_SIZE} />,
+  Education: <IconLearn size={CATEGORY_ICON_SIZE} />,
 };
 
 // Recent commands storage
@@ -556,7 +569,6 @@ export function CommandPalette({ commands: customCommands, context: propContext 
     <Overlay
       id="commandPalette"
       title="COMMAND PALETTE"
-      icon=">"
       hotkey=":"
       size="md"
       position="top"
@@ -680,7 +692,9 @@ export function CommandPalette({ commands: customCommands, context: propContext 
           {Object.entries(groupedCommands).map(([category, cmds]) => (
             <div key={category} role="group" aria-label={`${category} commands`}>
               <div className="text-muted text-xs uppercase tracking-wider p-2 border-b border-border-light flex items-center gap-2" aria-hidden="true">
-                <span>{CATEGORY_ICONS[category] || '📁'}</span>
+                <span className="command-palette-category-icon" aria-hidden="true">
+                  {CATEGORY_ICONS[category] ?? DEFAULT_CATEGORY_ICON}
+                </span>
                 <span>{category}</span>
                 <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>({cmds.length})</span>
               </div>
