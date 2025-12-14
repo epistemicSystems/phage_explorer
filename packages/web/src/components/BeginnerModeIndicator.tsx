@@ -3,7 +3,7 @@ import { Tooltip } from './ui/Tooltip';
 import { useBeginnerMode } from '../education';
 
 export const BeginnerModeIndicator: React.FC = () => {
-  const { isEnabled, openGlossary, toggle } = useBeginnerMode();
+  const { isEnabled, openGlossary } = useBeginnerMode();
 
   if (!isEnabled) return null;
 
@@ -11,7 +11,7 @@ export const BeginnerModeIndicator: React.FC = () => {
     <>
       Beginner Mode is on.
       <br />
-      Click to open the glossary. Press Ctrl+B to disable.
+      Click to open the glossary. Manage in Settings.
     </>
   );
 
@@ -26,14 +26,6 @@ export const BeginnerModeIndicator: React.FC = () => {
         >
           <span className="beginner-indicator__dot" aria-hidden />
           <span className="beginner-indicator__text">Beginner Mode</span>
-        </button>
-        <button
-          type="button"
-          className="beginner-indicator__dismiss"
-          onClick={toggle}
-          aria-label="Disable Beginner Mode"
-        >
-          ×
         </button>
       </div>
     </Tooltip>
