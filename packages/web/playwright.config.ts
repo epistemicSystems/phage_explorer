@@ -1,12 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// Use Chromium for all mobile emulation to avoid WebKit dependency issues
-const chromiumMobile = (device: typeof devices[keyof typeof devices]) => ({
-  ...device,
-  // Force Chromium channel instead of WebKit
-  channel: undefined,
-});
-
 export default defineConfig({
   testDir: './e2e',
   timeout: 60000,

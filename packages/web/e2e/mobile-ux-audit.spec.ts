@@ -31,7 +31,8 @@ async function getElementDimensions(locator: Locator): Promise<{ width: number; 
   return box ? { width: box.width, height: box.height } : { width: 0, height: 0 };
 }
 
-// Helper to check if element is within viewport
+// Helper to check if element is within viewport (used in specific tests)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function isInViewport(page: Page, locator: Locator): Promise<boolean> {
   const viewport = page.viewportSize();
   if (!viewport) return false;
@@ -526,10 +527,6 @@ test.describe('Navigation & Scrolling', () => {
   });
 
   test('page is scrollable when content exceeds viewport', async ({ page }) => {
-    const isScrollable = await page.evaluate(() => {
-      return document.documentElement.scrollHeight > document.documentElement.clientHeight;
-    });
-
     // This depends on content, so we just verify no scroll lock issues
     const overflowY = await page.evaluate(() => {
       return window.getComputedStyle(document.body).overflowY;
@@ -590,12 +587,7 @@ test.describe('Landscape Mode', () => {
     if (isLandscapePhone) {
       const controlDeck = page.locator('.control-deck');
       if (await controlDeck.isVisible()) {
-        // Should have collapsed class or reduced height
-        const hasLandscapeClass = await controlDeck.evaluate((el) => {
-          return el.classList.contains('is-landscape');
-        });
-
-        // Either has landscape class or is appropriately sized
+        // In landscape phone mode, control deck should be compact
         const { height } = await getElementDimensions(controlDeck);
         expect(height).toBeLessThan(150);
       }
