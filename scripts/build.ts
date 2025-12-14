@@ -40,7 +40,9 @@ const stubPath = new URL("./react-devtools-stub.js", import.meta.url).pathname;
 const result = await Bun.build({
   entrypoints: ["./packages/tui/src/index.tsx"],
   outdir: "./dist",
-  target: target as any || "bun",
+  // Bun.build() only accepts "browser", "bun", or "node" - NOT platform-specific targets
+  // Platform targets (bun-darwin-arm64, etc.) are only for `bun build --compile --target`
+  target: "bun",
   // Alias react-devtools-core to our stub
   external: [],
   define: {
