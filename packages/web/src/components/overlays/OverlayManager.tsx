@@ -41,6 +41,13 @@ import { ProteinDomainOverlay } from './ProteinDomainOverlay';
 import { AMGPathwayOverlay } from './AMGPathwayOverlay';
 import { CodonAdaptationOverlay } from './CodonAdaptationOverlay';
 import { DefenseArmsRaceOverlay } from './DefenseArmsRaceOverlay';
+// Missing overlays that were referenced but not imported
+import { GCSkewOverlay } from './GCSkewOverlay';
+import { ComplexityOverlay } from './ComplexityOverlay';
+import { BendabilityOverlay } from './BendabilityOverlay';
+import { PromoterOverlay } from './PromoterOverlay';
+import { RepeatsOverlay } from './RepeatsOverlay';
+import { KmerAnomalyOverlay } from './KmerAnomalyOverlay';
 
 interface OverlayManagerProps {
   repository: PhageRepository | null;
@@ -80,6 +87,13 @@ export function OverlayManager({ repository, currentPhage }: OverlayManagerProps
       <AMGPathwayOverlay repository={repository} currentPhage={currentPhage} />
       <CodonAdaptationOverlay repository={repository} currentPhage={currentPhage} />
       <DefenseArmsRaceOverlay repository={repository} currentPhage={currentPhage} />
+      {/* Missing overlays now added */}
+      <GCSkewOverlay repository={repository} currentPhage={currentPhage} />
+      <ComplexityOverlay repository={repository} currentPhage={currentPhage} />
+      <BendabilityOverlay repository={repository} currentPhage={currentPhage} />
+      <PromoterOverlay repository={repository} currentPhage={currentPhage} />
+      <RepeatsOverlay repository={repository} currentPhage={currentPhage} />
+      <KmerAnomalyOverlay repository={repository} currentPhage={currentPhage} />
       <SettingsOverlay />
       <FeatureTour />
       <CommandPalette />

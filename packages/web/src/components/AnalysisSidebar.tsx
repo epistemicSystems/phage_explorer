@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import { usePhageStore } from '@phage-explorer/state';
-import type { OverlayId } from '@phage-explorer/state';
+import { useOverlay, type OverlayId } from './overlays/OverlayProvider';
 import {
   IconChevronDown,
   IconChevronRight,
@@ -78,8 +78,8 @@ const ANALYSIS_CATEGORIES: AnalysisCategory[] = [
     tools: [
       { id: 'pressure', name: 'Packaging', shortcut: 'v', description: 'Capsid fill & pressure' },
       { id: 'stability', name: 'Stability', description: 'Capsid robustness' },
-      { id: 'non-b-dna', name: 'Non-B DNA', description: 'Z-DNA, G-quadruplexes' },
-      { id: 'structureConstraints', name: 'Structure Constraints', description: 'DNA structural constraints' },
+      { id: 'nonBDNA', name: 'Non-B DNA', description: 'Z-DNA, G-quadruplexes' },
+      { id: 'structureConstraint', name: 'Structure Constraints', description: 'DNA structural constraints' },
     ],
   },
   {
@@ -102,7 +102,7 @@ const ANALYSIS_CATEGORIES: AnalysisCategory[] = [
     tools: [
       { id: 'tropism', name: 'Tropism & Receptors', shortcut: '0', description: 'Host binding predictions' },
       { id: 'crispr', name: 'CRISPR Spacers', shortcut: 'C', description: 'Spacer matches' },
-      { id: 'mosaicRadar', name: 'Mosaic Radar', description: 'Genomic mosaicism' },
+      { id: 'defenseArmsRace', name: 'Defense Arms Race', description: 'Host-phage coevolution' },
     ],
   },
   {
@@ -130,7 +130,7 @@ export function AnalysisSidebar({
     new Set(['sequence', 'genes']) // Default expanded
   );
   const currentPhage = usePhageStore((s) => s.currentPhage);
-  const openOverlay = usePhageStore((s) => s.openOverlay);
+  const { open: openOverlay } = useOverlay();
 
   const hasPhage = currentPhage !== null;
 
