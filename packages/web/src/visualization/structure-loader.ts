@@ -320,6 +320,7 @@ export function buildBallAndStick(
   // ATOMS - use instanced mesh with per-instance element-based colors
   const atomGeo = new SphereGeometry(sphereRadius, sphereSegments, sphereSegments);
   const atomMat = new MeshPhongMaterial({
+    color: 0xffffff,             // CRITICAL: white base color for vertex color multiplication
     shininess: 80,               // Moderate shininess for natural look
     specular: new Color('#888888'),  // Neutral specular
     emissive: new Color('#000000'),  // No emissive - let element colors shine
@@ -434,6 +435,7 @@ export function buildSurfaceImpostor(
   // Outer surface - element-colored, semi-transparent
   const outerGeo = new SphereGeometry(0.7 * scale, segments, segments);
   const outerMat = new MeshPhongMaterial({
+    color: 0xffffff,     // CRITICAL: white base color for vertex color multiplication
     transparent: true,
     opacity: 0.55,
     shininess: 60,
@@ -459,6 +461,7 @@ export function buildSurfaceImpostor(
   // Inner core - smaller, brighter, element-colored for depth perception
   const innerGeo = new SphereGeometry(0.35 * scale, 8, 8);
   const innerMat = new MeshPhongMaterial({
+    color: 0xffffff,     // CRITICAL: white base color for vertex color multiplication
     shininess: 100,
     specular: new Color('#ffffff'),
     vertexColors: true,  // Enable per-instance element colors
@@ -561,6 +564,7 @@ export function buildFunctionalGroupHighlights(
       const haloRadius = 0.65;
       const geo = new SphereGeometry(haloRadius, 14, 14);
       const mat = new MeshPhongMaterial({
+        color: 0xffffff,     // CRITICAL: white base color for vertex color multiplication
         vertexColors: true,
         transparent: true,
         opacity: 0.35,
