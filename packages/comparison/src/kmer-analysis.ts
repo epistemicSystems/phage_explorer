@@ -13,25 +13,48 @@
  */
 
 import type { KmerAnalysis } from './types';
-import {
-  analyze_kmers as wasmAnalyzeKmers,
-  min_hash_jaccard as wasmMinHashJaccard,
-  type KmerAnalysisResult,
-} from '@phage/wasm-compute';
 
-// Check if WASM is available and working
-let wasmAvailable = false;
-try {
-  // Test WASM function with trivial case
-  const testResult = wasmAnalyzeKmers('ATCG', 'ATCG', 2);
-  wasmAvailable = testResult && typeof testResult.jaccard_index === 'number';
-  // Free the result if it has a free method
-  if (testResult && typeof testResult.free === 'function') {
-    testResult.free();
-  }
-} catch {
-  wasmAvailable = false;
+// WASM types and function references - loaded dynamically
+interface WasmKmerAnalysisResult {
+  k: number;
+  unique_kmers_a: number;
+  unique_kmers_b: number;
+  shared_kmers: number;
+  jaccard_index: number;
+  containment_a_in_b: number;
+  containment_b_in_a: number;
+  cosine_similarity: number;
+  bray_curtis_dissimilarity: number;
+  free(): void;
 }
+
+let wasmAnalyzeKmers: ((a: string, b: string, k: number) => WasmKmerAnalysisResult) | null = null;
+let wasmMinHashJaccard: ((a: string, b: string, k: number, numHashes: number) => number) | null = null;
+let wasmAvailable = false;
+
+// Attempt to load WASM module dynamically
+async function initWasm(): Promise<void> {
+  if (wasmAvailable) return;
+  try {
+    const wasm = await import('@phage/wasm-compute');
+    wasmAnalyzeKmers = wasm.analyze_kmers;
+    wasmMinHashJaccard = wasm.min_hash_jaccard;
+    // Test WASM function with trivial case
+    const testResult = wasmAnalyzeKmers!('ATCG', 'ATCG', 2);
+    wasmAvailable = testResult && typeof testResult.jaccard_index === 'number';
+    // Free the test result
+    if (testResult && typeof testResult.free === 'function') {
+      testResult.free();
+    }
+  } catch {
+    wasmAvailable = false;
+    wasmAnalyzeKmers = null;
+    wasmMinHashJaccard = null;
+  }
+}
+
+// Initialize WASM on module load (non-blocking)
+initWasm().catch(() => { /* WASM unavailable, using JS fallback */ });
 
 /**
  * Extract all k-mers from a sequence as a Set (for presence/absence).
@@ -217,8 +240,8 @@ export function analyzeKmers(
   }
 
   // Use WASM implementation when available (3-10x faster)
-  if (wasmAvailable) {
-    let result: KmerAnalysisResult | null = null;
+  if (wasmAvailable && wasmAnalyzeKmers) {
+    let result: WasmKmerAnalysisResult | null = null;
     try {
       result = wasmAnalyzeKmers(sequenceA, sequenceB, k);
       const analysis: KmerAnalysis = {
@@ -338,7 +361,7 @@ export function minHashJaccard(
   numHashes: number = 128
 ): number {
   // Use WASM implementation when available (3-5x faster)
-  if (wasmAvailable) {
+  if (wasmAvailable && wasmMinHashJaccard) {
     try {
       return wasmMinHashJaccard(sequenceA, sequenceB, k, numHashes);
     } catch {

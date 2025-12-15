@@ -13,16 +13,27 @@
  */
 
 import type { EditDistanceMetrics } from './types';
-import { levenshtein_distance as wasmLevenshtein } from '@phage/wasm-compute';
 
-// Check if WASM is available and working
+// WASM function reference - loaded dynamically
+let wasmLevenshtein: ((a: string, b: string) => number) | null = null;
 let wasmAvailable = false;
-try {
-  // Test the WASM function with a trivial case
-  wasmAvailable = typeof wasmLevenshtein === 'function' && wasmLevenshtein('a', 'b') === 1;
-} catch {
-  wasmAvailable = false;
+
+// Attempt to load WASM module dynamically
+async function initWasm(): Promise<void> {
+  if (wasmAvailable) return;
+  try {
+    const wasm = await import('@phage/wasm-compute');
+    wasmLevenshtein = wasm.levenshtein_distance;
+    // Test the WASM function with a trivial case
+    wasmAvailable = typeof wasmLevenshtein === 'function' && wasmLevenshtein('a', 'b') === 1;
+  } catch {
+    wasmAvailable = false;
+    wasmLevenshtein = null;
+  }
 }
+
+// Initialize WASM on module load (non-blocking)
+initWasm().catch(() => { /* WASM unavailable, using JS fallback */ });
 
 /**
  * Compute Levenshtein distance using dynamic programming.
@@ -37,7 +48,7 @@ export function levenshteinDistance(
   maxLength: number = 10000
 ): { distance: number; isApproximate: boolean } {
   // Use WASM for exact computation when available
-  if (wasmAvailable && a.length <= maxLength && b.length <= maxLength) {
+  if (wasmAvailable && wasmLevenshtein && a.length <= maxLength && b.length <= maxLength) {
     return { distance: wasmLevenshtein(a, b), isApproximate: false };
   }
 
