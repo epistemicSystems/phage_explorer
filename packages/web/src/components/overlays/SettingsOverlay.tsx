@@ -39,7 +39,7 @@ export function SettingsOverlay(): React.ReactElement | null {
       id="settings"
       title="Settings"
       icon={<IconSettings size={18} />}
-      size="md"
+      size="lg"
       onClose={() => close('settings')}
     >
       <div className="settings-overlay">
