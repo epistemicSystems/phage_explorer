@@ -1019,7 +1019,7 @@ export class GPUCompute {
 
     let seqABuffer: GPUBuffer | null = null;
     let seqBBuffer: GPUBuffer | null = null;
-    let dpBuffers: GPUBuffer[] = [];
+    const dpBuffers: GPUBuffer[] = [];
     let uniformBuffer: GPUBuffer | null = null;
 
     try {

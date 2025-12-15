@@ -26,7 +26,6 @@ import type {
   ProgressInfo,
   WorkerPoolConfig,
   SharedSequenceRef,
-  SharedAnalysisRequest,
   AnalysisType,
   AnalysisOptions,
 } from './types';
@@ -373,8 +372,8 @@ export class ComputeOrchestrator {
     type: AnalysisType,
     options?: AnalysisOptions
   ): Promise<AnalysisResult> {
-    // Ensure sequence is in the pool
-    const ref = this.preloadSequence(phageId, sequence);
+    // Ensure sequence is in the pool (ref unused for now but preload required)
+    this.preloadSequence(phageId, sequence);
 
     // For now, workers still receive the sequence as a string because
     // Comlink doesn't automatically handle SharedArrayBuffer decode.
