@@ -135,7 +135,7 @@ html {
   .btn:hover:not(:active),
   .list-item:hover:not(:active) {
     transform: none;
-    background: inherit;
+    /* Don't change background on hover for touch - leave as-is */
   }
 }
 
@@ -382,13 +382,19 @@ html {
   height: 60px;
 }
 
+@keyframes ptr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .pull-to-refresh__spinner {
   width: 24px;
   height: 24px;
   border: 2px solid var(--color-border);
   border-top-color: var(--color-primary);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: ptr-spin 0.8s linear infinite;
 }
 
 .pull-to-refresh__arrow {

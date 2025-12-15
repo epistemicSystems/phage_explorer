@@ -57,7 +57,6 @@ export function BottomSheet({
   const [isDragging, setIsDragging] = useState(false);
   const [dragY, setDragY] = useState(0);
   const startY = useRef(0);
-  const startScrollTop = useRef(0);
 
   // Haptic feedback on open
   useEffect(() => {
@@ -117,7 +116,6 @@ export function BottomSheet({
 
       setIsDragging(true);
       startY.current = e.touches[0].clientY;
-      startScrollTop.current = content?.scrollTop ?? 0;
       haptics.selection();
     },
     [swipeToDismiss]
@@ -157,6 +155,22 @@ export function BottomSheet({
     }
   }, [isDragging, dragY, onClose]);
 
+  // Handle touch cancel (e.g., incoming call, notification)
+  const handleTouchCancel = useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false);
+      setDragY(0);
+    }
+  }, [isDragging]);
+
+  // Reset drag state when sheet closes
+  useEffect(() => {
+    if (!isOpen) {
+      setDragY(0);
+      setIsDragging(false);
+    }
+  }, [isOpen]);
+
   // Close button handler
   const handleClose = useCallback(() => {
     haptics.light();
@@ -194,6 +208,7 @@ export function BottomSheet({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
       >
         {/* Drag handle */}
         {showHandle && (
