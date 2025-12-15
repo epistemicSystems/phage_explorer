@@ -11,6 +11,43 @@
   min-height: 300px;
 }
 
+/* Step Progress Indicator */
+.welcome-step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border-light);
+  margin-bottom: var(--space-2);
+}
+
+.welcome-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.welcome-step-dot--current {
+  width: 10px;
+  height: 10px;
+  background: var(--color-primary);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb, 0, 255, 136), 0.5);
+}
+
+.welcome-step-dot--completed {
+  background: var(--color-accent);
+}
+
+.welcome-step-label {
+  margin-left: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Intro step */
 .welcome-intro {
   text-align: center;

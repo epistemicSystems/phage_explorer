@@ -18,6 +18,47 @@ import { IconKeyboard, IconFlask, IconLearn, IconSearch, IconZap } from '../ui';
 
 import './WelcomeModal.css';
 
+type WelcomeStep = 'intro' | 'level' | 'primer';
+
+const STEPS: WelcomeStep[] = ['intro', 'level', 'primer'];
+const STEP_LABELS: Record<WelcomeStep, string> = {
+  intro: 'Introduction',
+  level: 'Experience Level',
+  primer: 'Quick Start',
+};
+
+interface StepIndicatorProps {
+  currentStep: WelcomeStep;
+}
+
+function StepIndicator({ currentStep }: StepIndicatorProps): React.ReactElement {
+  const currentIndex = STEPS.indexOf(currentStep);
+  const totalSteps = STEPS.length;
+
+  return (
+    <div
+      className="welcome-step-indicator"
+      role="navigation"
+      aria-label={`Step ${currentIndex + 1} of ${totalSteps}: ${STEP_LABELS[currentStep]}`}
+    >
+      {STEPS.map((step, index) => {
+        const isCurrent = index === currentIndex;
+        const isCompleted = index < currentIndex;
+        return (
+          <div
+            key={step}
+            className={`welcome-step-dot ${isCurrent ? 'welcome-step-dot--current' : ''} ${isCompleted ? 'welcome-step-dot--completed' : ''}`}
+            aria-hidden="true"
+          />
+        );
+      })}
+      <span className="welcome-step-label">
+        {currentIndex + 1} / {totalSteps}
+      </span>
+    </div>
+  );
+}
+
 interface LevelCardProps {
   title: string;
   desc: string;
@@ -58,7 +99,7 @@ export function WelcomeModal(): React.ReactElement | null {
   const startTour = usePhageStore(s => s.startTour);
   const experienceLevel = usePhageStore(s => s.experienceLevel) as ExperienceLevel;
 
-  const [step, setStep] = useState<'intro' | 'level' | 'primer'>('intro');
+  const [step, setStep] = useState<WelcomeStep>('intro');
 
   const handleNext = useCallback(() => {
     if (step === 'intro') setStep('level');
@@ -103,6 +144,9 @@ export function WelcomeModal(): React.ReactElement | null {
       onClose={handleFinish}
     >
       <div className="welcome-modal">
+        {/* Step Progress Indicator */}
+        <StepIndicator currentStep={step} />
+
         {/* Step 1: Intro */}
         {step === 'intro' && (
           <div className="animate-fade-in welcome-intro">
