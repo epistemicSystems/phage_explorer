@@ -163,6 +163,28 @@ function suggestInitialRenderMode(options: {
   return 'ball';
 }
 
+/**
+ * Format a number with K/M suffix for readability
+ */
+function formatAtomEstimate(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return n.toLocaleString();
+}
+
+/**
+ * Generate tooltip content explaining asymmetric unit vs full virion.
+ * Shows estimated full virion atom counts based on common icosahedral symmetries.
+ */
+function getAsymmetricUnitTooltip(atomCount: number): string {
+  // Common icosahedral symmetries for bacteriophages:
+  // T=1: 60 copies, T=3: 180 copies (MS2, Qβ), T=7: 420 copies (T7, P22)
+  const t3Estimate = atomCount * 180;  // Most common for small phages
+  const t7Estimate = atomCount * 420;  // Common for larger phages
+
+  return `This shows the asymmetric unit from PDB (${atomCount.toLocaleString()} atoms) — the unique protein chains deposited in the structure.\n\nFull icosahedral virion estimates:\n• T=3 capsid (MS2-like): ~${formatAtomEstimate(t3Estimate)} atoms\n• T=7 capsid (T7-like): ~${formatAtomEstimate(t7Estimate)} atoms\n\nActual count depends on capsid symmetry and whether RNA/DNA is included.`;
+}
+
 function Model3DViewBase({ phage }: Model3DViewProps): React.ReactElement {
   const coarsePointer = useMemo(() => isCoarsePointerDevice(), []);
   const webglSupport = useMemo(() => detectWebGLSupport(), []);
@@ -916,7 +938,11 @@ function Model3DViewBase({ phage }: Model3DViewProps): React.ReactElement {
           <Badge>{hasNoStructure ? 'No Data' : stateLabel}</Badge>
           {atomCount !== null && (
             <Tooltip
-              content="PDB structures show the asymmetric unit (unique protein chains). Full virion capsids require 60-180 copies via icosahedral symmetry, containing ~100-500× more atoms."
+              content={
+                <div style={{ whiteSpace: 'pre-line', maxWidth: '280px', textAlign: 'left' }}>
+                  {getAsymmetricUnitTooltip(atomCount)}
+                </div>
+              }
               position="bottom"
               hintType="definition"
             >
@@ -1107,7 +1133,7 @@ function Model3DViewBase({ phage }: Model3DViewProps): React.ReactElement {
 
       <div className="panel-footer text-dim">
         {pdbId
-          ? `Source: ${pdbId}${atomCount ? ` · ${atomCount.toLocaleString()} atoms (model)` : ''}`
+          ? `Source: ${pdbId}${atomCount ? ` · ${atomCount.toLocaleString()} atoms (asymmetric unit) · Full virion: ~${formatAtomEstimate(atomCount * 180)}` : ''}`
           : 'No PDB/mmCIF structure available for this phage'}
       </div>
     </div>
