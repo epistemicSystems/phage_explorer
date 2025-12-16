@@ -21,6 +21,7 @@ import {
   IconDna,
   IconDiff,
   IconFlask,
+  IconImage,
   IconKeyboard,
   IconLearn,
   IconLayers,
@@ -116,6 +117,7 @@ const OVERLAY_HEADER_ICONS: Partial<Record<OverlayId, React.ReactNode>> = {
   amgPathway: <IconFlask size={OVERLAY_ICON_SIZE} />,
   codonAdaptation: <IconTrendingUp size={OVERLAY_ICON_SIZE} />,
   defenseArmsRace: <IconShield size={OVERLAY_ICON_SIZE} />,
+  illustration: <IconImage size={OVERLAY_ICON_SIZE} />,
 };
 
 export function Overlay({

@@ -39,6 +39,7 @@ import { BeginnerModeIndicator } from './components/BeginnerModeIndicator';
 import { ReadingFrameVisualizer } from './components/ReadingFrameVisualizer';
 import { GlossaryPanel } from './education/glossary/GlossaryPanel';
 import { LearnMenu } from './components/LearnMenu';
+import { PhageIllustration, hasIllustration } from './components/PhageIllustration';
 
 // Mobile controls
 import { ControlDeck } from './components/mobile/ControlDeck';
@@ -878,10 +879,24 @@ export default function App(): JSX.Element {
               </div>
               {currentPhage ? (
                 <div className="detail-card">
-                  <h4>{currentPhage.name}</h4>
-                  <p className="text-dim">
-                    {currentPhage.family ?? 'Unassigned family'} · {currentPhage.lifecycle ?? 'Lifecycle n/a'}
-                  </p>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                    {/* Illustration thumbnail */}
+                    {hasIllustration(currentPhage.slug ?? '') && (
+                      <div style={{ flexShrink: 0, width: isNarrow ? '100px' : '140px' }}>
+                        <PhageIllustration
+                          slug={currentPhage.slug ?? ''}
+                          name={currentPhage.name}
+                          compact
+                        />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h4 style={{ marginTop: 0 }}>{currentPhage.name}</h4>
+                      <p className="text-dim" style={{ marginBottom: '0.5rem' }}>
+                        {currentPhage.family ?? 'Unassigned family'} · {currentPhage.lifecycle ?? 'Lifecycle n/a'}
+                      </p>
+                    </div>
+                  </div>
                   <div className="metrics">
                     <div>
                       <div className="metric-label">Genome length</div>

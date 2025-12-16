@@ -48,6 +48,7 @@ import { BendabilityOverlay } from './BendabilityOverlay';
 import { PromoterOverlay } from './PromoterOverlay';
 import { RepeatsOverlay } from './RepeatsOverlay';
 import { KmerAnomalyOverlay } from './KmerAnomalyOverlay';
+import { IllustrationOverlay } from './IllustrationOverlay';
 
 interface OverlayManagerProps {
   repository: PhageRepository | null;
@@ -97,6 +98,7 @@ export function OverlayManager({ repository, currentPhage }: OverlayManagerProps
       <SettingsOverlay />
       <FeatureTour />
       <CommandPalette />
+      <IllustrationOverlay />
     </>
   );
 }

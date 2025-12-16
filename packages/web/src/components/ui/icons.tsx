@@ -483,3 +483,22 @@ export function IconGrid(props: IconProps): React.ReactElement {
     </IconBase>
   );
 }
+
+export function IconRotateCcw(props: IconProps): React.ReactElement {
+  return (
+    <IconBase {...props}>
+      <polyline points="1 4 1 10 7 10" />
+      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+    </IconBase>
+  );
+}
+
+export function IconImage(props: IconProps): React.ReactElement {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </IconBase>
+  );
+}

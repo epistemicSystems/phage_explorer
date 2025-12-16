@@ -87,7 +87,8 @@ export type OverlayId =
   | 'proteinDomains'
   | 'amgPathway'
   | 'codonAdaptation'
-  | 'defenseArmsRace';
+  | 'defenseArmsRace'
+  | 'illustration';
 
 export interface OverlayConfig {
   id: OverlayId;
