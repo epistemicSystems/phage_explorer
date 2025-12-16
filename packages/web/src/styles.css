@@ -849,6 +849,34 @@
   transform: none;
 }
 
+/* Context-aware InfoButton variant */
+.context-info-button--absolute {
+  position: absolute;
+  top: var(--space-2, 0.5rem);
+  right: var(--space-2, 0.5rem);
+  z-index: 10;
+}
+
+.context-info-button--active {
+  background: rgba(var(--color-accent-rgb, 0, 200, 255), 0.2);
+  border-color: var(--color-accent, #0af);
+  color: var(--color-accent, #0af);
+  box-shadow: 0 0 12px rgba(var(--color-accent-rgb, 0, 200, 255), 0.4);
+}
+
+.context-info-button__preview {
+  display: block;
+  max-width: 200px;
+  font-size: var(--text-xs, 0.8rem);
+  line-height: 1.4;
+}
+
+.context-info-button__preview strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: var(--font-semibold, 600);
+}
+
 /* =============================================================================
    CODON WHEEL VISUALIZER
    ============================================================================= */

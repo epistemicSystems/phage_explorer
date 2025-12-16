@@ -12,3 +12,5 @@ export {
 } from './useBeginnerMode';
 
 export { useGlossary, type UseGlossaryResult } from './useGlossary';
+
+export { useContextHelp, type ContextHelpState, type ContextHelpContent } from './useContextHelp';

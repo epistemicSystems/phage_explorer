@@ -21,9 +21,13 @@ export * from './components/TranslationVisualizer';
 export * from './components/InfectionCycleVisualizer';
 export * from './components/DNAHelixVisualizer';
 export * from './components/TourEngine';
+export * from './components/ContextInfoButton';
 
 // Module exports
 export * from './modules';
 
 // Context mapping
 export * from './contextMapping';
+
+// Context-aware help system
+export * from './context';
