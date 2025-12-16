@@ -36,7 +36,7 @@ export function ControlDeck({ onPrevPhage, onNextPhage }: ControlDeckProps): JSX
   const phages = usePhageStore(s => s.phages);
   const { open } = useOverlay();
 
-  const viewModeLabel = viewMode === 'dna' ? 'DNA' : viewMode === 'aa' ? 'AA' : 'Both';
+  const viewModeLabel = viewMode === 'dna' ? 'DNA' : viewMode === 'aa' ? 'Amino Acids' : 'Dual';
   const canNavigate = phages.length > 0 && onPrevPhage && onNextPhage;
 
   // Wrap actions with haptic feedback

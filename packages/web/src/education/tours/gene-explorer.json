@@ -28,7 +28,7 @@
     {
       "id": "start-stop",
       "title": "Start and stop codons",
-      "content": "Start codons (usually ATG) mark translation start; stop codons (TAA/TAG/TGA) terminate translation. In AA view, stops appear as *.",
+      "content": "Start codons (usually ATG) mark translation start; stop codons (TAA/TAG/TGA) terminate translation. In Amino Acids view, stops appear as *.",
       "target": ".view-mode-toggle",
       "position": "bottom"
     },

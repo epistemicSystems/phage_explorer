@@ -24,7 +24,7 @@ type ViewModeOption = {
 
 const VIEW_MODE_OPTIONS: ViewModeOption[] = [
   { id: 'dna', label: 'DNA', icon: <IconDna size={18} />, description: 'Nucleotide view' },
-  { id: 'dual', label: 'Dual', icon: <IconLayers size={18} />, description: 'Stacked DNA + AA' },
+  { id: 'dual', label: 'Dual', icon: <IconLayers size={18} />, description: 'DNA + Amino Acids stacked' },
   { id: 'aa', label: 'Amino Acids', icon: <IconFlask size={18} />, description: 'Protein view' },
 ];
 

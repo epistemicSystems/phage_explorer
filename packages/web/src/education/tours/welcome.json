@@ -49,7 +49,7 @@
     {
       "id": "view-modes",
       "title": "DNA vs amino acids",
-      "content": "Toggle between DNA, Amino Acids, or Dual view. In AA mode, press f to cycle reading frames.",
+      "content": "Toggle between DNA, Amino Acids, or Dual view. In Amino Acids mode, press f to cycle reading frames.",
       "target": ".view-mode-toggle",
       "position": "bottom"
     },

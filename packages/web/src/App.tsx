@@ -687,7 +687,7 @@ export default function App(): JSX.Element {
     { key: ':', label: 'command', description: 'Open command palette' },
     { key: 't', label: 'theme', description: 'Cycle theme' },
     { key: '?', label: 'help', description: 'Show keyboard shortcuts' },
-    { key: 'v/f', label: 'view/frame', description: 'Toggle DNA/AA view and reading frame' },
+    { key: 'v/f', label: 'view/frame', description: 'Toggle DNA/Amino Acids view and reading frame' },
     { key: 'Home/End', label: 'jump', description: 'Jump to start/end of sequence' },
     { key: 'Esc', label: 'close', description: 'Close overlays or glossary' },
     { key: 'Ctrl+,', label: 'settings', description: 'Open settings' },

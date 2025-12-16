@@ -103,8 +103,8 @@ export function ActionDrawer({ isOpen, onClose }: ActionDrawerProps): JSX.Elemen
     setZoomLevel(Math.max(zoomLevel - 0.5, 0.5));
   }, [setZoomLevel, zoomLevel]);
 
-  // View mode label
-  const viewModeLabel = viewMode === 'dna' ? 'DNA' : viewMode === 'aa' ? 'AA' : 'Both';
+  // View mode label - use full "Amino Acids" for clarity
+  const viewModeLabel = viewMode === 'dna' ? 'DNA' : viewMode === 'aa' ? 'Amino Acids' : 'Dual';
 
   // Action categories
   const categories: ActionCategory[] = [
