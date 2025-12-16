@@ -8,6 +8,50 @@ interface GlossaryPanelProps {
   onSelect?: (termId: string) => void;
 }
 
+/**
+ * Search icon SVG
+ */
+function SearchIcon(): React.ReactElement {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
+/**
+ * Clear/X icon SVG
+ */
+function ClearIcon(): React.ReactElement {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
 export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElement {
   const { terms, categories, searchTerms, filterByCategory, linkText, getTerm } = useGlossary();
   const contextTopic = useContextTopic();
@@ -114,14 +158,27 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
       <div className="glossary-panel__sidebar">
         <div className="glossary-panel__controls">
           <div className="glossary-panel__search-row">
+            <span className="glossary-panel__search-icon">
+              <SearchIcon />
+            </span>
             <input
               data-glossary-search
               aria-label="Search glossary"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search terms"
+              placeholder="Search terms..."
               className="input glossary-panel__search"
             />
+            {query && (
+              <button
+                type="button"
+                className="glossary-panel__search-clear"
+                onClick={() => setQuery('')}
+                aria-label="Clear search"
+              >
+                <ClearIcon />
+              </button>
+            )}
           </div>
           <div role="tablist" aria-label="Glossary categories" className="glossary-panel__chips">
             <button
@@ -169,6 +226,12 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
           )}
         </div>
 
+        <div className="glossary-panel__list-header">
+          <span className="glossary-panel__count">
+            {filtered.length} {filtered.length === 1 ? 'term' : 'terms'}
+            {query && ` matching "${query}"`}
+          </span>
+        </div>
         <div className="glossary-panel__list">
           <div
             ref={listRef}
@@ -176,6 +239,7 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
             tabIndex={0}
             onKeyDown={handleKeyDown}
             role="listbox"
+            aria-label={`${filtered.length} glossary terms`}
             className="glossary-panel__listbox"
           >
             {filtered.map((term) => {
@@ -197,7 +261,12 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
                 </button>
               );
             })}
-            {filtered.length === 0 && <div className="glossary-panel__empty">No terms found</div>}
+            {filtered.length === 0 && (
+              <div className="glossary-panel__empty">
+                <span className="glossary-panel__empty-icon" aria-hidden="true">∅</span>
+                <span>No terms match your search</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -75,12 +75,13 @@ export function SwipeIndicators({
   }
 
   // Build class names for left indicator
+  // Only add styling modifiers (subtle/pulse) when not hidden
   const leftClasses = [
     'swipe-indicator',
     'swipe-indicator--left',
     isFirst && 'swipe-indicator--hidden',
-    isSubtle && 'swipe-indicator--subtle',
-    showPulse && !isFirst && 'swipe-indicator--pulse',
+    !isFirst && isSubtle && 'swipe-indicator--subtle',
+    !isFirst && showPulse && 'swipe-indicator--pulse',
   ]
     .filter(Boolean)
     .join(' ');
@@ -90,8 +91,8 @@ export function SwipeIndicators({
     'swipe-indicator',
     'swipe-indicator--right',
     isLast && 'swipe-indicator--hidden',
-    isSubtle && 'swipe-indicator--subtle',
-    showPulse && !isLast && 'swipe-indicator--pulse',
+    !isLast && isSubtle && 'swipe-indicator--subtle',
+    !isLast && showPulse && 'swipe-indicator--pulse',
   ]
     .filter(Boolean)
     .join(' ');
