@@ -1,4 +1,39 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import type { ExperienceLevel } from '@phage-explorer/state';
+import { useExperienceLevel } from '@phage-explorer/state';
+
+/**
+ * Hint types for experience-level-aware tooltips.
+ * Different hint types appear at different experience levels.
+ */
+export type HintType =
+  | 'definition'    // Glossary term definitions - always available
+  | 'shortcut'      // Keyboard shortcut hints - novice/intermediate only
+  | 'feature'       // Feature discovery hints - novice only
+  | 'advanced'      // Advanced feature hints - never auto-show, on-demand only
+  | 'always';       // Always show regardless of level
+
+/**
+ * Configuration for which hints show at which experience levels.
+ * Empty array means never auto-show (but still available on demand).
+ */
+const HINT_VISIBILITY: Record<HintType, ExperienceLevel[]> = {
+  definition: ['novice', 'intermediate', 'power'],  // Always available
+  shortcut: ['novice', 'intermediate'],              // Power users know shortcuts
+  feature: ['novice'],                               // Only for beginners discovering features
+  advanced: [],                                      // Never auto-show, on-demand only
+  always: ['novice', 'intermediate', 'power'],       // Always visible
+};
+
+/**
+ * Determine if a hint should be shown based on experience level.
+ * @param level Current experience level
+ * @param hintType Type of hint being displayed
+ * @returns true if the hint should auto-show, false otherwise
+ */
+export function shouldShowHint(level: ExperienceLevel, hintType: HintType): boolean {
+  return HINT_VISIBILITY[hintType].includes(level);
+}
 
 export interface TooltipProps {
   content: React.ReactNode;
@@ -7,6 +42,16 @@ export interface TooltipProps {
   delay?: number;
   className?: string;
   isVisible?: boolean; // Control visibility externally if needed
+  /**
+   * Hint type for experience-level gating. If provided, tooltip only
+   * auto-shows when the user's experience level qualifies.
+   * Defaults to 'always' (no gating).
+   */
+  hintType?: HintType;
+  /**
+   * Force show regardless of experience level. Useful for on-demand tooltips.
+   */
+  forceShow?: boolean;
 }
 
 export const Tooltip: React.FC<TooltipProps> = ({
@@ -16,9 +61,18 @@ export const Tooltip: React.FC<TooltipProps> = ({
   delay = 300,
   className = '',
   isVisible: externalVisible,
+  hintType = 'always',
+  forceShow = false,
 }) => {
   const [internalVisible, setVisible] = useState(false);
   const timeoutRef = useRef<number | null>(null);
+  const experienceLevel = useExperienceLevel() as ExperienceLevel;
+
+  // Check if this hint should show based on experience level
+  const shouldShow = useMemo(() => {
+    if (forceShow) return true;
+    return shouldShowHint(experienceLevel, hintType);
+  }, [experienceLevel, hintType, forceShow]);
 
   // Cleanup timeout on unmount to prevent state updates on unmounted component
   useEffect(() => {
@@ -30,6 +84,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
   }, []);
 
   const show = () => {
+    if (!shouldShow) return; // Don't show if experience level doesn't qualify
     if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
     timeoutRef.current = window.setTimeout(() => setVisible(true), delay);
   };
@@ -39,7 +94,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
     setVisible(false);
   };
 
-  const visible = externalVisible ?? internalVisible;
+  const visible = (externalVisible ?? internalVisible) && shouldShow;
 
   return (
     <div

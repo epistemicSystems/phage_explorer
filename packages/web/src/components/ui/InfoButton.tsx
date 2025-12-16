@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tooltip } from './Tooltip';
+import { Tooltip, type HintType } from './Tooltip';
 
 export type InfoButtonSize = 'sm' | 'md';
 
@@ -10,6 +10,11 @@ export interface InfoButtonProps {
   size?: InfoButtonSize;
   disabled?: boolean;
   className?: string;
+  /**
+   * Hint type for experience-level gating.
+   * Defaults to 'definition' (always available).
+   */
+  hintType?: HintType;
 }
 
 export function InfoButton({
@@ -19,6 +24,7 @@ export function InfoButton({
   size = 'md',
   disabled,
   className = '',
+  hintType = 'definition',
 }: InfoButtonProps): React.ReactElement {
   const button = (
     <button
@@ -34,7 +40,7 @@ export function InfoButton({
 
   if (tooltip) {
     return (
-      <Tooltip content={tooltip} position="top" className="info-button__tooltip">
+      <Tooltip content={tooltip} position="top" className="info-button__tooltip" hintType={hintType}>
         {button}
       </Tooltip>
     );
