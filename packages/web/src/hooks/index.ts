@@ -24,3 +24,24 @@ export {
   getNextExperienceLevel,
   type BlockedHotkeyInfo,
 } from './useExperienceLevelSync';
+export {
+  useSwipe,
+  useDragGesture,
+  usePinchGesture,
+  useLongPress,
+  useGestures,
+  type SwipeDirection,
+  type SwipeState,
+  type DragState,
+  type PinchState,
+  type UseSwipeOptions,
+  type UseDragOptions,
+  type UsePinchOptions,
+  type UseLongPressOptions,
+  type UseGesturesOptions,
+} from './useGestures';
+export {
+  useSwipeNavigation,
+  type UseSwipeNavigationOptions,
+  type UseSwipeNavigationResult,
+} from './useSwipeNavigation';
