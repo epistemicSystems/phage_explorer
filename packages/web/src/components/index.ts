@@ -9,3 +9,4 @@ export * from './GeneMapCanvas';
 export * from './PostProcessingCanvas';
 export * from './MatrixRain';
 export * from './ui';
+export * from './DotPlotView';
