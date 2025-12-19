@@ -163,6 +163,7 @@ const [colorMode, setColorMode] = useState<ColorMode>('nucleotide');
     if (!isOpen('hilbert')) return;
     if (!repository || !currentPhage) {
       setSequence('');
+      setLoading(false);
       return;
     }
 
@@ -171,10 +172,11 @@ const [colorMode, setColorMode] = useState<ColorMode>('nucleotide');
     const cached = sequenceCache.current.get(phageId);
     if (cached) {
       setSequence(cached);
+      setLoading(false);
       return;
     }
 
-      setLoading(true);
+    setLoading(true);
     setError(null);
     void (async () => {
       try {

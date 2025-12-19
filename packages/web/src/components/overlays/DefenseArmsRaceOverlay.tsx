@@ -98,6 +98,7 @@ export function DefenseArmsRaceOverlay({
     if (!isOpen('defenseArmsRace')) return;
     if (!repository?.getDefenseSystems || !currentPhage) {
       setDefenseSystems([]);
+      setLoading(false);
       return;
     }
 

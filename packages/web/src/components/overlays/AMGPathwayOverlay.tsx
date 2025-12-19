@@ -80,6 +80,7 @@ export function AMGPathwayOverlay({
     if (!isOpen('amgPathway')) return;
     if (!repository?.getAmgAnnotations || !currentPhage) {
       setAmgs([]);
+      setLoading(false);
       return;
     }
 

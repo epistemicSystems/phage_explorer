@@ -69,6 +69,7 @@ export function CodonAdaptationOverlay({
     if (!repository?.getCodonAdaptation || !repository?.getHostTrnaPools || !currentPhage) {
       setAdaptations([]);
       setHostPools([]);
+      setLoading(false);
       return;
     }
 
