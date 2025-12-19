@@ -315,6 +315,7 @@ export function NonBDNAOverlay({
     if (!isOpen('nonBDNA')) return;
     if (!repository || !currentPhage) {
       setSequence('');
+      setLoading(false);
       return;
     }
 
@@ -323,6 +324,7 @@ export function NonBDNAOverlay({
     // Check cache first
     if (sequenceCache.current.has(phageId)) {
       setSequence(sequenceCache.current.get(phageId) ?? '');
+      setLoading(false);
       return;
     }
 

@@ -288,6 +288,7 @@ export function HGTOverlay({
     if (!isOpen('hgt')) return;
     if (!repository || !currentPhage) {
       setSequence('');
+      setLoading(false);
       return;
     }
 
@@ -296,6 +297,7 @@ export function HGTOverlay({
     // Check cache first
     if (sequenceCache.current.has(phageId)) {
       setSequence(sequenceCache.current.get(phageId) ?? '');
+      setLoading(false);
       return;
     }
 

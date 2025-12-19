@@ -109,6 +109,7 @@ export function BiasDecompositionOverlay({
     if (!isOpen('biasDecomposition')) return;
     if (!repository || !currentPhage) {
       setSequence('');
+      setLoading(false);
       return;
     }
 
@@ -117,6 +118,7 @@ export function BiasDecompositionOverlay({
     // Check cache first
     if (sequenceCache.current.has(phageId)) {
       setSequence(sequenceCache.current.get(phageId) ?? '');
+      setLoading(false);
       return;
     }
 

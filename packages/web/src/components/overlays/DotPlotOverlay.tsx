@@ -115,6 +115,7 @@ export function DotPlotOverlay({
     if (!isOpen('dotPlot')) return;
     if (!repository || !currentPhage) {
       setSequence('');
+      setLoading(false);
       return;
     }
 
@@ -123,6 +124,7 @@ export function DotPlotOverlay({
     // Check cache
     if (sequenceCache.current.has(phageId)) {
       setSequence(sequenceCache.current.get(phageId) ?? '');
+      setLoading(false);
       return;
     }
 

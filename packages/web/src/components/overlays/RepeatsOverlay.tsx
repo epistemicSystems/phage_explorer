@@ -111,6 +111,7 @@ export function RepeatsOverlay({
     if (!isOpen('repeats')) return;
     if (!repository || !currentPhage) {
       setSequence('');
+      setLoading(false);
       return;
     }
 
@@ -119,6 +120,7 @@ export function RepeatsOverlay({
     // Check cache
     if (sequenceCache.current.has(phageId)) {
       setSequence(sequenceCache.current.get(phageId) ?? '');
+      setLoading(false);
       return;
     }
 

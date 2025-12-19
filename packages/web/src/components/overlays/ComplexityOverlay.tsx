@@ -103,6 +103,7 @@ export function ComplexityOverlay({
     if (!isOpen('complexity')) return;
     if (!repository || !currentPhage) {
       setSequence('');
+      setLoading(false);
       return;
     }
 
@@ -111,6 +112,7 @@ export function ComplexityOverlay({
     // Check cache
     if (sequenceCache.current.has(phageId)) {
       setSequence(sequenceCache.current.get(phageId) ?? '');
+      setLoading(false);
       return;
     }
 

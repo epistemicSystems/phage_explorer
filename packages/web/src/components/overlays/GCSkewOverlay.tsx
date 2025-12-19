@@ -95,6 +95,7 @@ export function GCSkewOverlay({
     if (!isOpen('gcSkew')) return;
     if (!repository || !currentPhage) {
       setSequence('');
+      setLoading(false);
       return;
     }
 
@@ -103,6 +104,7 @@ export function GCSkewOverlay({
     // Check cache
     if (sequenceCache.current.has(phageId)) {
       setSequence(sequenceCache.current.get(phageId) ?? '');
+      setLoading(false);
       return;
     }
 

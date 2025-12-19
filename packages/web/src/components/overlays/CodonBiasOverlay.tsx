@@ -168,6 +168,7 @@ export function CodonBiasOverlay({
     if (!isOpen('codonBias')) return;
     if (!repository || !currentPhage) {
       setSequence('');
+      setLoading(false);
       return;
     }
 
@@ -176,6 +177,7 @@ export function CodonBiasOverlay({
     // Check cache
     if (sequenceCache.current.has(phageId)) {
       setSequence(sequenceCache.current.get(phageId) ?? '');
+      setLoading(false);
       return;
     }
 
