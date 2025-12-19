@@ -74,6 +74,7 @@ const FoldQuickviewOverlay = lazy(() => import('./FoldQuickviewOverlay').then(m 
 const TropismOverlay = lazy(() => import('./TropismOverlay').then(m => ({ default: m.TropismOverlay })));
 const DefenseArmsRaceOverlay = lazy(() => import('./DefenseArmsRaceOverlay').then(m => ({ default: m.DefenseArmsRaceOverlay })));
 const AMGPathwayOverlay = lazy(() => import('./AMGPathwayOverlay').then(m => ({ default: m.AMGPathwayOverlay })));
+const CocktailCompatibilityOverlay = lazy(() => import('./CocktailCompatibilityOverlay').then(m => ({ default: m.CocktailCompatibilityOverlay })));
 
 // Structure & stability overlays
 const StructureConstraintOverlay = lazy(() => import('./StructureConstraintOverlay').then(m => ({ default: m.StructureConstraintOverlay })));
@@ -156,6 +157,7 @@ export function OverlayManager({ repository, currentPhage }: OverlayManagerProps
         <TropismOverlay repository={repository} phage={currentPhage} />
         <DefenseArmsRaceOverlay repository={repository} currentPhage={currentPhage} />
         <AMGPathwayOverlay repository={repository} currentPhage={currentPhage} />
+        <CocktailCompatibilityOverlay repository={repository} currentPhage={currentPhage} />
 
         {/* Structure & stability */}
         <StructureConstraintOverlay repository={repository} currentPhage={currentPhage} />
