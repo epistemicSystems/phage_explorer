@@ -10,8 +10,10 @@ import type { PhageFull } from '@phage-explorer/core';
 import {
   detectPromoters,
   detectTerminators,
+  computeRegulatoryConstellation,
   type PromoterHit,
   type TerminatorHit,
+  type RegulatoryEdge,
 } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
@@ -28,15 +30,19 @@ interface PromoterOverlayProps {
 interface RegulatoryAnalysis {
   promoters: PromoterHit[];
   terminators: TerminatorHit[];
+  edges: RegulatoryEdge[];
 }
 
 function analyzeRegulatory(sequence: string): RegulatoryAnalysis {
   if (!sequence || sequence.length < 100) {
-    return { promoters: [], terminators: [] };
+    return { promoters: [], terminators: [], edges: [] };
   }
-  const promoters = detectPromoters(sequence);
-  const terminators = detectTerminators(sequence);
-  return { promoters, terminators };
+  const constellation = computeRegulatoryConstellation(sequence);
+  return {
+    promoters: constellation.promoters,
+    terminators: constellation.terminators,
+    edges: constellation.edges,
+  };
 }
 
 export function PromoterOverlay({
@@ -49,6 +55,8 @@ export function PromoterOverlay({
   const sequenceCache = useRef<Map<number, string>>(new Map());
   const [sequence, setSequence] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [showConstellation, setShowConstellation] = useState(true);
+  const constellationRef = useRef<HTMLCanvasElement>(null);
 
   // Hotkey to toggle overlay
   useHotkey(
@@ -94,6 +102,105 @@ export function PromoterOverlay({
   const promoters = analysis.promoters.filter(p => p.motif !== 'RBS');
   const rbsSites = analysis.promoters.filter(p => p.motif === 'RBS');
   const terminators = analysis.terminators;
+  const edges = analysis.edges;
+
+  // Draw constellation arc diagram
+  useEffect(() => {
+    if (!constellationRef.current || !showConstellation) return;
+    if (edges.length === 0 || sequence.length === 0) return;
+
+    const canvas = constellationRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Clear
+    ctx.fillStyle = colors.background;
+    ctx.fillRect(0, 0, width, height);
+
+    const genomeLen = sequence.length;
+    const padding = 40;
+    const trackY = height - 30;
+    const usableWidth = width - padding * 2;
+
+    // Draw genome track
+    ctx.strokeStyle = colors.borderLight;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding, trackY);
+    ctx.lineTo(width - padding, trackY);
+    ctx.stroke();
+
+    // Position markers
+    ctx.fillStyle = colors.textMuted;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('0', padding, trackY + 15);
+    ctx.fillText((genomeLen / 1000).toFixed(0) + 'kb', width - padding, trackY + 15);
+    ctx.fillText((genomeLen / 2000).toFixed(0) + 'kb', width / 2, trackY + 15);
+
+    // Map position to x coordinate
+    const posToX = (pos: number) => padding + (pos / genomeLen) * usableWidth;
+
+    // Draw promoters as triangles
+    for (const p of analysis.promoters.filter(pr => pr.motif !== 'RBS')) {
+      const x = posToX(p.pos);
+      ctx.fillStyle = colors.success;
+      ctx.beginPath();
+      ctx.moveTo(x, trackY - 4);
+      ctx.lineTo(x - 4, trackY - 12);
+      ctx.lineTo(x + 4, trackY - 12);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Draw terminators as diamonds
+    for (const t of analysis.terminators) {
+      const x = posToX(t.pos);
+      ctx.fillStyle = colors.warning;
+      ctx.beginPath();
+      ctx.moveTo(x, trackY - 4);
+      ctx.lineTo(x - 3, trackY - 8);
+      ctx.lineTo(x, trackY - 12);
+      ctx.lineTo(x + 3, trackY - 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Draw edges as arcs
+    const maxWeight = Math.max(...edges.map(e => e.weight), 0.001);
+    for (const edge of edges) {
+      const x1 = posToX(edge.source);
+      const x2 = posToX(edge.target);
+      const midX = (x1 + x2) / 2;
+      const arcHeight = Math.min(80, Math.abs(x2 - x1) * 0.3);
+      const alpha = 0.3 + (edge.weight / maxWeight) * 0.5;
+
+      ctx.strokeStyle = `rgba(99, 102, 241, ${alpha})`;
+      ctx.lineWidth = 1 + (edge.weight / maxWeight) * 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, trackY - 12);
+      ctx.quadraticCurveTo(midX, trackY - 12 - arcHeight, x2, trackY - 12);
+      ctx.stroke();
+    }
+
+    // Legend
+    ctx.fillStyle = colors.textMuted;
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('▲ Promoter', padding, 15);
+    ctx.fillStyle = colors.warning;
+    ctx.fillText('◆ Terminator', padding + 70, 15);
+    ctx.fillStyle = 'rgba(99, 102, 241, 0.7)';
+    ctx.fillText('⌒ Operon edge', padding + 160, 15);
+  }, [analysis.promoters, analysis.terminators, colors, edges, sequence.length, showConstellation]);
 
   if (!isOpen('promoter')) {
     return null;
@@ -146,6 +253,52 @@ export function PromoterOverlay({
               <div style={{ color: colors.warning, fontSize: '0.75rem' }}>Terminators</div>
               <div style={{ color: colors.text, fontFamily: 'monospace', fontSize: '1.5rem' }}>{terminators.length}</div>
             </div>
+          </div>
+        )}
+
+        {/* Constellation Visualization */}
+        {!loading && sequence.length > 0 && edges.length > 0 && (
+          <div style={{
+            border: `1px solid ${colors.borderLight}`,
+            borderRadius: '4px',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '0.5rem 0.75rem',
+              backgroundColor: colors.backgroundAlt,
+              borderBottom: `1px solid ${colors.borderLight}`,
+            }}>
+              <div style={{ color: colors.primary, fontSize: '0.85rem', fontWeight: 600 }}>
+                Regulatory Constellation ({edges.length} operon edges)
+              </div>
+              <button
+                onClick={() => setShowConstellation(!showConstellation)}
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  fontSize: '0.75rem',
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${colors.borderLight}`,
+                  borderRadius: '4px',
+                  color: colors.textDim,
+                  cursor: 'pointer',
+                }}
+              >
+                {showConstellation ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            {showConstellation && (
+              <canvas
+                ref={constellationRef}
+                style={{
+                  width: '100%',
+                  height: '140px',
+                  display: 'block',
+                }}
+              />
+            )}
           </div>
         )}
 
