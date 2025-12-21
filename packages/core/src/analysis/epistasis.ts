@@ -544,14 +544,9 @@ export function identifyRegions(
 
   // Sliding window to identify regions
   const regions: FitnessRegion[] = [];
-  let currentRegion: {
-    start: number;
-    positions: number[];
-    scores: number[];
-    tolerances: number[];
-  } | null = null;
+  const step = Math.max(1, Math.floor(windowSize / 2));
 
-  for (let i = 0; i < positions.length; i += windowSize / 2) {
+  for (let i = 0; i < positions.length; i += step) {
     const windowPositions = positions.slice(i, i + windowSize);
     if (windowPositions.length < 3) continue;
 
@@ -572,13 +567,13 @@ export function identifyRegions(
     }
 
     // Merge with previous region if same type
-    if (currentRegion && regions.length > 0 && regions[regions.length - 1].type === type) {
+    if (regions.length > 0 && regions[regions.length - 1].type === type) {
       const lastRegion = regions[regions.length - 1];
       lastRegion.end = windowPositions[windowPositions.length - 1];
-      lastRegion.averageFitness =
-        (lastRegion.averageFitness + avgScore) / 2;
-      lastRegion.mutationalTolerance =
-        (lastRegion.mutationalTolerance + avgTolerance) / 2;
+      // Running average for merged regions
+      lastRegion.averageFitness = (lastRegion.averageFitness + avgScore) / 2;
+      lastRegion.mutationalTolerance = (lastRegion.mutationalTolerance + avgTolerance) / 2;
+      lastRegion.conservationScore = 1 - lastRegion.mutationalTolerance;
     } else {
       regions.push({
         start: windowPositions[0],
@@ -651,7 +646,7 @@ export type ProteinType = 'capsid' | 'tail_fiber' | 'portal' | 'polymerase' | 'o
  */
 export function classifyProteinType(gene: GeneInfo): ProteinType {
   const product = (gene.product || '').toLowerCase();
-  const name = (gene.gene || '').toLowerCase();
+  const name = (gene.name || gene.locusTag || '').toLowerCase();
   const combined = `${product} ${name}`;
 
   if (/capsid|coat|mcp|major\s*capsid|head/i.test(combined)) {
@@ -708,12 +703,16 @@ export function analyzeFitnessLandscape(
   // Find escape routes
   const escapeRoutes = findEscapeRoutes(epistasisPairs, singleMutants);
 
-  // Compute overall statistics
+  // Compute overall statistics (guard against empty arrays)
   const avgFitness =
-    singleMutants.reduce((s, m) => s + m.deltaFitness, 0) / singleMutants.length;
+    singleMutants.length > 0
+      ? singleMutants.reduce((s, m) => s + m.deltaFitness, 0) / singleMutants.length
+      : 0;
   const fitnessVariance =
-    singleMutants.reduce((s, m) => s + Math.pow(m.deltaFitness - avgFitness, 2), 0) /
-    singleMutants.length;
+    singleMutants.length > 0
+      ? singleMutants.reduce((s, m) => s + Math.pow(m.deltaFitness - avgFitness, 2), 0) /
+        singleMutants.length
+      : 0;
 
   return {
     proteinName,

@@ -114,7 +114,7 @@ function ProteinSelector({
             fontSize: '12px',
           }}
         >
-          <span style={{ fontWeight: 500 }}>{p.gene.gene || `Gene ${p.gene.start}`}</span>
+          <span style={{ fontWeight: 500 }}>{p.gene.name || p.gene.locusTag || `Gene ${p.gene.startPos}`}</span>
           <span style={{ color: colors.textMuted, marginLeft: '6px' }}>
             ({p.type}, {p.sequence.length}aa)
           </span>
@@ -132,7 +132,6 @@ function EpistasisHeatmap({
   colors: { text: string; textMuted: string; border: string };
 }): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [hoveredPair] = useState<EpistasisPair | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -221,12 +220,6 @@ function EpistasisHeatmap({
           Synergistic (ε &lt; 0)
         </span>
       </div>
-      {hoveredPair && (
-        <div style={{ marginTop: '8px', fontSize: '12px' }}>
-          Pos {hoveredPair.pos1 + 1} × Pos {hoveredPair.pos2 + 1}: ε ={' '}
-          {hoveredPair.epistasisScore.toFixed(2)}
-        </div>
-      )}
     </div>
   );
 }
@@ -623,12 +616,12 @@ export function EpistasisOverlay({
       if (type === 'other') continue;
 
       // Extract protein sequence (translate CDS)
-      const start = gene.start - 1;
-      const end = gene.end;
+      const start = gene.startPos - 1;
+      const end = gene.endPos;
       if (start < 0 || end > sequence.length) continue;
 
       let cds = sequence.slice(start, end);
-      if (gene.strand === -1) {
+      if (gene.strand === '-') {
         // Reverse complement
         cds = cds
           .split('')
@@ -692,7 +685,7 @@ export function EpistasisOverlay({
     }
 
     const protein = proteinCandidates[selectedProtein];
-    return analyzeFitnessLandscape(protein.gene.gene || `Gene${protein.gene.start}`, protein.sequence, {
+    return analyzeFitnessLandscape(protein.gene.name || protein.gene.locusTag || `Gene${protein.gene.startPos}`, protein.sequence, {
       maxPositions: 150, // Limit for performance
       topEpistasisPairs: 100,
     });
