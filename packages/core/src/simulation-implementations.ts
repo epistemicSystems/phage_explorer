@@ -9,6 +9,7 @@ import type {
   EvolutionReplayState,
   PackagingMotorState,
   InfectionKineticsState,
+  ResistanceCocktailState,
   SimState,
 } from './simulation';
 import { getDefaultParams, STANDARD_CONTROLS } from './simulation';
@@ -521,6 +522,297 @@ export function makePackagingSimulation(): Simulation<PackagingMotorState> {
   };
 }
 
+/**
+ * Gillespie/tau-leaping resistance evolution simulation
+ * Models resistance emergence under mono vs cocktail phage therapy
+ *
+ * Model:
+ * - Sensitive bacteria (S): susceptible to all phages
+ * - Partially resistant (R_i): resistant to phage i only
+ * - Fully resistant (R_full): resistant to all phages in cocktail
+ * - Free phage (P_i): per phage type
+ *
+ * Reactions:
+ * 1. Bacterial growth: S → 2S (logistic), R → 2R (logistic)
+ * 2. Infection: S + P_i → infected (removed)
+ * 3. Burst: infected → β * P_i (after latent period, modeled as rate)
+ * 4. Resistance mutation: S → R_i (per-phage resistance)
+ * 5. Multi-resistance: R_i → R_full (receptor switching)
+ * 6. Phage decay: P_i → ∅
+ */
+
+// Sample from Poisson distribution using Knuth algorithm
+function poissonSample(lambda: number, rng: () => number): number {
+  if (lambda <= 0) return 0;
+  if (lambda > 30) {
+    // For large lambda, use normal approximation
+    const u1 = rng();
+    const u2 = rng();
+    const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * z));
+  }
+  const L = Math.exp(-lambda);
+  let k = 0;
+  let p = 1;
+  do {
+    k++;
+    p *= rng();
+  } while (p > L);
+  return k - 1;
+}
+
+// Single Gillespie step with tau-leaping for efficiency
+function runResistanceStep(
+  state: ResistanceCocktailState,
+  tau: number,
+  rng: () => number
+): ResistanceCocktailState {
+  const random = rng ?? Math.random;
+
+  // Extract parameters
+  const carryingCap = Number(state.params.carryingCap ?? 1e8);
+  const growthRate = Number(state.params.growthRate ?? 0.5); // per hour
+  const infectionRate = Number(state.params.infectionRate ?? 2e-9); // mL/(phage*hour)
+  const burstSize = Number(state.params.burstSize ?? 100);
+  const latentPeriod = Number(state.params.latentPeriod ?? 0.5); // hours
+  const mutationRate = Number(state.params.mutationRate ?? 1e-7); // per cell per hour
+  const multiResRate = Number(state.params.multiResRate ?? 1e-8); // rate of full resistance
+  const phageDecay = Number(state.params.phageDecay ?? 0.1); // per hour
+
+  let S = state.sensitiveBacteria;
+  let R_partial = [...state.partialResistant];
+  let R_full = state.fullyResistant;
+  let P = [...state.phageCounts];
+  const cocktailSize = state.cocktailSize;
+
+  const totalBacteria = S + R_partial.reduce((a, b) => a + b, 0) + R_full;
+  const logisticFactor = Math.max(0, 1 - totalBacteria / carryingCap);
+
+  const newEvents: Array<{ t: number; type: string }> = [];
+
+  // 1. Bacterial growth (tau-leaping with Poisson)
+  const growthPropS = growthRate * S * logisticFactor * tau;
+  const growthS = poissonSample(growthPropS, random);
+  S += growthS;
+
+  const growthPropRfull = growthRate * R_full * logisticFactor * tau;
+  const growthRfull = poissonSample(growthPropRfull, random);
+  R_full += growthRfull;
+
+  for (let i = 0; i < cocktailSize; i++) {
+    const growthPropRi = growthRate * R_partial[i] * logisticFactor * tau;
+    const growthRi = poissonSample(growthPropRi, random);
+    R_partial[i] += growthRi;
+  }
+
+  // 2. Infection by each phage type (only affects sensitive bacteria)
+  let infected = 0;
+  for (let i = 0; i < cocktailSize; i++) {
+    const infProp = infectionRate * S * P[i] * tau;
+    const infections = Math.min(S, poissonSample(infProp, random));
+    S -= infections;
+    infected += infections;
+
+    // 3. Burst after latent period (modeled as rate-based release)
+    // Infected cells lyse at rate 1/latentPeriod
+    const burstProp = (infections / latentPeriod) * burstSize * tau;
+    const newPhage = poissonSample(burstProp, random);
+    P[i] += newPhage;
+
+    if (infections > 0) {
+      newEvents.push({ t: state.simTime, type: `inf-P${i + 1}` });
+    }
+  }
+
+  // 4. Resistance mutations: S → R_i (partial resistance to one phage)
+  for (let i = 0; i < cocktailSize; i++) {
+    const mutProp = mutationRate * S * tau;
+    const mutations = Math.min(S, poissonSample(mutProp, random));
+    if (mutations > 0) {
+      S -= mutations;
+      R_partial[i] += mutations;
+      newEvents.push({ t: state.simTime, type: `mut-R${i + 1}` });
+    }
+  }
+
+  // 5. Multi-resistance: R_partial → R_full (via receptor switching/loss)
+  // This is the key difference: with cocktail, must become resistant to ALL
+  for (let i = 0; i < cocktailSize; i++) {
+    const multiProp = multiResRate * R_partial[i] * tau;
+    const multiMuts = Math.min(R_partial[i], poissonSample(multiProp, random));
+    if (multiMuts > 0) {
+      R_partial[i] -= multiMuts;
+      R_full += multiMuts;
+      newEvents.push({ t: state.simTime, type: 'full-res' });
+    }
+  }
+
+  // 6. Phage decay
+  for (let i = 0; i < cocktailSize; i++) {
+    const decayProp = phageDecay * P[i] * tau;
+    const decayed = Math.min(P[i], poissonSample(decayProp, random));
+    P[i] -= decayed;
+  }
+
+  // Clamp values
+  S = Math.max(0, Math.round(S));
+  R_full = Math.max(0, Math.round(R_full));
+  R_partial = R_partial.map(r => Math.max(0, Math.round(r)));
+  P = P.map(p => Math.max(0, Math.round(p)));
+
+  // Check resistance emergence (>10% of carrying capacity)
+  const totalResistant = R_partial.reduce((a, b) => a + b, 0) + R_full;
+  const resistanceEmerged = totalResistant > carryingCap * 0.1;
+  const resistanceTime = resistanceEmerged && state.resistanceTime === null
+    ? state.simTime + tau
+    : state.resistanceTime;
+
+  // Update history (sample every 0.1 hours)
+  const newTime = state.simTime + tau;
+  const lastHistoryTime = state.history.length > 0 ? state.history[state.history.length - 1].t : -1;
+  let history = state.history;
+  if (newTime - lastHistoryTime >= 0.1) {
+    history = [
+      ...state.history,
+      {
+        t: newTime,
+        sensitive: S,
+        partialResistant: R_partial.reduce((a, b) => a + b, 0),
+        fullyResistant: R_full,
+        totalPhage: P.reduce((a, b) => a + b, 0),
+      },
+    ].slice(-500);
+  }
+
+  // Keep last 20 events
+  const events = [...state.events, ...newEvents].slice(-20);
+
+  return {
+    ...state,
+    simTime: newTime,
+    sensitiveBacteria: S,
+    partialResistant: R_partial,
+    fullyResistant: R_full,
+    phageCounts: P,
+    resistanceEmerged,
+    resistanceTime,
+    history,
+    events,
+  };
+}
+
+export function makeResistanceSimulation(): Simulation<ResistanceCocktailState> {
+  return {
+    id: 'resistance-cocktail',
+    name: 'Resistance Evolution',
+    description: 'Gillespie stochastic model: compare mono vs cocktail therapy resistance.',
+    controls: STANDARD_CONTROLS,
+    parameters: [
+      { id: 'cocktailSize', label: 'Cocktail size', type: 'number', min: 1, max: 5, step: 1, defaultValue: 3 },
+      { id: 'initialBacteria', label: 'Initial bacteria', type: 'number', min: 1e5, max: 1e9, step: 1e5, defaultValue: 1e7 },
+      { id: 'initialPhage', label: 'Initial phage (per type)', type: 'number', min: 1e4, max: 1e10, step: 1e4, defaultValue: 1e8 },
+      { id: 'carryingCap', label: 'Carrying capacity', type: 'number', min: 1e7, max: 1e10, step: 1e7, defaultValue: 1e9 },
+      { id: 'growthRate', label: 'Growth rate (per hour)', type: 'number', min: 0.1, max: 2.0, step: 0.1, defaultValue: 0.5 },
+      { id: 'infectionRate', label: 'Infection rate (mL/phage/hr)', type: 'number', min: 1e-10, max: 1e-7, step: 1e-10, defaultValue: 2e-9 },
+      { id: 'burstSize', label: 'Burst size', type: 'number', min: 10, max: 500, step: 10, defaultValue: 100 },
+      { id: 'latentPeriod', label: 'Latent period (hours)', type: 'number', min: 0.1, max: 2.0, step: 0.1, defaultValue: 0.5 },
+      { id: 'mutationRate', label: 'Resistance mutation rate', type: 'number', min: 1e-9, max: 1e-5, step: 1e-9, defaultValue: 1e-7 },
+      { id: 'multiResRate', label: 'Full resistance rate', type: 'number', min: 1e-10, max: 1e-6, step: 1e-10, defaultValue: 1e-8 },
+      { id: 'phageDecay', label: 'Phage decay (per hour)', type: 'number', min: 0, max: 0.5, step: 0.01, defaultValue: 0.1 },
+    ],
+    init: (_phage, params): ResistanceCocktailState => {
+      const base = getDefaultParams([
+        { id: 'cocktailSize', label: '', type: 'number', defaultValue: 3 },
+        { id: 'initialBacteria', label: '', type: 'number', defaultValue: 1e7 },
+        { id: 'initialPhage', label: '', type: 'number', defaultValue: 1e8 },
+        { id: 'carryingCap', label: '', type: 'number', defaultValue: 1e9 },
+        { id: 'growthRate', label: '', type: 'number', defaultValue: 0.5 },
+        { id: 'infectionRate', label: '', type: 'number', defaultValue: 2e-9 },
+        { id: 'burstSize', label: '', type: 'number', defaultValue: 100 },
+        { id: 'latentPeriod', label: '', type: 'number', defaultValue: 0.5 },
+        { id: 'mutationRate', label: '', type: 'number', defaultValue: 1e-7 },
+        { id: 'multiResRate', label: '', type: 'number', defaultValue: 1e-8 },
+        { id: 'phageDecay', label: '', type: 'number', defaultValue: 0.1 },
+      ]);
+      const merged = { ...base, ...(params ?? {}) } as Record<string, number | boolean | string>;
+
+      const cocktailSize = Number(merged.cocktailSize ?? 3);
+      const initialBacteria = Number(merged.initialBacteria ?? 1e7);
+      const initialPhage = Number(merged.initialPhage ?? 1e8);
+
+      return {
+        type: 'resistance-cocktail',
+        time: 0,
+        running: true,
+        speed: 1,
+        params: merged,
+        sensitiveBacteria: initialBacteria,
+        partialResistant: new Array(cocktailSize).fill(0),
+        fullyResistant: 0,
+        phageCounts: new Array(cocktailSize).fill(initialPhage),
+        cocktailSize,
+        simTime: 0,
+        resistanceEmerged: false,
+        resistanceTime: null,
+        history: [{
+          t: 0,
+          sensitive: initialBacteria,
+          partialResistant: 0,
+          fullyResistant: 0,
+          totalPhage: initialPhage * cocktailSize,
+        }],
+        events: [],
+      };
+    },
+    step: (state: ResistanceCocktailState, dt: number, rng?: () => number): ResistanceCocktailState => {
+      const random = rng ?? Math.random;
+
+      // Use tau-leaping with adaptive step size based on dt and speed
+      const tau = 0.01 * state.speed; // 0.01 hour steps (36 seconds)
+      const stepsPerFrame = Math.ceil(dt);
+
+      let currentState = state;
+      for (let s = 0; s < stepsPerFrame; s++) {
+        currentState = runResistanceStep(currentState, tau, random);
+
+        // Check for extinction or full resistance
+        const totalBac = currentState.sensitiveBacteria +
+          currentState.partialResistant.reduce((a, b) => a + b, 0) +
+          currentState.fullyResistant;
+        const totalPhage = currentState.phageCounts.reduce((a, b) => a + b, 0);
+
+        if (totalBac < 1 && totalPhage > 0) {
+          // Bacteria extinct - phage won
+          break;
+        }
+        if (totalPhage < 1 && totalBac > 0) {
+          // Phage extinct - bacteria survived/resistant
+          break;
+        }
+      }
+
+      return { ...currentState, time: state.time + dt };
+    },
+    isComplete: (state) => {
+      const totalBac = state.sensitiveBacteria +
+        state.partialResistant.reduce((a, b) => a + b, 0) +
+        state.fullyResistant;
+      const totalPhage = state.phageCounts.reduce((a, b) => a + b, 0);
+      return totalBac < 1 || totalPhage < 1 || state.simTime > 48; // 48 hour max
+    },
+    getSummary: (state) => {
+      const totalResistant = state.partialResistant.reduce((a, b) => a + b, 0) + state.fullyResistant;
+      const totalPhage = state.phageCounts.reduce((a, b) => a + b, 0);
+      const status = state.resistanceEmerged
+        ? `RESIST@${state.resistanceTime?.toFixed(1)}h`
+        : state.sensitiveBacteria < 1
+          ? 'CLEARED'
+          : 'active';
+      return `t=${state.simTime.toFixed(1)}h S=${state.sensitiveBacteria.toExponential(1)} R=${totalResistant.toExponential(1)} P=${totalPhage.toExponential(1)} · ${status}`;
+    },
+  };
+}
+
 export function getAllSimulations(): Simulation<SimState>[] {
   return [
     makeLysogenySimulation(),
@@ -529,5 +821,6 @@ export function getAllSimulations(): Simulation<SimState>[] {
     makeEvolutionSimulation(),
     makePackagingSimulation(),
     makeInfectionSimulation(),
+    makeResistanceSimulation(),
   ].map(s => s as unknown as Simulation<SimState>);
 }

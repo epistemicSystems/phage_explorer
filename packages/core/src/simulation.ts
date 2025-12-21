@@ -12,7 +12,8 @@ export type SimulationId =
   | 'plaque-automata'
   | 'evolution-replay'
   | 'packaging-motor'
-  | 'infection-kinetics';
+  | 'infection-kinetics'
+  | 'resistance-cocktail';
 
 /**
  * Simulation parameter definition
@@ -160,6 +161,40 @@ export interface PackagingMotorState extends SimStateBase {
 }
 
 /**
+ * Resistance Cocktail Evolution state
+ * Gillespie stochastic simulation of resistance emergence
+ */
+export interface ResistanceCocktailState extends SimStateBase {
+  type: 'resistance-cocktail';
+  /** Bacteria population (sensitive to all phages) */
+  sensitiveBacteria: number;
+  /** Bacteria with partial resistance (per phage index) */
+  partialResistant: number[];
+  /** Bacteria with full resistance (to all phages) */
+  fullyResistant: number;
+  /** Free phage counts (per phage type) */
+  phageCounts: number[];
+  /** Number of phage types in cocktail (1 = mono, 2-5 = cocktail) */
+  cocktailSize: number;
+  /** Simulation time (hours) */
+  simTime: number;
+  /** Has resistance emerged (>10% of carrying capacity)? */
+  resistanceEmerged: boolean;
+  /** Time at which resistance emerged (if any) */
+  resistanceTime: number | null;
+  /** History for plotting: [{t, sensitive, resistant, phage}] */
+  history: Array<{
+    t: number;
+    sensitive: number;
+    partialResistant: number;
+    fullyResistant: number;
+    totalPhage: number;
+  }>;
+  /** Gillespie event log (last N events) */
+  events: Array<{ t: number; type: string }>;
+}
+
+/**
  * Union of all simulation states
  */
 export type SimState =
@@ -168,7 +203,8 @@ export type SimState =
   | PlaqueAutomataState
   | EvolutionReplayState
   | InfectionKineticsState
-  | PackagingMotorState;
+  | PackagingMotorState
+  | ResistanceCocktailState;
 
 /**
  * Simulation definition interface
@@ -342,5 +378,14 @@ export const SIMULATION_METADATA: SimulationMeta[] = [
     priority: 6,
     requiresPhage: false,
     keywords: ['burst', 'latency', 'adsorption', 'infection', 'ode'],
+  },
+  {
+    id: 'resistance-cocktail',
+    name: 'Resistance Evolution Simulator',
+    description: 'Stochastic Gillespie model of resistance emergence: mono vs cocktail',
+    icon: '🧪',
+    priority: 7,
+    requiresPhage: false,
+    keywords: ['resistance', 'cocktail', 'gillespie', 'stochastic', 'evolution', 'therapy'],
   },
 ];
