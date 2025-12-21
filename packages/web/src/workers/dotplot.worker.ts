@@ -48,7 +48,6 @@ self.onmessage = (event: MessageEvent<DotPlotJob>) => {
     }
 
     response.ok = true;
-    response.result = result;
     response.directValues = directValues;
     response.invertedValues = invertedValues;
     response.bins = bins;
