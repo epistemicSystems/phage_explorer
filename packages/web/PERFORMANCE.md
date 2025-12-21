@@ -57,13 +57,13 @@
 
 ```bash
 # Full performance benchmark suite
-bunx playwright test e2e/performance-benchmark.spec.ts --project=chromium
+bunx playwright test e2e/performance-benchmark.e2e.ts --project=chromium
 
 # Mobile device tests
-bunx playwright test e2e/mobile-performance.spec.ts --project=chromium
+bunx playwright test e2e/mobile-performance.e2e.ts --project=chromium
 
 # Specific test
-bunx playwright test e2e/performance-benchmark.spec.ts -g "Load Time"
+bunx playwright test e2e/performance-benchmark.e2e.ts -g "Load Time"
 ```
 
 ### Benchmark Output
