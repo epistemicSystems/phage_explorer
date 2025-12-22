@@ -97,7 +97,8 @@ export type OverlayId =
   | 'cocktailCompatibility'
   | 'rnaStructure'
   | 'resistanceEvolution'
-  | 'nicheNetwork';
+  | 'nicheNetwork'
+  | 'phylodynamics';
 
 export interface OverlayConfig {
   id: OverlayId;

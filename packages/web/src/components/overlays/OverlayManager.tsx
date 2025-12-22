@@ -95,6 +95,9 @@ const GpuWasmBenchmarkOverlay = lazy(() => import('./GpuWasmBenchmarkOverlay').t
 // Metagenomic niche analysis
 const NicheNetworkOverlay = lazy(() => import('./NicheNetworkOverlay').then(m => ({ default: m.NicheNetworkOverlay })));
 
+// Phylodynamic trajectory analysis
+const PhylodynamicsOverlay = lazy(() => import('./PhylodynamicsOverlay').then(m => ({ default: m.PhylodynamicsOverlay })));
+
 interface OverlayManagerProps {
   repository: PhageRepository | null;
   currentPhage: PhageFull | null;
@@ -188,6 +191,9 @@ export function OverlayManager({ repository, currentPhage }: OverlayManagerProps
 
         {/* Metagenomic niche analysis */}
         <NicheNetworkOverlay />
+
+        {/* Phylodynamic trajectory analysis */}
+        <PhylodynamicsOverlay repository={repository} currentPhage={currentPhage} />
       </Suspense>
     </>
   );
