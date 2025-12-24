@@ -31,6 +31,19 @@ html {
   overscroll-behavior: none;
 }
 
+/* =============================================================================
+   MOBILE SAFARI FLICKER MITIGATION
+   backdrop-filter on sticky/fixed elements can flicker badly during scroll.
+   ============================================================================= */
+
+@media (hover: none) and (pointer: coarse) {
+  .app-header,
+  .app-footer {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
 /* Allow elastic overscroll on lists and content areas */
 @media (max-width: 640px) {
   .list,
@@ -158,6 +171,14 @@ html {
   pointer-events: auto;
 }
 
+.bottom-sheet.is-open .bottom-sheet__backdrop {
+  opacity: 1;
+}
+
+.bottom-sheet.is-open .bottom-sheet__container {
+  transform: translateY(0);
+}
+
 /* Semi-transparent backdrop */
 .bottom-sheet__backdrop {
   position: absolute;
@@ -167,10 +188,6 @@ html {
   opacity: 0;
   transition: opacity var(--duration-normal) var(--ease-out);
   will-change: opacity; /* Hint for GPU layer optimization */
-}
-
-.bottom-sheet.is-open .bottom-sheet__backdrop {
-  opacity: 1;
 }
 
 /* Sheet container */
@@ -188,10 +205,6 @@ html {
   display: flex;
   flex-direction: column;
   will-change: transform; /* Hint for GPU layer during drag */
-}
-
-.bottom-sheet.is-open .bottom-sheet__container {
-  transform: translateY(0);
 }
 
 /* Handle for dragging */
