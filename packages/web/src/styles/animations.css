@@ -422,3 +422,25 @@
     animation: none !important;
   }
 }
+
+/* =============================================================================
+   DISABLE CONTINUOUS ANIMATIONS ON MOBILE
+   Scanline and CRT effects cause battery drain and frame drops on touch devices
+   ============================================================================= */
+
+@media (hover: none) and (pointer: coarse) {
+  .scanline-overlay::after,
+  .with-scanlines::before {
+    display: none !important;
+    animation: none !important;
+  }
+
+  .crt-flicker {
+    animation: none !important;
+  }
+
+  /* Reduce glow pulse intensity on mobile */
+  .animate-glow-pulse {
+    animation-duration: 4s; /* Slower = less battery drain */
+  }
+}

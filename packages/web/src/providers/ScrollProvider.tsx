@@ -127,8 +127,23 @@ export function ScrollProvider({
   const [velocity, setVelocity] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
 
+  // Detect touch devices - Lenis conflicts with native -webkit-overflow-scrolling
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  useEffect(() => {
+    const checkTouch = () => {
+      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+      setIsTouchDevice(hasTouch && hasCoarsePointer);
+    };
+    checkTouch();
+    // Re-check on resize for hybrid devices
+    window.addEventListener('resize', checkTouch);
+    return () => window.removeEventListener('resize', checkTouch);
+  }, []);
+
   // Determine if we should actually enable smooth scroll
-  const shouldEnable = enabled && !reducedMotion;
+  // Disable on touch devices - Lenis causes flickering with native scroll momentum
+  const shouldEnable = enabled && !reducedMotion && !isTouchDevice;
 
   // Initialize Lenis
   useEffect(() => {

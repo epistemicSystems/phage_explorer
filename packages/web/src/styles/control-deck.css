@@ -21,6 +21,9 @@
     z-index: var(--z-fixed);
     justify-content: space-around;
     align-items: stretch;
+    /* GPU layer hint for fixed positioning */
+    will-change: transform;
+    transform: translateZ(0);
   }
 
   /* Hide footer when control deck is active */

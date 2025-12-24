@@ -12,6 +12,8 @@
   pointer-events: none; /* Decorative only - don't interfere with touch */
   transition: opacity var(--duration-normal) var(--ease-out);
   display: none; /* Hidden by default, shown via media query */
+  /* GPU layer hint for fixed positioning */
+  will-change: opacity;
 }
 
 .swipe-indicator--left {
@@ -29,13 +31,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-background-glass);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.6); /* Solid bg instead of blur for mobile perf */
+  /* backdrop-filter removed - causes flickering on mobile scroll */
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-full);
   color: var(--color-text-dim);
   box-shadow: var(--shadow-sm);
+  will-change: transform, opacity; /* Hint for animation layers */
 }
 
 .swipe-indicator__arrow svg {
@@ -78,13 +80,13 @@
   }
 }
 
-/* Horizontal bounce to draw attention */
+/* Horizontal bounce to draw attention - single animation for better mobile perf */
 .swipe-indicator--pulse.swipe-indicator--left .swipe-indicator__arrow {
-  animation: swipe-hint-pulse 2s ease-in-out 3, swipe-hint-bounce-left 1.5s ease-in-out 3;
+  animation: swipe-hint-bounce-left 2s ease-in-out 3;
 }
 
 .swipe-indicator--pulse.swipe-indicator--right .swipe-indicator__arrow {
-  animation: swipe-hint-pulse 2s ease-in-out 3, swipe-hint-bounce-right 1.5s ease-in-out 3;
+  animation: swipe-hint-bounce-right 2s ease-in-out 3;
 }
 
 @keyframes swipe-hint-bounce-left {
