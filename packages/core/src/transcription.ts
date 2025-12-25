@@ -75,13 +75,14 @@ function scanPromotersOnStrand(seq: string, strand: '+' | '-'): PromoterHit[] {
         const score35 = scoreExactAt(upper, SIGMA70_MINUS35, j);
         if (score35 > best35) best35 = score35;
       }
-      
+
       if (best35 >= 0.66) {
         const combined = (score10 + best35) / 2;
         hits.push({ pos: i, strength: combined, motif: 'σ70', strand });
+      } else if (score10 >= 0.9) {
+        // Strong -10 box but weak -35: partial promoter with reduced strength
+        hits.push({ pos: i, strength: score10 * 0.7, motif: 'σ70 (-10 only)', strand });
       }
-    } else if (score10 >= 0.9) {
-       hits.push({ pos: i, strength: score10 * 0.7, motif: 'σ70 (-10 only)', strand });
     }
   }
 

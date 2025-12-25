@@ -411,8 +411,8 @@ export class BunSqliteRepository implements PhageRepository {
   }
 
   async searchPhages(query: string): Promise<PhageSummary[]> {
-    // Escape wildcard characters
-    const escaped = query.replace(/[%_]/g, '\\$&');
+    // Escape wildcard characters and backslashes (backslash is the ESCAPE character)
+    const escaped = query.replace(/[\\%_]/g, '\\$&');
     const searchTerm = `%${escaped.toLowerCase()}%`;
 
     const result = await this.db
