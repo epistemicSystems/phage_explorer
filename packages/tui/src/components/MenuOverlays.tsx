@@ -301,7 +301,7 @@ export function AnalysisMenuOverlay({ onClose }: MenuOverlayProps): React.ReactE
         },
       ],
     },
-  ], [toggleViewMode, cycleReadingFrame, toggleDiff, openOverlay, openComparison, cycleTheme]);
+  ], [toggleViewMode, cycleReadingFrame, toggleDiff, openOverlay, openComparison, cycleTheme, helpDetail, setHelpDetail]);
 
   return (
     <Box>
