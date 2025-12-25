@@ -11,6 +11,7 @@
 import { Database } from "bun:sqlite";
 import { mkdir, copyFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 
 const { values } = parseArgs({
@@ -29,6 +30,9 @@ const OUTPUT_MANIFEST = `${OUTPUT_DIR}/phage.db.manifest.json`;
 async function main() {
   console.log("Building web database...");
 
+  const sourcePath = resolve(SOURCE_DB);
+  const outputPath = resolve(OUTPUT_DB);
+
   // Check source exists
   try {
     await stat(SOURCE_DB);
@@ -40,9 +44,13 @@ async function main() {
   // Ensure output directory exists
   await mkdir(OUTPUT_DIR, { recursive: true });
 
-  // Copy database to output
-  console.log(`Copying ${SOURCE_DB} to ${OUTPUT_DB}...`);
-  await copyFile(SOURCE_DB, OUTPUT_DB);
+  // Copy database to output (unless we're already operating in-place)
+  if (sourcePath !== outputPath) {
+    console.log(`Copying ${SOURCE_DB} to ${OUTPUT_DB}...`);
+    await copyFile(SOURCE_DB, OUTPUT_DB);
+  } else {
+    console.log(`Using in-place database at ${OUTPUT_DB}...`);
+  }
 
   // Optimize with VACUUM and REINDEX
   console.log("Optimizing database (VACUUM, REINDEX)...");
