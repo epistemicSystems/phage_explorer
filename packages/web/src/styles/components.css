@@ -1338,9 +1338,10 @@
   line-height: 1.4;
 }
 
-.settings-select {
+.input.settings-select {
   min-width: 160px;
   width: auto;
+  flex: 0 0 auto;
   background: var(--color-background);
   border-color: var(--color-border-light);
 }
@@ -1373,7 +1374,7 @@
     align-items: stretch;
   }
 
-  .settings-select {
+  .input.settings-select {
     min-width: 0;
     width: 100%;
   }
