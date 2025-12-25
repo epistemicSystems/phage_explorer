@@ -104,9 +104,30 @@ export function BottomSheet({
     [minHeight, maxHeight]
   );
 
+  const getTranslatePercentForSnapPoint = useCallback(
+    (point: SnapPoint): number => {
+      if (point === 'closed') return 100;
+
+      // The sheet's translateY uses percentages of the sheet itself.
+      // We want snap points to represent visible height as a % of the viewport, so we
+      // convert viewport-% heights into sheet-% translate values using maxHeight.
+      const visibleViewportPercent = getSnapHeight(point);
+      const hiddenViewportPercent = Math.max(0, maxHeight - visibleViewportPercent);
+      const translatePercent = (hiddenViewportPercent / Math.max(1, maxHeight)) * 100;
+      return Math.max(0, Math.min(100, translatePercent));
+    },
+    [getSnapHeight, maxHeight]
+  );
+
+  const initialTranslateY = isOpen
+    ? getTranslatePercentForSnapPoint(initialSnapPoint)
+    : getTranslatePercentForSnapPoint('closed');
+
+  const initialBackdropOpacity = isOpen ? 0.5 : 0;
+
   // Spring animation for the sheet
   const [spring, api] = useSpring(() => ({
-    y: 100, // Start off-screen (100% down)
+    y: initialTranslateY,
     config: reducedMotion
       ? { duration: 0 }
       : { ...config.stiff, clamp: false },
@@ -114,14 +135,14 @@ export function BottomSheet({
 
   // Backdrop spring
   const [backdropSpring, backdropApi] = useSpring(() => ({
-    opacity: 0,
+    opacity: initialBackdropOpacity,
     config: reducedMotion ? { duration: 0 } : { tension: 300, friction: 30 },
   }));
 
   // Animate sheet position based on snap point
   const animateToSnapPoint = useCallback(
     (point: SnapPoint, immediate = false) => {
-      const targetY = point === 'closed' ? 100 : 100 - getSnapHeight(point);
+      const targetY = getTranslatePercentForSnapPoint(point);
 
       if (immediate || reducedMotion) {
         api.set({ y: targetY });
@@ -145,7 +166,7 @@ export function BottomSheet({
         setTimeout(() => onClose(), reducedMotion ? 0 : 200);
       }
     },
-    [api, backdropApi, getSnapHeight, onClose, onSnapPointChange, reducedMotion]
+    [api, backdropApi, getTranslatePercentForSnapPoint, onClose, onSnapPointChange, reducedMotion]
   );
 
   // Find nearest snap point based on current position and velocity
@@ -164,8 +185,8 @@ export function BottomSheet({
 
       // Otherwise, find nearest snap point based on position
       const currentPercent = currentY;
-      const halfY = 100 - getSnapHeight('half');
-      const fullY = 100 - getSnapHeight('full');
+      const halfY = getTranslatePercentForSnapPoint('half');
+      const fullY = getTranslatePercentForSnapPoint('full');
 
       // Distance to each snap point
       const distToClosed = Math.abs(currentPercent - 100);
@@ -181,7 +202,7 @@ export function BottomSheet({
       }
       return 'half';
     },
-    [getSnapHeight, snapPoint]
+    [getTranslatePercentForSnapPoint, snapPoint]
   );
 
   // Drag gesture handler
@@ -209,11 +230,13 @@ export function BottomSheet({
       const windowHeight = window.innerHeight;
 
       // Calculate new Y position (as percentage)
-      const deltaPercent = (my / windowHeight) * 100;
+      // spring.y is a percentage of the sheet height (translateY(%)).
+      // Convert viewport drag distance into sheet-% using maxHeight (viewport-% of sheet).
+      const deltaPercent = ((my / windowHeight) * 100 * 100) / Math.max(1, maxHeight);
       let newY = initialY + deltaPercent;
 
       // Apply bounds with rubberband effect
-      const minY = 100 - getSnapHeight('full');
+      const minY = getTranslatePercentForSnapPoint('full');
       const maxY = 100;
 
       if (newY < minY) {
@@ -234,14 +257,15 @@ export function BottomSheet({
         });
 
         // Update backdrop opacity based on position
-        const progress = Math.max(0, Math.min(1, (100 - newY) / getSnapHeight('half')));
+        const visibleViewportPercent = (maxHeight * (100 - newY)) / 100;
+        const progress = Math.max(0, Math.min(1, visibleViewportPercent / getSnapHeight('half')));
         backdropApi.start({
           opacity: progress * 0.5,
           immediate: true,
         });
 
         // Haptic feedback when crossing thresholds
-        const halfThreshold = 100 - getSnapHeight('half');
+        const halfThreshold = getTranslatePercentForSnapPoint('half');
         const wasAboveHalf = (memo ?? initialY) < halfThreshold;
         const isAboveHalf = newY < halfThreshold;
         if (wasAboveHalf !== isAboveHalf) {

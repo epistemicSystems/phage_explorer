@@ -407,7 +407,14 @@
    ============================================================================= */
 
 @media (hover: none) and (pointer: coarse) {
+  [data-theme="holographic"] .panel,
+  [data-theme="holographic"] .detail-card,
+  [data-theme="holographic"] .sequence-block,
+  [data-theme="holographic"] .btn,
+  [data-theme="holographic"] .badge,
   [data-theme="holographic"] .glass-panel,
+  [data-theme="holographic"] .app-header,
+  [data-theme="holographic"] .db-status-bar,
   [data-theme="holographic"] .overlay-content,
   [data-theme="holographic"] .modal-content,
   [data-theme="holographic"] .command-palette,
@@ -417,7 +424,19 @@
   [data-theme="holographic"] .app-footer {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    /* Use solid backgrounds instead */
+  }
+
+  /* Fixed/sticky/overlay surfaces: switch to a solid background when blur is disabled. */
+  [data-theme="holographic"] .glass-panel,
+  [data-theme="holographic"] .app-header,
+  [data-theme="holographic"] .db-status-bar,
+  [data-theme="holographic"] .overlay-content,
+  [data-theme="holographic"] .modal-content,
+  [data-theme="holographic"] .command-palette,
+  [data-theme="holographic"] .toast,
+  [data-theme="holographic"] .context-menu,
+  [data-theme="holographic"] .control-deck,
+  [data-theme="holographic"] .app-footer {
     background: rgba(3, 0, 20, 0.95) !important;
   }
 }

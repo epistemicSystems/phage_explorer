@@ -86,6 +86,15 @@ interface LenisOptions {
 // Constants
 // =============================================================================
 
+const EMPTY_OPTIONS: Partial<LenisOptions> = {};
+
+const LENIS_CLASSNAMES = [
+  'lenis',
+  'lenis-smooth',
+  'lenis-stopped',
+  'lenis-scrolling',
+];
+
 /** Default Lenis options optimized for mobile touch */
 const DEFAULT_OPTIONS: LenisOptions = {
   lerp: 0.1, // Smoother interpolation
@@ -104,6 +113,33 @@ const REDUCED_MOTION_OPTIONS: Partial<LenisOptions> = {
   duration: 0,
 };
 
+function isLikelyTouchDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const hasTouch =
+    'ontouchstart' in window ||
+    (typeof navigator !== 'undefined' && (navigator.maxTouchPoints ?? 0) > 0);
+
+  const canMatchMedia = typeof window.matchMedia === 'function';
+  const pointerCoarse = canMatchMedia && window.matchMedia('(pointer: coarse)').matches;
+  const hoverNone = canMatchMedia && window.matchMedia('(hover: none)').matches;
+
+  // On iOS/iPadOS, touch-capable devices often report coarse pointer / no hover.
+  return hasTouch && (pointerCoarse || hoverNone);
+}
+
+function cleanupLenisDomState(): void {
+  if (typeof document === 'undefined') return;
+
+  const root = document.documentElement;
+  const body = document.body;
+
+  for (const className of LENIS_CLASSNAMES) {
+    root.classList.remove(className);
+    body?.classList.remove(className);
+  }
+}
+
 // =============================================================================
 // Context
 // =============================================================================
@@ -117,7 +153,7 @@ const ScrollContext = createContext<ScrollContextValue | null>(null);
 export function ScrollProvider({
   children,
   enabled = true,
-  options = {},
+  options = EMPTY_OPTIONS,
 }: ScrollProviderProps): React.ReactElement {
   const lenisRef = useRef<Lenis | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -128,12 +164,10 @@ export function ScrollProvider({
   const [isScrolling, setIsScrolling] = useState(false);
 
   // Detect touch devices - Lenis conflicts with native -webkit-overflow-scrolling
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(() => isLikelyTouchDevice());
   useEffect(() => {
     const checkTouch = () => {
-      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
-      setIsTouchDevice(hasTouch && hasCoarsePointer);
+      setIsTouchDevice(isLikelyTouchDevice());
     };
     checkTouch();
     // Re-check on resize for hybrid devices
@@ -157,6 +191,7 @@ export function ScrollProvider({
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+      cleanupLenisDomState();
       return;
     }
 
@@ -197,6 +232,7 @@ export function ScrollProvider({
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+      cleanupLenisDomState();
     };
   }, [shouldEnable, reducedMotion, options]);
 

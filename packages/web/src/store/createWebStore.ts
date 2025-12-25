@@ -23,6 +23,13 @@ export type { PhageExplorerStore, PhageExplorerState, PhageExplorerActions } fro
 // Version for migration logic
 const STORE_VERSION = 5;
 
+function getDefaultBackgroundEffects(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+  const coarseTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  // Default to off on touch devices to avoid scroll jank/flicker; users can re-enable in Settings.
+  return !coarseTouch;
+}
+
 /**
  * Web-specific preferences that persist to localStorage
  * These augment the main store with browser-specific state
@@ -85,7 +92,7 @@ const defaultWebPreferences: WebPreferencesState = {
   glow: true,
   tuiMode: false,
   highContrast: false,
-  backgroundEffects: true,
+  backgroundEffects: getDefaultBackgroundEffects(),
   controlDrawerOpen: false,
   commandHistory: [],
   _hasHydrated: false,
@@ -128,7 +135,7 @@ function migrateWebPrefs(
       ...defaultWebPreferences,
       ...state,
       scanlineIntensity: state.scanlineIntensity ?? 0.15,
-      backgroundEffects: state.backgroundEffects ?? true,
+      backgroundEffects: state.backgroundEffects ?? defaultWebPreferences.backgroundEffects,
       _hasHydrated: false,
     };
   }
@@ -139,7 +146,7 @@ function migrateWebPrefs(
       ...defaultWebPreferences,
       ...state,
       scanlineIntensity: state.scanlineIntensity ?? 0.15,
-      backgroundEffects: state.backgroundEffects ?? true,
+      backgroundEffects: state.backgroundEffects ?? defaultWebPreferences.backgroundEffects,
       hasLearnedMobileSwipe: false, // New users haven't learned yet
       _hasHydrated: false,
     };
@@ -149,7 +156,7 @@ function migrateWebPrefs(
     ...defaultWebPreferences,
     ...state,
     scanlineIntensity: state.scanlineIntensity ?? 0.15, // Ensure default
-    backgroundEffects: state.backgroundEffects ?? true,
+    backgroundEffects: state.backgroundEffects ?? defaultWebPreferences.backgroundEffects,
     hasLearnedMobileSwipe: state.hasLearnedMobileSwipe ?? false,
     _hasHydrated: false, // Always reset hydration on load
   };
