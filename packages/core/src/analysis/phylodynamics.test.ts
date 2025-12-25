@@ -30,9 +30,11 @@ describe('jukesCantor', () => {
 
   it('skips gaps and N bases', () => {
     const d1 = jukesCantor('ACGT', 'A-GT');
-    const d2 = jukesCantor('ACG', 'AGG'); // Same comparison without gap position
-    // Both should only compare 3 valid positions
-    expect(d1).toBeGreaterThanOrEqual(0);
+    const d2 = jukesCantor('AGT', 'AGT'); // Same comparison without gap position
+    const d3 = jukesCantor('ACNT', 'ACGT'); // N base should be ignored
+
+    expect(d1).toBeCloseTo(d2, 12);
+    expect(d3).toBe(0);
   });
 
   it('handles case insensitivity', () => {

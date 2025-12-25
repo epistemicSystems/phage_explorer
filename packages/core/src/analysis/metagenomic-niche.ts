@@ -314,10 +314,10 @@ export function nmf(
   }
 
   // Initialize W and H with small random values
-  let W: number[][] = Array.from({ length: n }, () =>
+  const W: number[][] = Array.from({ length: n }, () =>
     Array.from({ length: k }, () => rng() * 0.1 + 0.01)
   );
-  let H: number[][] = Array.from({ length: k }, () =>
+  const H: number[][] = Array.from({ length: k }, () =>
     Array.from({ length: m }, () => rng() * 0.1 + 0.01)
   );
 

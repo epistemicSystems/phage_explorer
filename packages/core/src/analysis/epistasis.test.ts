@@ -29,7 +29,6 @@ import {
   renderEpistasisHeatmap,
   type EpistasisPair,
   type SingleMutantEffect,
-  type PositionFrequencies,
 } from './epistasis';
 import type { GeneInfo } from '../types';
 

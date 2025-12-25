@@ -272,17 +272,29 @@ function inferEcologicalContext(
   const biomeName = BIOME_NAMES[primary.biome];
 
   if (biomeDistribution.length === 1) {
-    return `This phage appears specialized for ${biomeName.toLowerCase()} environments with no significant presence in other habitats.`;
+    let context = `This phage appears specialized for ${biomeName.toLowerCase()} environments with no significant presence in other habitats.`;
+    if (novelty.classification === 'novel' || novelty.classification === 'rare') {
+      context += ' However, metagenomic matches are limited, so this ecological inference should be treated as tentative.';
+    }
+    return context;
   }
 
   const secondary = biomeDistribution[1];
   const secondaryName = BIOME_NAMES[secondary.biome];
 
   if (primary.maxContainment - secondary.maxContainment < 0.1) {
-    return `This phage shows broad ecological distribution, with similar prevalence in ${biomeName.toLowerCase()} and ${secondaryName.toLowerCase()} environments.`;
+    let context = `This phage shows broad ecological distribution, with similar prevalence in ${biomeName.toLowerCase()} and ${secondaryName.toLowerCase()} environments.`;
+    if (novelty.classification === 'novel' || novelty.classification === 'rare') {
+      context += ' However, metagenomic matches are limited, so this ecological inference should be treated as tentative.';
+    }
+    return context;
   }
 
-  return `This phage is primarily associated with ${biomeName.toLowerCase()} (${(primary.maxContainment * 100).toFixed(0)}% containment) with secondary presence in ${secondaryName.toLowerCase()} (${(secondary.maxContainment * 100).toFixed(0)}% containment).`;
+  let context = `This phage is primarily associated with ${biomeName.toLowerCase()} (${(primary.maxContainment * 100).toFixed(0)}% containment) with secondary presence in ${secondaryName.toLowerCase()} (${(secondary.maxContainment * 100).toFixed(0)}% containment).`;
+  if (novelty.classification === 'novel' || novelty.classification === 'rare') {
+    context += ' However, metagenomic matches are limited, so this ecological inference should be treated as tentative.';
+  }
+  return context;
 }
 
 /**
