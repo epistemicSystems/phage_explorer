@@ -428,6 +428,11 @@ function minHashJaccardJS(
   k: number,
   numHashes: number = 128
 ): number {
+  // Guard against invalid numHashes
+  if (numHashes < 1) {
+    return 0;
+  }
+
   // FNV-1a hash function
   const fnv1a = (s: string): number => {
     let h = 0x811c9dc5;

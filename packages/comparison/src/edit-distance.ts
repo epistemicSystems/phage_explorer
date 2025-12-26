@@ -119,6 +119,11 @@ export function approximateLevenshtein(
   windowSize: number = 1000,
   numWindows: number = 20
 ): { distance: number; isApproximate: boolean; windowSize: number; windowCount: number } {
+  // Guard against invalid windowSize
+  if (windowSize < 1) {
+    windowSize = 1000;
+  }
+
   const lenA = a.length;
   const lenB = b.length;
 
