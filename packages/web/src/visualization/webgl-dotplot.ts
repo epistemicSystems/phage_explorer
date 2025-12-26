@@ -100,7 +100,9 @@ void main() {
   // Apply threshold and color
   if (similarity >= u_threshold) {
     // Intensity based on similarity
-    float intensity = (similarity - u_threshold) / (1.0 - u_threshold);
+    // Guard against division by zero when threshold = 1.0
+    float denom = max(1.0 - u_threshold, 0.001);
+    float intensity = (similarity - u_threshold) / denom;
     fragColor = vec4(mix(u_bgColor, u_matchColor, intensity), 1.0);
   } else {
     fragColor = vec4(u_bgColor, 1.0);
@@ -136,6 +138,10 @@ export function encodeSequenceToTexture(sequence: string): {
   height: number;
 } {
   const length = sequence.length;
+  // Guard against empty sequence (avoid NaN dimensions)
+  if (length === 0) {
+    return { data: new Float32Array([1.0]), width: 1, height: 1 }; // 1x1 texture with N
+  }
   // Use power-of-2 texture dimensions for efficiency
   const width = Math.min(4096, Math.ceil(Math.sqrt(length)));
   const height = Math.ceil(length / width);

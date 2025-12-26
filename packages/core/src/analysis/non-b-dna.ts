@@ -27,6 +27,11 @@ function getG4Score(base: string, runLength: number): number {
 export function detectG4(sequence: string, windowSize = 25, threshold = 1.5): NonBStructure[] {
   const seq = sequence.toUpperCase();
   const structures: NonBStructure[] = [];
+
+  // Guard against invalid window size
+  if (windowSize < 1 || seq.length < windowSize) {
+    return structures;
+  }
   
   // Precompute scores for each position based on run context
   const scores = new Float32Array(seq.length);
@@ -160,6 +165,12 @@ const Z_SCORES: Record<string, number> = {
 export function detectZDNA(sequence: string, windowSize = 12, threshold = 0.5): NonBStructure[] {
   const seq = sequence.toUpperCase();
   const structures: NonBStructure[] = [];
+
+  // Guard against invalid window size
+  if (windowSize < 1 || seq.length < windowSize) {
+    return structures;
+  }
+
   const zPropensity = new Float32Array(seq.length);
 
   for (let i = 0; i < seq.length - 1; i++) {
