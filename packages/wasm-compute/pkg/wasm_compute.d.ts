@@ -1,6 +1,20 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export class BondDetectionResult {
+  private constructor();
+  free(): void;
+  [Symbol.dispose](): void;
+  /**
+   * Get the number of bonds
+   */
+  readonly bond_count: number;
+  /**
+   * Get bonds as flat array [a0, b0, a1, b1, ...]
+   */
+  readonly bonds: Uint32Array;
+}
+
 export class CodonUsageResult {
   private constructor();
   free(): void;
@@ -139,6 +153,39 @@ export function calculate_gc_content(seq: string): number;
 export function compute_cumulative_gc_skew(seq: string): Float64Array;
 
 /**
+ * Compute diff mask between two sequences.
+ *
+ * Compares a query sequence against a reference sequence and produces
+ * a diff mask indicating the type of difference at each position:
+ * - 0: Match
+ * - 1: Mismatch (substitution)
+ * - 2: Insertion (in query relative to ref - not computed here, placeholder)
+ * - 3: Deletion (in query relative to ref - not computed here, placeholder)
+ *
+ * For simple pairwise comparison without alignment, only 0 and 1 are used.
+ *
+ * # Arguments
+ * * `query` - Query sequence (the one being displayed)
+ * * `reference` - Reference sequence to compare against
+ *
+ * # Returns
+ * Uint8Array with diff codes (0 = match, 1 = mismatch)
+ */
+export function compute_diff_mask(query: string, reference: string): Uint8Array;
+
+/**
+ * Compute diff mask from pre-encoded sequences (faster than string version).
+ *
+ * # Arguments
+ * * `query_encoded` - Pre-encoded query sequence (values 0-4)
+ * * `ref_encoded` - Pre-encoded reference sequence (values 0-4)
+ *
+ * # Returns
+ * Uint8Array with diff codes (0 = match, 1 = mismatch)
+ */
+export function compute_diff_mask_encoded(query_encoded: Uint8Array, ref_encoded: Uint8Array): Uint8Array;
+
+/**
  * Compute GC skew using a sliding window.
  *
  * GC skew = (G - C) / (G + C)
@@ -175,6 +222,31 @@ export function compute_gc_skew(seq: string, window_size: number, step_size: num
 export function compute_linguistic_complexity(seq: string, max_k: number): number;
 
 /**
+ * Compute color runs for micro batch rendering.
+ *
+ * This performs single-pass run-length encoding on an encoded sequence,
+ * producing runs grouped by color. The output is a flat Float32Array where
+ * every 4 values represent: [color_code, row_y, x, width].
+ *
+ * Runs are sorted by color so the JS renderer only needs 5 fillStyle changes.
+ *
+ * # Arguments
+ * * `encoded` - Pre-encoded sequence (values 0-4)
+ * * `start_row` - First visible row index
+ * * `end_row` - Last visible row index (exclusive)
+ * * `cols` - Number of columns per row
+ * * `cell_width` - Width of each cell in pixels
+ * * `cell_height` - Height of each cell in pixels
+ * * `offset_y` - Y offset for first visible row (sub-pixel scrolling)
+ * * `start_row_offset` - startRow value from visible range (for row Y calculation)
+ *
+ * # Returns
+ * Float32Array with runs: [color, y, x, width, color, y, x, width, ...]
+ * First value is the total number of runs.
+ */
+export function compute_micro_runs(encoded: Uint8Array, start_row: number, end_row: number, cols: number, cell_width: number, cell_height: number, offset_y: number, start_row_offset: number): Float32Array;
+
+/**
  * Compute local complexity in sliding windows.
  *
  * # Arguments
@@ -199,6 +271,28 @@ export function compute_windowed_complexity(seq: string, window_size: number, st
  * CodonUsageResult with JSON-encoded codon counts.
  */
 export function count_codon_usage(seq: string, frame: number): CodonUsageResult;
+
+/**
+ * Detect bonds using spatial hashing for O(N) complexity.
+ *
+ * This is the CRITICAL optimization replacing the O(N²) algorithm.
+ * For a 50,000 atom structure:
+ * - Old: 1.25 billion comparisons → 30-60+ seconds
+ * - New: ~1 million comparisons → <1 second
+ *
+ * # Arguments
+ * * `positions` - Flat array of atom positions [x0, y0, z0, x1, y1, z1, ...]
+ * * `elements` - String of element symbols (one char per atom: "CCCCNNO...")
+ *
+ * # Returns
+ * BondDetectionResult with pairs of bonded atom indices.
+ *
+ * # Algorithm
+ * 1. Build spatial hash with cell size = max bond distance (~2.7Å)
+ * 2. For each atom, only check atoms in neighboring 27 cells
+ * 3. Reduces O(N²) to O(N * k) where k ≈ 20 atoms per neighborhood
+ */
+export function detect_bonds_spatial(positions: Float32Array, elements: string): BondDetectionResult;
 
 /**
  * Detect palindromic (inverted repeat) sequences in DNA.
@@ -229,6 +323,23 @@ export function detect_palindromes(seq: string, min_len: number, max_gap: number
  * RepeatResult with JSON array of {start, end, unit, copies, sequence}
  */
 export function detect_tandem_repeats(seq: string, min_unit: number, max_unit: number, min_copies: number): RepeatResult;
+
+/**
+ * Fast sequence encoding for canvas rendering.
+ *
+ * Encodes nucleotide characters to numeric codes:
+ * - A/a -> 0, C/c -> 1, G/g -> 2, T/t/U/u -> 3, other -> 4 (N)
+ *
+ * This is used by CanvasSequenceGridRenderer for O(1) lookups during rendering.
+ * WASM version is ~4x faster than JS for large sequences due to tighter loops.
+ *
+ * # Arguments
+ * * `seq` - DNA/RNA sequence string
+ *
+ * # Returns
+ * Uint8Array with encoded values (0-4)
+ */
+export function encode_sequence_fast(seq: string): Uint8Array;
 
 /**
  * Compute Hoeffding's D statistic for measuring statistical dependence.

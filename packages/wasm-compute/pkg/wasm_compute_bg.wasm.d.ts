@@ -1,6 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const __wbg_bonddetectionresult_free: (a: number, b: number) => void;
 export const __wbg_codonusageresult_free: (a: number, b: number) => void;
 export const __wbg_get_hoeffdingresult_d: (a: number) => number;
 export const __wbg_get_hoeffdingresult_n: (a: number) => number;
@@ -28,16 +29,23 @@ export const __wbg_set_kmeranalysisresult_shared_kmers: (a: number, b: number) =
 export const __wbg_set_kmeranalysisresult_unique_kmers_a: (a: number, b: number) => void;
 export const __wbg_set_kmeranalysisresult_unique_kmers_b: (a: number, b: number) => void;
 export const analyze_kmers: (a: number, b: number, c: number, d: number, e: number) => number;
+export const bonddetectionresult_bond_count: (a: number) => number;
+export const bonddetectionresult_bonds: (a: number) => [number, number];
 export const build_grid: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
 export const calculate_gc_content: (a: number, b: number) => number;
 export const codonusageresult_json: (a: number) => [number, number];
 export const compute_cumulative_gc_skew: (a: number, b: number) => [number, number];
+export const compute_diff_mask: (a: number, b: number, c: number, d: number) => [number, number];
+export const compute_diff_mask_encoded: (a: number, b: number, c: number, d: number) => [number, number];
 export const compute_gc_skew: (a: number, b: number, c: number, d: number) => [number, number];
 export const compute_linguistic_complexity: (a: number, b: number, c: number) => number;
+export const compute_micro_runs: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number];
 export const compute_windowed_complexity: (a: number, b: number, c: number, d: number, e: number) => [number, number];
 export const count_codon_usage: (a: number, b: number, c: number) => number;
+export const detect_bonds_spatial: (a: number, b: number, c: number, d: number) => number;
 export const detect_palindromes: (a: number, b: number, c: number, d: number) => number;
 export const detect_tandem_repeats: (a: number, b: number, c: number, d: number, e: number) => number;
+export const encode_sequence_fast: (a: number, b: number) => [number, number];
 export const gridresult_json: (a: number) => [number, number];
 export const hoeffdings_d: (a: number, b: number, c: number, d: number) => number;
 export const jensen_shannon_divergence: (a: number, b: number, c: number, d: number) => number;

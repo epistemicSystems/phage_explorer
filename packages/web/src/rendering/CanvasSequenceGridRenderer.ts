@@ -39,8 +39,9 @@ function encodeSequence(seq: string): Uint8Array {
 }
 
 // Row tile cache entry
+type RowTileCanvas = OffscreenCanvas | HTMLCanvasElement;
 interface RowTile {
-  canvas: OffscreenCanvas;
+  canvas: RowTileCanvas;
   row: number;
   hash: number; // Content hash for invalidation
   timestamp: number;
@@ -191,7 +192,7 @@ function getDefaultZoomScale(viewportWidth: number): number {
 export class CanvasSequenceGridRenderer {
   private canvas: HTMLCanvasElement | OffscreenCanvas;
   private ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
-  private backBuffer: OffscreenCanvas | null = null;
+  private backBuffer: OffscreenCanvas | HTMLCanvasElement | null = null;
   private backCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
   private theme: Theme;
@@ -439,6 +440,9 @@ export class CanvasSequenceGridRenderer {
         cellHeight: this.cellHeight,
         devicePixelRatio: this.dpr,
       });
+
+      // Cached tiles depend on cell metrics.
+      this.invalidateRowCache();
     }
     this.updateCodonSnap();
   }
@@ -449,7 +453,9 @@ export class CanvasSequenceGridRenderer {
   private createBackBuffer(width: number, height: number): void {
     const safeWidth = Math.max(1, width);
     const safeHeight = Math.max(1, height);
-    if (typeof OffscreenCanvas === 'undefined') {
+    const hasOffscreen = typeof OffscreenCanvas !== 'undefined';
+    const hasDom = typeof document !== 'undefined';
+    if (!hasOffscreen && !hasDom) {
       this.backBuffer = null;
       this.backCtx = null;
       return;
@@ -459,8 +465,14 @@ export class CanvasSequenceGridRenderer {
     const targetHeight = safeHeight * this.dpr;
 
     if (!this.backBuffer) {
-      this.backBuffer = new OffscreenCanvas(targetWidth, targetHeight);
+      this.backBuffer = hasOffscreen ? new OffscreenCanvas(targetWidth, targetHeight) : document.createElement('canvas');
     } else if (this.backBuffer.width !== targetWidth || this.backBuffer.height !== targetHeight) {
+      this.backBuffer.width = targetWidth;
+      this.backBuffer.height = targetHeight;
+    }
+
+    // Ensure DOM canvas buffers are sized (OffscreenCanvas handled above).
+    if (this.backBuffer && !hasOffscreen) {
       this.backBuffer.width = targetWidth;
       this.backBuffer.height = targetHeight;
     }
@@ -486,8 +498,9 @@ export class CanvasSequenceGridRenderer {
     readingFrame: ReadingFrame = 0,
     aminoSequence: string | null = null
   ): void {
-    // Encode sequence for fast O(1) lookups
-    this.encodedSequence = encodeSequence(sequence);
+    // Encode nucleotides for fast O(1) lookups (used by micro renderer + fast paths).
+    // AA view passes an amino-acid string into `sequence`, so nucleotide encoding does not apply there.
+    this.encodedSequence = viewMode === 'aa' ? null : encodeSequence(sequence);
 
     this.currentState = {
       sequence,
@@ -559,12 +572,31 @@ export class CanvasSequenceGridRenderer {
   ): RowTile | null {
     // Skip caching for very small cells (micro mode uses batch rendering instead)
     if (this.cellWidth <= 3 || this.cellHeight <= 3) return null;
-    // Skip caching during scroll for immediate responsiveness
-    if (this.isScrolling) return null;
     if (!this.useTileCache) return null;
+    if (typeof OffscreenCanvas === 'undefined' && typeof document === 'undefined') return null;
+
+    const tileWidth = cols * this.cellWidth;
+    const tileHeight = rowHeight;
+    const expectedPixelWidth = Math.max(1, Math.round(tileWidth * this.dpr));
+    const expectedPixelHeight = Math.max(1, Math.round(tileHeight * this.dpr));
+
+    let cached = this.rowTileCache.get(row);
+    if (cached && (cached.canvas.width !== expectedPixelWidth || cached.canvas.height !== expectedPixelHeight)) {
+      // Stale tile from a previous layout/DPR.
+      this.rowTileCache.delete(row);
+      cached = undefined;
+    }
+
+    // While actively scrolling, only reuse cached tiles (never create new ones).
+    if (this.isScrolling) {
+      if (cached) {
+        cached.timestamp = performance.now();
+        return cached;
+      }
+      return null;
+    }
 
     const hash = this.computeRowHash(row, cols);
-    const cached = this.rowTileCache.get(row);
 
     // Return cached tile if content hash matches
     if (cached && cached.hash === hash) {
@@ -573,13 +605,16 @@ export class CanvasSequenceGridRenderer {
     }
 
     // Create new tile
-    const tileWidth = cols * this.cellWidth;
-    const tileHeight = rowHeight;
+    const tileCanvas: RowTileCanvas =
+      typeof OffscreenCanvas !== 'undefined'
+        ? new OffscreenCanvas(expectedPixelWidth, expectedPixelHeight)
+        : document.createElement('canvas');
+
+    tileCanvas.width = expectedPixelWidth;
+    tileCanvas.height = expectedPixelHeight;
+
     const tile: RowTile = {
-      canvas: new OffscreenCanvas(
-        Math.max(1, tileWidth * this.dpr),
-        Math.max(1, tileHeight * this.dpr)
-      ),
+      canvas: tileCanvas,
       row,
       hash,
       timestamp: performance.now(),
@@ -589,6 +624,9 @@ export class CanvasSequenceGridRenderer {
     const tileCtx = tile.canvas.getContext('2d', { alpha: false });
     if (!tileCtx) return null;
 
+    if (typeof tileCtx.setTransform === 'function') {
+      tileCtx.setTransform(1, 0, 0, 1, 0, 0);
+    }
     tileCtx.scale(this.dpr, this.dpr);
     this.renderRowToTile(tileCtx, row, cols, rowHeight, viewMode);
 
@@ -609,7 +647,7 @@ export class CanvasSequenceGridRenderer {
     rowHeight: number,
     viewMode: ViewMode
   ): void {
-    if (!this.currentState || !this.encodedSequence) return;
+    if (!this.currentState) return;
 
     const { sequence, aminoSequence, diffSequence, diffEnabled, diffMask } = this.currentState;
     const { cellWidth } = this;
@@ -783,6 +821,10 @@ export class CanvasSequenceGridRenderer {
    * Batch render micro cells using fillRect batching for maximum performance
    * Used when cells are too small for text (genome overview mode)
    *
+   * OPTIMIZATION: Single-pass run-length encoding instead of 5 passes.
+   * Previous version iterated 5× over all visible cells (once per color).
+   * This version iterates once, builds run lists per color, then draws.
+   *
    * Note: We use fillRect batching instead of ImageData because:
    * - ImageData ignores canvas transforms (breaks DPI scaling)
    * - fillRect respects the canvas DPI transform
@@ -791,43 +833,95 @@ export class CanvasSequenceGridRenderer {
   private renderMicroBatch(
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
     range: VisibleRange,
-    layout: { cols: number; rows: number }
+    layout: { cols: number; rows: number },
+    rowStartOverride?: number,
+    rowEndOverride?: number
   ): void {
     if (!this.currentState || !this.encodedSequence) return;
 
     const { startRow, endRow, offsetY } = range;
     const { cellWidth, cellHeight } = this;
+    const renderStartRow = rowStartOverride ?? startRow;
+    const renderEndRow = rowEndOverride ?? endRow;
+    const encoded = this.encodedSequence;
+    const cols = layout.cols;
 
-    // Batch cells by nucleotide code for minimal fillStyle changes
-    // Using arrays instead of Map for faster iteration
-    const batches: Array<Array<{ x: number; y: number }>> = [[], [], [], [], []];
+    // Pre-allocate run storage for each color (reuse across frames to minimize GC)
+    // Each run is stored as 3 consecutive values: [rowY, x, width]
+    // We estimate ~20% of cells per color on average, with run compression
+    const estimatedRunsPerColor = Math.ceil((renderEndRow - renderStartRow) * cols * 0.05);
+    const runs: Float32Array[] = [
+      new Float32Array(estimatedRunsPerColor * 3),
+      new Float32Array(estimatedRunsPerColor * 3),
+      new Float32Array(estimatedRunsPerColor * 3),
+      new Float32Array(estimatedRunsPerColor * 3),
+      new Float32Array(estimatedRunsPerColor * 3),
+    ];
+    const runCounts = [0, 0, 0, 0, 0];
 
-    for (let row = startRow; row < endRow; row++) {
+    // Helper to add a run, growing the array if needed
+    const addRun = (code: number, rowY: number, x: number, width: number) => {
+      const idx = runCounts[code] * 3;
+      let arr = runs[code];
+      if (idx >= arr.length) {
+        // Grow array by 2x
+        const newArr = new Float32Array(arr.length * 2);
+        newArr.set(arr);
+        runs[code] = newArr;
+        arr = newArr;
+      }
+      arr[idx] = rowY;
+      arr[idx + 1] = x;
+      arr[idx + 2] = width;
+      runCounts[code]++;
+    };
+
+    // SINGLE PASS: Collect all runs for all colors
+    for (let row = renderStartRow; row < renderEndRow; row++) {
       const rowY = (row - startRow) * cellHeight + offsetY;
-      const rowStart = row * layout.cols;
-      const rowEnd = Math.min(rowStart + layout.cols, this.encodedSequence.length);
+      const rowStart = row * cols;
+      const rowEnd = Math.min(rowStart + cols, encoded.length);
 
-      for (let i = rowStart; i < rowEnd; i++) {
-        const col = i - rowStart;
-        const x = col * cellWidth;
-        const code = this.encodedSequence[i];
-        // Bounds check for safety (code should always be 0-4)
-        if (code >= 0 && code < 5) {
-          batches[code].push({ x, y: rowY });
+      if (rowStart >= encoded.length) break;
+
+      let runCode = encoded[rowStart];
+      let runStartX = 0;
+
+      for (let i = rowStart + 1; i < rowEnd; i++) {
+        const code = encoded[i];
+        if (code !== runCode) {
+          // End current run
+          const col = i - rowStart;
+          addRun(runCode, rowY, runStartX * cellWidth, (col - runStartX) * cellWidth);
+          runCode = code;
+          runStartX = col;
         }
+      }
+      // Final run in row
+      const finalWidth = (rowEnd - rowStart - runStartX) * cellWidth;
+      if (finalWidth > 0) {
+        addRun(runCode, rowY, runStartX * cellWidth, finalWidth);
       }
     }
 
-    // Render each color batch - only 5 fillStyle changes total
-    const colorKeys = ['A', 'C', 'G', 'T', 'N'] as const;
-    for (let code = 0; code < 5; code++) {
-      const batch = batches[code];
-      if (batch.length === 0) continue;
+    // DRAW PHASE: Render all runs, grouped by color (5 fillStyle changes total)
+    const colors = [
+      this.theme.nucleotides.A.bg,
+      this.theme.nucleotides.C.bg,
+      this.theme.nucleotides.G.bg,
+      this.theme.nucleotides.T.bg,
+      this.theme.nucleotides.N.bg,
+    ];
 
-      ctx.fillStyle = this.theme.nucleotides[colorKeys[code]].bg;
-      for (let i = 0; i < batch.length; i++) {
-        const cell = batch[i];
-        ctx.fillRect(cell.x, cell.y, cellWidth, cellHeight);
+    for (let code = 0; code < 5; code++) {
+      const count = runCounts[code];
+      if (count === 0) continue;
+
+      ctx.fillStyle = colors[code]!;
+      const arr = runs[code];
+      for (let i = 0; i < count; i++) {
+        const idx = i * 3;
+        ctx.fillRect(arr[idx + 1], arr[idx], arr[idx + 2], cellHeight);
       }
     }
   }
@@ -1111,15 +1205,29 @@ export class CanvasSequenceGridRenderer {
       ctx.fillRect(0, 0, clientWidth, clientHeight);
       this.needsFullRedraw = false;
 
-      // Use optimized rendering path based on cell size
-      const isMicroMode = this.cellWidth <= 5 && this.cellHeight <= 5 && !diffEnabled;
+      // Use optimized rendering paths only where they are correct + beneficial.
+      // - Micro mode: DNA-only (colored mosaic; no glyphs).
+      // - Tile caching: DNA-only, diff-disabled (keeps diff rendering + AA correctness in the canonical path).
+      const isMicroMode =
+        viewMode === 'dna' &&
+        !diffEnabled &&
+        !!this.encodedSequence &&
+        this.cellWidth <= 5 &&
+        this.cellHeight <= 5;
 
-      if (isMicroMode && viewMode !== 'dual') {
-        // Micro mode: use batch rendering for maximum performance
+      const canUseTileCaching =
+        viewMode === 'dna' &&
+        !diffEnabled &&
+        !!this.encodedSequence &&
+        this.cellWidth > 3 &&
+        this.cellHeight > 3;
+
+      if (isMicroMode) {
         this.renderMicroBatch(ctx, range, layout);
-      } else {
-        // Normal mode: use tile caching for larger cells
+      } else if (canUseTileCaching) {
         this.renderVisibleRangeOptimized(ctx, range, layout, viewMode, rowHeight);
+      } else {
+        this.renderVisibleRange(ctx, range, layout, sequence, aminoSequence, viewMode, diffSequence, diffEnabled, diffMask);
       }
     }
 
@@ -1723,40 +1831,55 @@ export class CanvasSequenceGridRenderer {
       Math.ceil(exposedHeight / Math.max(1, rowHeight)) + 1
     );
 
+    const isMicroMode =
+      viewMode === 'dna' &&
+      !diffEnabled &&
+      !!this.encodedSequence &&
+      this.cellWidth <= 5 &&
+      this.cellHeight <= 5;
+
     if (deltaY < 0) {
       // Scrolling down: new content appears at the bottom
       ctx.fillRect(0, clientHeight - exposedHeight, clientWidth, exposedHeight);
       const renderStart = Math.max(range.startRow, range.endRow - rowsToRender);
-      this.renderVisibleRange(
-        ctx,
-        range,
-        layout,
-        sequence,
-        aminoSequence,
-        viewMode,
-        diffSequence,
-        diffEnabled,
-        diffMask,
-        renderStart,
-        range.endRow
-      );
+      if (isMicroMode) {
+        this.renderMicroBatch(ctx, range, layout, renderStart, range.endRow);
+      } else {
+        this.renderVisibleRange(
+          ctx,
+          range,
+          layout,
+          sequence,
+          aminoSequence,
+          viewMode,
+          diffSequence,
+          diffEnabled,
+          diffMask,
+          renderStart,
+          range.endRow
+        );
+      }
     } else {
       // Scrolling up: new content appears at the top
       ctx.fillRect(0, 0, clientWidth, exposedHeight);
       const renderEnd = Math.min(range.endRow, range.startRow + rowsToRender);
-      this.renderVisibleRange(
-        ctx,
-        range,
-        layout,
-        sequence,
-        aminoSequence,
-        viewMode,
-        diffSequence,
-        diffEnabled,
-        diffMask,
-        range.startRow,
-        renderEnd
-      );
+      if (isMicroMode) {
+        this.renderMicroBatch(ctx, range, layout, range.startRow, renderEnd);
+      } else {
+        this.renderVisibleRange(
+          ctx,
+          range,
+          layout,
+          sequence,
+          aminoSequence,
+          viewMode,
+          diffSequence,
+          diffEnabled,
+          diffMask,
+          range.startRow,
+          renderEnd
+        );
+      }
     }
 
     this.needsFullRedraw = false;
