@@ -2,6 +2,7 @@ import tseslint from 'typescript-eslint'
 
 export default [
   {
+    // All ignores consolidated here (replaces legacy .eslintignore)
     ignores: [
       'dist/**',
       'node_modules/**',
@@ -10,6 +11,13 @@ export default [
       'packages/tui/**',
       '**/packages/tui/**',
       '.cache/**',
+      // Playwright artifacts (generated; can contain minified bundles)
+      'playwright-report/**',
+      'test-results/**',
+      'screenshots/**',
+      'packages/**/playwright-report/**',
+      'packages/**/test-results/**',
+      'packages/**/screenshots/**',
     ]
   },
   ...tseslint.configs.recommended,

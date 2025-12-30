@@ -21,6 +21,9 @@ reproduce*.ts
 scratch*.ts
 temp*.ts
 debug*.ts
+repro_*.ts
+test-*.ts
+phage_illustrations/
 
 # Generated database (root level only, web public db is tracked for deployment)
 /phage.db

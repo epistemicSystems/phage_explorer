@@ -31,6 +31,17 @@ packages/tui/
 *.spec.ts
 __tests__/
 
+# Playwright artifacts (local only)
+packages/web/playwright-report/
+packages/web/test-results/
+packages/web/screenshots/
+test-results/
+
+# Local repro scripts / scratch assets
+repro_*.ts
+test-*.ts
+phage_illustrations/
+
 # IDE/local
 .env.local
 .env*.local
