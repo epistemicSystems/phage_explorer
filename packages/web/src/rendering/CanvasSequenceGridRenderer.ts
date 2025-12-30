@@ -780,8 +780,13 @@ export class CanvasSequenceGridRenderer {
   }
 
   /**
-   * Batch render micro cells using direct ImageData for maximum performance
+   * Batch render micro cells using fillRect batching for maximum performance
    * Used when cells are too small for text (genome overview mode)
+   *
+   * Note: We use fillRect batching instead of ImageData because:
+   * - ImageData ignores canvas transforms (breaks DPI scaling)
+   * - fillRect respects the canvas DPI transform
+   * - Batching by color minimizes fillStyle changes (5 changes vs thousands)
    */
   private renderMicroBatch(
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
@@ -792,63 +797,10 @@ export class CanvasSequenceGridRenderer {
 
     const { startRow, endRow, offsetY } = range;
     const { cellWidth, cellHeight } = this;
-    const { width: viewportWidth } = this.getViewportSize();
 
-    // Get nucleotide colors as RGB arrays for fast ImageData manipulation
-    const colors = [
-      this.hexToRgb(this.theme.nucleotides.A.bg), // A = 0
-      this.hexToRgb(this.theme.nucleotides.C.bg), // C = 1
-      this.hexToRgb(this.theme.nucleotides.G.bg), // G = 2
-      this.hexToRgb(this.theme.nucleotides.T.bg), // T = 3
-      this.hexToRgb(this.theme.nucleotides.N.bg), // N = 4
-    ];
-
-    // For very tiny cells (1-2px), use ImageData for fastest rendering
-    if (cellWidth <= 2 && cellHeight <= 2) {
-      const rowsToRender = endRow - startRow;
-      const imgWidth = Math.ceil(viewportWidth);
-      const imgHeight = Math.ceil(rowsToRender * cellHeight + Math.abs(offsetY));
-
-      if (imgWidth <= 0 || imgHeight <= 0) return;
-
-      const imageData = ctx.createImageData(imgWidth, imgHeight);
-      const data = imageData.data;
-
-      for (let row = startRow; row < endRow; row++) {
-        const rowY = Math.floor((row - startRow) * cellHeight + offsetY);
-        if (rowY < 0 || rowY >= imgHeight) continue;
-
-        const rowStart = row * layout.cols;
-        const rowEnd = Math.min(rowStart + layout.cols, this.encodedSequence.length);
-
-        for (let i = rowStart; i < rowEnd; i++) {
-          const col = i - rowStart;
-          const x = Math.floor(col * cellWidth);
-          if (x < 0 || x >= imgWidth) continue;
-
-          const code = this.encodedSequence[i];
-          const color = colors[code] ?? colors[4];
-
-          // Fill cell pixels
-          for (let dy = 0; dy < cellHeight && rowY + dy < imgHeight; dy++) {
-            for (let dx = 0; dx < cellWidth && x + dx < imgWidth; dx++) {
-              const pixelIndex = ((rowY + dy) * imgWidth + (x + dx)) * 4;
-              data[pixelIndex] = color[0];
-              data[pixelIndex + 1] = color[1];
-              data[pixelIndex + 2] = color[2];
-              data[pixelIndex + 3] = 255;
-            }
-          }
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-      return;
-    }
-
-    // For 3-5px cells, use fillRect batching by color (faster than per-cell)
-    const batches: Map<number, Array<{ x: number; y: number }>> = new Map();
-    for (let i = 0; i < 5; i++) batches.set(i, []);
+    // Batch cells by nucleotide code for minimal fillStyle changes
+    // Using arrays instead of Map for faster iteration
+    const batches: Array<Array<{ x: number; y: number }>> = [[], [], [], [], []];
 
     for (let row = startRow; row < endRow; row++) {
       const rowY = (row - startRow) * cellHeight + offsetY;
@@ -859,36 +811,25 @@ export class CanvasSequenceGridRenderer {
         const col = i - rowStart;
         const x = col * cellWidth;
         const code = this.encodedSequence[i];
-        batches.get(code)?.push({ x, y: rowY });
+        // Bounds check for safety (code should always be 0-4)
+        if (code >= 0 && code < 5) {
+          batches[code].push({ x, y: rowY });
+        }
       }
     }
 
-    // Render each color batch
+    // Render each color batch - only 5 fillStyle changes total
     const colorKeys = ['A', 'C', 'G', 'T', 'N'] as const;
     for (let code = 0; code < 5; code++) {
-      const batch = batches.get(code);
-      if (!batch || batch.length === 0) continue;
+      const batch = batches[code];
+      if (batch.length === 0) continue;
 
       ctx.fillStyle = this.theme.nucleotides[colorKeys[code]].bg;
-      for (const { x, y } of batch) {
-        ctx.fillRect(x, y, cellWidth, cellHeight);
+      for (let i = 0; i < batch.length; i++) {
+        const cell = batch[i];
+        ctx.fillRect(cell.x, cell.y, cellWidth, cellHeight);
       }
     }
-  }
-
-  /**
-   * Convert hex color to RGB array
-   */
-  private hexToRgb(hex: string): [number, number, number] {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (result) {
-      return [
-        parseInt(result[1], 16),
-        parseInt(result[2], 16),
-        parseInt(result[3], 16),
-      ];
-    }
-    return [128, 128, 128]; // Fallback gray
   }
 
   /**
