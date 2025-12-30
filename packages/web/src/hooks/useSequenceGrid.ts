@@ -127,13 +127,17 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     densityMode = detectMobileDevice() ? 'compact' : 'standard',
   } = options;
 
+  // Worker renderer disabled by default - OffscreenCanvas has DPI/sizing sync issues
+  // that cause blur and scroll problems. Keep main-thread rendering for now.
   const useWorkerRenderer = useMemo(() => {
     if (typeof window === 'undefined') return false;
+    // Only enable if explicitly requested
+    if (options.useWorkerRenderer !== true) return false;
     const offscreenSupported = typeof OffscreenCanvas !== 'undefined'
       && typeof (HTMLCanvasElement.prototype as unknown as { transferControlToOffscreen?: () => OffscreenCanvas }).transferControlToOffscreen === 'function';
     if (!offscreenSupported) return false;
     if ((navigator as Navigator).webdriver) return false;
-    return options.useWorkerRenderer ?? true;
+    return true;
   }, [options.useWorkerRenderer]);
 
   const resolvedPostProcessOptions = useMemo<PostProcessOptions | null>(() => {
