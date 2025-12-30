@@ -200,16 +200,19 @@
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
   cursor: pointer;
+  /* Premium spring-based transitions */
   transition:
-    background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
+    background 200ms var(--ease-out),
+    border-color 200ms var(--ease-out),
+    transform 350ms var(--ease-spring),
+    box-shadow 200ms var(--ease-out);
   text-align: left;
   width: 100%;
   color: inherit;
   font: inherit;
   position: relative;
+  /* GPU acceleration hint for smooth animations */
+  will-change: transform;
 }
 
 .list-item-main {
@@ -267,24 +270,51 @@
   box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
 }
 
-/* Active/pressed state */
+/* Active/pressed state - satisfying press feedback */
 .list-item:active {
-  transform: scale(0.99);
+  transform: scale(0.98);
+  transition:
+    transform 80ms var(--ease-out),
+    background 80ms var(--ease-out);
 }
 
-/* Selected/active item */
+/* Selected/active item with premium glow */
 .list-item.active {
   background: var(--color-background-active);
   border-color: var(--color-primary);
-  box-shadow: var(--shadow-md), 0 0 20px -8px var(--color-glow);
+  box-shadow:
+    var(--shadow-md),
+    0 0 20px -8px var(--color-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+/* Indicator bar animates in with spring */
 .list-item.active::before {
   transform: translateY(-50%) scaleY(1);
+  transition: transform 400ms var(--ease-spring);
 }
 
+/* Title color transition */
 .list-item.active .list-title {
   color: var(--color-primary);
+  transition: color 200ms var(--ease-out);
+}
+
+/* Subtle background shimmer on active */
+.list-item.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.04) 0%,
+    transparent 100%
+  );
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  pointer-events: none;
 }
 
 /* =============================================================================
@@ -862,6 +892,13 @@
   letter-spacing: 0.5px;
 }
 
+@media (max-width: 640px) {
+  /* Avoid unreadably small badges on phones. */
+  .badge-tiny {
+    font-size: 10px;
+  }
+}
+
 /* =============================================================================
    BUTTON REFINEMENTS
    Premium button styling with better interactions
@@ -889,6 +926,7 @@
     transform var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
   white-space: nowrap;
+  text-overflow: ellipsis;
   user-select: none;
   position: relative;
   overflow: hidden;
@@ -916,39 +954,64 @@
   pointer-events: none;
 }
 
-/* Touch ripple overlay (origin set via --ripple-x/--ripple-y) */
+/* Premium touch ripple - more visible and satisfying */
 .btn::after {
   content: '';
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   background: radial-gradient(
     circle at var(--ripple-x, 50%) var(--ripple-y, 50%),
-    rgba(255,255,255,0.25) 0%,
-    rgba(255,255,255,0) 60%
+    rgba(34, 211, 238, 0.35) 0%,
+    rgba(34, 211, 238, 0.15) 30%,
+    transparent 70%
   );
   opacity: 0;
-  transform: scale(2.5);
-  transition:
-    transform var(--duration-normal) var(--ease-out),
-    opacity var(--duration-normal) var(--ease-out);
+  transform: scale(0);
   pointer-events: none;
 }
 
+/* Hover state with subtle lift */
 .btn:hover {
   background: var(--color-background-hover);
   border-color: var(--color-border-light);
   color: var(--color-text);
+  box-shadow: var(--shadow-md);
 }
 
+/* Active/pressed state with spring physics */
 .btn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
   background: var(--color-background-active);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 80ms var(--ease-out),
+    background 80ms var(--ease-out),
+    box-shadow 80ms var(--ease-out);
 }
 
+/* Ripple expands from press point */
 .btn:active::after {
   opacity: 1;
-  transform: scale(0.2);
-  transition: none;
+  transform: scale(2);
+  transition:
+    transform 400ms var(--ease-out),
+    opacity 100ms var(--ease-out);
+}
+
+/* Spring back on release */
+.btn:not(:active) {
+  transition:
+    transform 350ms var(--ease-spring),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+/* Fade out ripple on release */
+.btn:not(:active)::after {
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out);
 }
 
 .btn:focus-visible {
@@ -1842,7 +1905,8 @@ kbd {
   display: inline-block;
   padding: 2px 6px;
   font-family: var(--font-mono);
-  font-size: 0.85em;
+  /* Avoid unreadably small keycaps when nested under tiny labels on mobile. */
+  font-size: max(0.85em, 10px);
   line-height: 1.2;
   color: var(--text-primary);
   background: var(--bg-darker);
@@ -1850,4 +1914,10 @@ kbd {
   border-radius: 3px;
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.25);
   white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  kbd {
+    font-size: max(0.9em, 11px);
+  }
 }

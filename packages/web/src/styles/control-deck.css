@@ -92,21 +92,82 @@
   max-width: 100%;
 }
 
-/* Active indicator dot */
-.tab-btn.active .tab-icon::after {
-  content: '';
-  position: absolute;
-  bottom: -4px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--color-primary);
-}
+/* =============================================================================
+   ENHANCED BUTTON INTERACTIONS
+   Stripe-level micro-interactions with spring physics
+   ============================================================================= */
 
 .tab-btn .tab-icon {
   position: relative;
+  transition:
+    transform 200ms var(--ease-spring),
+    color 150ms var(--ease-out);
+}
+
+/* Press effect - satisfying scale down */
+.tab-btn:active .tab-icon {
+  transform: scale(0.88);
+  transition: transform 80ms var(--ease-out);
+}
+
+/* Release springs back with overshoot */
+.tab-btn:not(:active) .tab-icon {
+  transition: transform 350ms var(--ease-spring);
+}
+
+/* Active toggle state (e.g., 3D button) */
+.tab-btn.active {
+  position: relative;
+  color: var(--color-primary);
+}
+
+/* Glowing underline for active toggle */
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 6px var(--color-glow);
+  animation: tab-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tab-glow-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Icon glow on active */
+.tab-btn.active .tab-icon {
+  filter: drop-shadow(0 0 4px var(--color-glow));
+}
+
+/* Press ripple overlay */
+.tab-btn::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: var(--radius-lg);
+  background: radial-gradient(
+    circle at center,
+    rgba(34, 211, 238, 0.15) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  transform: scale(0.5);
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+  pointer-events: none;
+}
+
+.tab-btn:active::before {
+  opacity: 1;
+  transform: scale(1);
+  transition: none;
 }
 
 /* =============================================================================
@@ -181,6 +242,6 @@
   }
 
   .tab-btn .tab-label {
-    font-size: 9px;
+    font-size: 10px;
   }
 }

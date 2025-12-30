@@ -38,7 +38,20 @@ html {
 
 @media (hover: none) and (pointer: coarse) {
   .app-header,
-  .app-footer {
+  .app-footer,
+  .panel,
+  .detail-card,
+  .glass-panel,
+  .overlay-content,
+  .modal-content,
+  .command-palette,
+  .toast,
+  .context-menu,
+  .translation-viz__ribosome-body,
+  .glossary-drawer,
+  .glossary-backdrop,
+  .db-status-bar,
+  .control-deck {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
@@ -78,28 +91,16 @@ html {
    WCAG 2.5.5 - All interactive elements 44x44px minimum
    ============================================================================= */
 
+/* Primary rule: apply on touch devices */
 @media (hover: none) and (pointer: coarse) {
-  /* Ensure generous touch targets */
   button,
   .btn,
   [role="button"],
-  a[href],
-  input[type="checkbox"],
-  input[type="radio"],
-  select,
-  .list-item,
-  .tab-btn,
   [role="option"],
   [role="tab"],
   [role="menuitem"] {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* Extra spacing between interactive elements */
-  .btn + .btn,
-  button + button {
-    margin-left: var(--space-2);
+    min-height: 44px !important;
+    min-width: 44px !important;
   }
 
   /* Larger checkbox/radio touch targets */
@@ -117,6 +118,19 @@ html {
     display: flex;
     align-items: center;
     gap: var(--space-3);
+  }
+}
+
+/* Fallback: some mobile UAs (and Playwright emulation) don't consistently report coarse pointers. */
+@media (max-width: 768px) {
+  button,
+  .btn,
+  [role="button"],
+  [role="option"],
+  [role="tab"],
+  [role="menuitem"] {
+    min-height: 44px !important;
+    min-width: 44px !important;
   }
 }
 
@@ -193,8 +207,10 @@ html {
 /* Sheet container */
 .bottom-sheet__container {
   position: relative;
-  max-height: 90vh;
-  max-height: 90dvh;
+  min-height: var(--bottom-sheet-min-height-vh, 30vh);
+  min-height: var(--bottom-sheet-min-height-dvh, 30dvh);
+  max-height: var(--bottom-sheet-max-height-vh, 90vh);
+  max-height: var(--bottom-sheet-max-height-dvh, 90dvh);
   background: var(--color-background-elevated);
   border-top-left-radius: var(--radius-2xl);
   border-top-right-radius: var(--radius-2xl);
@@ -204,6 +220,7 @@ html {
   padding-bottom: env(safe-area-inset-bottom);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   will-change: transform; /* Hint for GPU layer during drag */
 }
 
@@ -236,6 +253,8 @@ html {
   justify-content: space-between;
   padding: 0 var(--space-4) var(--space-3);
   border-bottom: 1px solid var(--color-border-subtle);
+  touch-action: none;
+  cursor: grab;
 }
 
 .bottom-sheet__title {
@@ -268,10 +287,32 @@ html {
 /* Scrollable content */
 .bottom-sheet__content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   padding: var(--space-4);
+}
+
+@media (max-width: 640px) {
+  /* Keep bottom-sheet content near full-width on phones (needed for overlays like command palette). */
+  .bottom-sheet__content {
+    padding: var(--space-2);
+  }
+}
+
+/* When overlays render inside BottomSheet, have the overlay wrapper fill the scroll area
+   so layout tests and gestures treat it like a true bottom sheet surface. */
+.bottom-sheet__content > .overlay {
+  min-height: 100%;
+}
+
+/* The command palette has a tall fixed list; constrain the wrapper to the available scroll surface
+   on very small phones so it doesn't exceed the visual viewport (iPhone SE, etc.). */
+.bottom-sheet__content > .overlay-commandPalette {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 /* Footer with actions */
@@ -288,7 +329,7 @@ html {
 
 /* =============================================================================
    SKELETON LOADERS
-   Shimmer effect for loading placeholders
+   Premium shimmer effect with Stripe-level polish
    ============================================================================= */
 
 @keyframes skeleton-shimmer {
@@ -296,29 +337,65 @@ html {
     transform: translateX(-100%);
   }
   100% {
-    transform: translateX(100%);
+    transform: translateX(200%);
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.4;
   }
 }
 
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: var(--color-background-alt);
+  background: linear-gradient(
+    135deg,
+    var(--color-background-alt) 0%,
+    var(--color-background-hover) 50%,
+    var(--color-background-alt) 100%
+  );
+  background-size: 200% 100%;
   border-radius: var(--radius-md);
+  animation: skeleton-pulse 2s ease-in-out infinite;
 }
 
-/* Use pseudo-element with transform for GPU-accelerated shimmer */
+/* Premium multi-layer shimmer with subtle color tint */
 .skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(34, 211, 238, 0.03) 45%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(192, 132, 252, 0.03) 55%,
+    transparent 65%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 2s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Second shimmer layer for depth */
+.skeleton::before {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    var(--color-background-hover) 50%,
+    rgba(255, 255, 255, 0.02) 50%,
     transparent 100%
   );
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  animation: skeleton-shimmer 2s ease-in-out infinite;
+  animation-delay: 0.3s;
   will-change: transform;
 }
 
