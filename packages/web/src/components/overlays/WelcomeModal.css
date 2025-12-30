@@ -27,18 +27,38 @@
   height: 8px;
   border-radius: 50%;
   background: var(--color-border);
-  transition: all var(--duration-fast) var(--ease-out);
+  transition:
+    width 350ms var(--ease-spring),
+    height 350ms var(--ease-spring),
+    background 200ms var(--ease-out),
+    box-shadow 200ms var(--ease-out),
+    transform 350ms var(--ease-spring);
+  will-change: transform, width, height;
 }
 
 .welcome-step-dot--current {
   width: 10px;
   height: 10px;
   background: var(--color-primary);
-  box-shadow: 0 0 8px rgba(var(--color-primary-rgb, 0, 255, 136), 0.5);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+  animation: step-dot-pulse 2s ease-in-out infinite;
 }
 
 .welcome-step-dot--completed {
   background: var(--color-accent);
+  transform: scale(1.05);
+}
+
+/* Subtle pulse for current step indicator */
+@keyframes step-dot-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.7);
+    transform: scale(1.08);
+  }
 }
 
 .welcome-step-label {
@@ -82,9 +102,42 @@
 }
 
 .welcome-feature {
+  position: relative;
   background: var(--color-background-alt);
   padding: var(--space-4);
   border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  transition:
+    transform 350ms var(--ease-spring),
+    box-shadow 200ms var(--ease-out),
+    border-color 200ms var(--ease-out);
+  will-change: transform;
+}
+
+.welcome-feature:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Subtle top gradient shimmer on hover */
+.welcome-feature::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.03) 0%,
+    transparent 50%
+  );
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out);
+  pointer-events: none;
+}
+
+.welcome-feature:hover::before {
+  opacity: 1;
 }
 
 .welcome-feature__header {
@@ -148,19 +201,35 @@
 
 /* Level card button */
 .welcome-level-card {
+  position: relative;
   text-align: left;
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   cursor: pointer;
   background: transparent;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition:
+    border-color 200ms var(--ease-out),
+    background 200ms var(--ease-out),
+    transform 350ms var(--ease-spring),
+    box-shadow 200ms var(--ease-out);
   width: 100%;
+  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .welcome-level-card:hover {
   border-color: var(--color-border-light);
   background: var(--color-background-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Satisfying press feedback */
+.welcome-level-card:active {
+  transform: scale(0.98);
+  box-shadow: var(--shadow-sm);
+  transition: transform 80ms var(--ease-out);
 }
 
 .welcome-level-card:focus-visible {
@@ -171,7 +240,35 @@
 
 .welcome-level-card[aria-pressed="true"] {
   border-color: var(--color-accent);
-  background: rgba(var(--color-accent-rgb, 34, 211, 238), 0.1);
+  background: rgba(34, 211, 238, 0.08);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.15);
+}
+
+.welcome-level-card[aria-pressed="true"]:hover {
+  background: rgba(34, 211, 238, 0.12);
+}
+
+/* Selection indicator bar on selected cards */
+.welcome-level-card::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+  border-radius: var(--radius-full);
+  opacity: 0;
+  transform: scaleX(0);
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 350ms var(--ease-spring);
+}
+
+.welcome-level-card[aria-pressed="true"]::after {
+  opacity: 1;
+  transform: scaleX(1);
+  box-shadow: 0 0 8px var(--color-glow);
 }
 
 .welcome-level-card__header {
@@ -225,12 +322,10 @@
 
 /* Footer controls */
 .welcome-footer {
-  margin-top: auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border-light);
+  gap: var(--space-4);
 }
 
 .welcome-footer__skip {
@@ -260,6 +355,31 @@
   gap: var(--space-2);
 }
 
+@media (max-width: 640px) {
+  .welcome-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .welcome-footer__skip {
+    align-self: flex-start;
+  }
+
+  .welcome-footer__actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .welcome-btn--secondary,
+  .welcome-btn--tour,
+  .welcome-btn--primary {
+    flex: 1 1 auto;
+    min-width: 120px;
+  }
+}
+
 .welcome-btn--secondary {
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-lg);
@@ -268,12 +388,23 @@
   color: var(--color-text);
   cursor: pointer;
   font-weight: var(--font-medium);
-  transition: all var(--duration-fast) var(--ease-out);
+  transition:
+    border-color 150ms var(--ease-out),
+    background 150ms var(--ease-out),
+    transform 350ms var(--ease-spring),
+    box-shadow 150ms var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .welcome-btn--secondary:hover {
   border-color: var(--color-border-light);
   background: var(--color-background-hover);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.welcome-btn--secondary:active {
+  transform: scale(0.97);
+  transition: transform 80ms var(--ease-out);
 }
 
 .welcome-btn--secondary:focus-visible {
@@ -283,6 +414,7 @@
 }
 
 .welcome-btn--tour {
+  position: relative;
   padding: var(--space-2) var(--space-5);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-accent);
@@ -290,11 +422,22 @@
   color: var(--color-accent);
   cursor: pointer;
   font-weight: var(--font-bold);
-  transition: all var(--duration-fast) var(--ease-out);
+  transition:
+    background 150ms var(--ease-out),
+    transform 350ms var(--ease-spring),
+    box-shadow 150ms var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
 }
 
 .welcome-btn--tour:hover {
-  background: rgba(var(--color-accent-rgb, 34, 211, 238), 0.1);
+  background: rgba(251, 191, 36, 0.1);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.2);
+}
+
+.welcome-btn--tour:active {
+  transform: scale(0.97);
+  transition: transform 80ms var(--ease-out);
 }
 
 .welcome-btn--tour:focus-visible {
@@ -302,7 +445,30 @@
   box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-accent);
 }
 
+/* Shimmer effect on tour button */
+.welcome-btn--tour::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(251, 191, 36, 0.15) 50%,
+    transparent 100%
+  );
+  animation: tour-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes tour-shimmer {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+
 .welcome-btn--primary {
+  position: relative;
   padding: var(--space-2) var(--space-5);
   border-radius: var(--radius-lg);
   border: none;
@@ -310,16 +476,50 @@
   color: var(--color-background);
   font-weight: var(--font-bold);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition:
+    background 150ms var(--ease-out),
+    transform 350ms var(--ease-spring),
+    box-shadow 150ms var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
 }
 
 .welcome-btn--primary:hover {
   background: var(--color-primary-hover);
+  box-shadow: 0 4px 16px rgba(34, 211, 238, 0.3);
+}
+
+.welcome-btn--primary:active {
+  transform: scale(0.97);
+  transition: transform 80ms var(--ease-out);
 }
 
 .welcome-btn--primary:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
+}
+
+/* Subtle shine effect on primary button */
+.welcome-btn--primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  animation: primary-shine 4s ease-in-out infinite;
+}
+
+@keyframes primary-shine {
+  0% { left: -75%; }
+  100% { left: 150%; }
 }
 
 /* Animation */
@@ -335,5 +535,32 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .welcome-step-dot,
+  .welcome-feature,
+  .welcome-level-card,
+  .welcome-btn--secondary,
+  .welcome-btn--tour,
+  .welcome-btn--primary {
+    transition: none;
+    animation: none;
+  }
+
+  .welcome-step-dot--current {
+    animation: none;
+  }
+
+  .welcome-btn--tour::before,
+  .welcome-btn--primary::before {
+    animation: none;
+  }
+
+  .animate-fade-in {
+    animation: none;
+    opacity: 1;
   }
 }

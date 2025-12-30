@@ -1484,11 +1484,16 @@
   background: var(--color-background-alt);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition:
+    border-color 200ms var(--ease-out),
+    box-shadow 200ms var(--ease-out),
+    background 200ms var(--ease-out);
 }
 
 .glossary-panel__search-row:focus-within {
   border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15);
+  background: var(--color-background);
 }
 
 .glossary-panel__search-icon {

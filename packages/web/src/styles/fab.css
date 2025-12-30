@@ -12,16 +12,19 @@
   border: none;
   background: var(--color-primary);
   color: var(--color-text-on-primary, #0a0a0f);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Reduced for mobile perf */
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 0 0 rgba(34, 211, 238, 0);
   display: none;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   /* Use --z-fixed (300) - same layer as control deck, below overlays (500+) */
   z-index: var(--z-fixed);
-  transition: transform var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out);
+  transition:
+    transform 350ms var(--ease-spring),
+    box-shadow 200ms var(--ease-out),
+    background 150ms var(--ease-out);
   -webkit-tap-highlight-color: transparent;
   /* GPU layer hints for fixed positioning */
   will-change: transform;
@@ -32,19 +35,41 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform var(--duration-fast) var(--ease-out);
+  transition: transform 350ms var(--ease-spring);
 }
 
 .fab--open .fab-icon {
   transform: rotate(45deg);
 }
 
+/* Satisfying press feedback with spring release */
 .fab:active {
-  transform: scale(0.92);
+  transform: scale(0.88);
+  transition: transform 80ms var(--ease-out);
 }
 
 .fab:hover {
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(34, 211, 238, 0.3);
+}
+
+/* Subtle glow pulse when idle */
+@keyframes fab-glow-pulse {
+  0%, 100% {
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      0 0 0 0 rgba(34, 211, 238, 0);
+  }
+  50% {
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      0 0 16px rgba(34, 211, 238, 0.2);
+  }
+}
+
+.fab:not(.fab--open):not(:active) {
+  animation: fab-glow-pulse 3s ease-in-out infinite;
 }
 
 .fab:focus-visible {
@@ -60,10 +85,15 @@
 
 /* When action drawer is open, FAB needs higher z-index to stay above backdrop */
 .fab--open {
-  background: var(--color-surface);
+  background: var(--color-background-elevated);
   color: var(--color-text);
   /* Backdrop is z-modal-backdrop (400), so FAB needs to be above it */
   z-index: calc(var(--z-modal-backdrop) + 10);
+  animation: none;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(34, 211, 238, 0.2),
+    inset 0 0 0 1px rgba(34, 211, 238, 0.3);
 }
 
 /* Show FAB on tablet/mobile screens */
@@ -86,5 +116,25 @@
   .fab {
     /* ControlDeck is 48px + safe-area in landscape, add 16px gap */
     bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .fab,
+  .fab .fab-icon {
+    transition: none;
+    animation: none;
+  }
+
+  .fab:not(.fab--open):not(:active) {
+    animation: none;
+  }
+}
+
+/* Disable continuous animation on touch devices for battery */
+@media (hover: none) and (pointer: coarse) {
+  .fab:not(.fab--open):not(:active) {
+    animation-duration: 6s; /* Slower = less battery drain */
   }
 }
