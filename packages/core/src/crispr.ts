@@ -39,6 +39,19 @@ const MOCK_SPACERS = [
   'TGACGT', 'AACCGG', 'TTTGGG', 'CCCAAA', 'GGATCC', 'AAGCTT'
 ];
 
+function hashString(input: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededUnit(input: string): number {
+  return hashString(input) / 4294967296;
+}
+
 function calculatePressure(hits: SpacerHit[], windowStart: number, windowEnd: number): number {
   const hitsInWindow = hits.filter(h => h.position >= windowStart && h.position < windowEnd);
   if (hitsInWindow.length === 0) return 0;
@@ -81,7 +94,10 @@ function predictAcrCandidates(genes: GeneInfo[], fullSequence: string): AcrCandi
       if (length < 100) score += 20;
 
       // Random perturbation for demo variety if not strong signal
-      if (score === 0) score = Math.floor(Math.random() * 30);
+      if (score === 0) {
+        const jitter = Math.floor(seededUnit(`acr:${gene.id}:${gene.startPos}:${gene.endPos}`) * 30);
+        score = jitter;
+      }
 
       if (score > 30) {
         candidates.push({
@@ -126,14 +142,17 @@ export function analyzeCRISPRPressure(sequence: string, genes: GeneInfo[]): CRIS
         pamStatus = 'valid';
       }
 
+      const matchScore = 0.8 + (seededUnit(`spacer:${spacer}:${pos}:score`) * 0.2);
+      const strand: 'coding' | 'template' = seededUnit(`spacer:${spacer}:${pos}:strand`) > 0.5 ? 'coding' : 'template';
+
       spacerHits.push({
         position: pos,
         sequence: spacer,
         host: 'E. coli K-12', // Mock host
         crisprType: type,
-        matchScore: 0.8 + (Math.random() * 0.2), // Randomize slightly
+        matchScore,
         pamStatus,
-        strand: Math.random() > 0.5 ? 'coding' : 'template'
+        strand,
       });
 
       pos = seqUpper.indexOf(spacer, pos + 1);

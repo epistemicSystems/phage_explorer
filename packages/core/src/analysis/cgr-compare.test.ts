@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { compareCGR, type CGRDistance } from './cgr-compare';
+import { compareCGR } from './cgr-compare';
 import type { CGRResult } from './cgr';
 
 // Helper to create a mock CGRResult
@@ -139,6 +139,7 @@ describe('compareCGR', () => {
       const scaledResult = compareCGR(a, b);
 
       // After normalization, euclidean should be 0
+      expect(sameResult.euclidean).toBeCloseTo(0, 10);
       expect(scaledResult.euclidean).toBeCloseTo(0, 5);
     });
   });

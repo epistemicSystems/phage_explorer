@@ -80,10 +80,10 @@ export function alignSynteny(genesA: GeneInfo[], genesB: GeneInfo[]): SyntenyAna
   const path: [number, number][] = [];
   
   while (i > 0 || j > 0) {
-    path.push([i - 1, j - 1]);
-    
     if (i === 0) { j--; continue; }
     if (j === 0) { i--; continue; }
+
+    path.push([i - 1, j - 1]);
 
     const minPrev = Math.min(dtw[i - 1][j], dtw[i][j - 1], dtw[i - 1][j - 1]);
 

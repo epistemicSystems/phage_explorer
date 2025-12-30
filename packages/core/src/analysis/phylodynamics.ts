@@ -380,9 +380,10 @@ export function clockRegression(tree: PhylogeneticTree): ClockRegressionResult {
   // Collect (date, root-to-tip distance) pairs
   const points: Array<{ id: string; date: number; distance: number }> = [];
   for (const leaf of leaves) {
-    if (leaf.sequence?.date != null) {
+    const date = leaf.sequence?.date;
+    if (typeof date === 'number' && Number.isFinite(date)) {
       const d = rootToTipDistance(tree.root, leaf.id);
-      points.push({ id: leaf.id, date: leaf.sequence.date, distance: d });
+      points.push({ id: leaf.id, date, distance: d });
     }
   }
 
@@ -413,14 +414,33 @@ export function clockRegression(tree: PhylogeneticTree): ClockRegressionResult {
   const slope = (n * sumXY - sumX * sumY) / denom;
   const intercept = (sumY - slope * sumX) / n;
 
+  const meanY = sumY / n;
+
+  // Reject non-positive clock signals (negative slope implies no meaningful molecular clock).
+  // When slope <= 0, the best constant predictor is the mean distance.
+  if (!(slope > 0)) {
+    const residuals: ClockRegressionResult['residuals'] = points.map((p) => ({
+      id: p.id,
+      observed: p.distance,
+      expected: meanY,
+      residual: p.distance - meanY,
+    }));
+
+    return {
+      rate: 0,
+      rootAge: points[0].date,
+      r2: 0,
+      residuals,
+    };
+  }
+
   // Rate is the slope
-  const rate = Math.max(0, slope);
+  const rate = slope;
 
   // Root age: when distance = 0, date = -intercept/slope
   const rootAge = rate > 0 ? -intercept / rate : points[0].date;
 
   // R² calculation
-  const meanY = sumY / n;
   let ssTot = 0;
   let ssRes = 0;
   const residuals: ClockRegressionResult['residuals'] = [];

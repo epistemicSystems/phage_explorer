@@ -6,7 +6,6 @@ import { describe, it, expect } from 'bun:test';
 import {
   computeMosaicRadar,
   type ReferenceSketch,
-  type MosaicRadarConfig,
 } from './recombination-radar';
 
 // Helper to create a simple reference
