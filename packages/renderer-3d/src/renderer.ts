@@ -126,21 +126,33 @@ function clipLine(
     const dz = z1 - z0;
 
     if (codeOut & TOP) {
+      if (dy === 0) {
+        return null;
+      }
       const t = (0 - y0) / dy;
       x = x0 + t * dx;
       y = 0;
       z = z0 + t * dz;
     } else if (codeOut & BOTTOM) {
+      if (dy === 0) {
+        return null;
+      }
       const t = (height - 1 - y0) / dy;
       x = x0 + t * dx;
       y = height - 1;
       z = z0 + t * dz;
     } else if (codeOut & RIGHT) {
+      if (dx === 0) {
+        return null;
+      }
       const t = (width - 1 - x0) / dx;
       x = x0 + t * dx;
       y = y0 + t * dy;
       z = z0 + t * dz;
     } else { // LEFT
+      if (dx === 0) {
+        return null;
+      }
       const t = (0 - x0) / dx;
       x = 0;
       y = y0 + t * dy;
