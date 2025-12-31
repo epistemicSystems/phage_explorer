@@ -8,6 +8,8 @@ import type { GenomeComparisonResult, StructuralVariantCall, StructuralVariantTy
 import { formatSimilarity } from '@phage-explorer/comparison';
 import { usePhageStore } from '@phage-explorer/state';
 import DiffHighlighter, { type DiffStats as DiffStatsType } from '../DiffHighlighter';
+import { SharedSequencePool } from '../../workers/SharedSequencePool';
+import type { ComparisonWorkerMessage } from '../../workers/types';
 
 const formatPercent = (value: number | null | undefined, digits = 2): string => {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
@@ -125,11 +127,15 @@ export const ComparisonOverlay: React.FC<ComparisonOverlayProps> = ({ repository
       setSequenceA(seqA);
       setSequenceB(seqB);
 
+      const pool = SharedSequencePool.getInstance();
+      const { ref: sequenceARef, transfer: transferA } = pool.getOrCreateRef(phageA.id, seqA);
+      const { ref: sequenceBRef, transfer: transferB } = pool.getOrCreateRef(phageB.id, seqB);
+
       const job = {
         phageA: { id: phageA.id, name: phageA.name, accession: phageA.accession },
         phageB: { id: phageB.id, name: phageB.name, accession: phageB.accession },
-        sequenceA: seqA,
-        sequenceB: seqB,
+        sequenceARef,
+        sequenceBRef,
         genesA: fullA.genes ?? [],
         genesB: fullB.genes ?? [],
         codonUsageA: fullA.codonUsage ?? null,
@@ -140,32 +146,21 @@ export const ComparisonOverlay: React.FC<ComparisonOverlayProps> = ({ repository
       let result: GenomeComparisonResult | null = null;
       if (worker) {
         result = await new Promise<GenomeComparisonResult>((resolve, reject) => {
-          const handleMessage = (event: MessageEvent<{
-            ok: boolean;
-            result?: GenomeComparisonResult;
-            diffMask?: Uint8Array | ArrayBuffer;
-            diffPositions?: number[];
-            diffStats?: DiffStatsType;
-            error?: string;
-          }>) => {
+          const handleMessage = (event: MessageEvent<ComparisonWorkerMessage>) => {
             worker.removeEventListener('message', handleMessage);
             if (event.data.ok && event.data.result) {
               if (event.data.diffMask) {
-                const mask =
-                  event.data.diffMask instanceof Uint8Array
-                    ? event.data.diffMask
-                    : new Uint8Array(event.data.diffMask);
-                setDiffMask(mask);
+                setDiffMask(event.data.diffMask);
               }
               setDiffPositions(event.data.diffPositions ?? []);
-              setDiffStats(event.data.diffStats ?? null);
+              setDiffStats((event.data.diffStats as DiffStatsType | undefined) ?? null);
               resolve(event.data.result);
             } else {
               reject(new Error(event.data.error ?? 'Worker comparison failed'));
             }
           };
           worker.addEventListener('message', handleMessage);
-          worker.postMessage(job);
+          worker.postMessage(job, [...transferA, ...transferB]);
         });
       }
       if (!result) {
