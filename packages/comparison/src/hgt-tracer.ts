@@ -72,11 +72,14 @@ function computeMinHashSignature(
 
   if (sequence.length < k) return null;
 
+  // Normalize to uppercase BEFORE cache lookup for consistent keys
+  const normalizedSeq = sequence.toUpperCase();
+
   // Use cache for transparent reuse
   const cache = getMinHashCache();
-  return cache.getOrCompute(sequence, k, numHashes, canonical, () => {
+  return cache.getOrCompute(normalizedSeq, k, numHashes, canonical, () => {
     try {
-      const bytes = textEncoder!.encode(sequence.toUpperCase());
+      const bytes = textEncoder!.encode(normalizedSeq);
       const sig = fn!(bytes, k, numHashes);
       const result = new Uint32Array(sig.signature); // Copy before free
       sig.free();
