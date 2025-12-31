@@ -28,6 +28,8 @@ phage_illustrations/
 # Generated database (root level only, web public db is tracked for deployment)
 /phage.db
 !packages/web/public/phage.db
+# NEVER commit .db.gz - build process modifies DB, causing hash mismatches
+packages/web/public/phage.db.gz
 
 # Logs and coverage
 npm-debug.log*
