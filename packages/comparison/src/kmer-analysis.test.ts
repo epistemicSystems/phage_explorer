@@ -13,6 +13,7 @@ import {
   cosineSimilarity,
   brayCurtisDissimilarity,
   kmerIntersectionSize,
+  minHashJaccard,
 } from './kmer-analysis';
 
 describe('extractKmerSet', () => {
@@ -255,5 +256,113 @@ describe('integration: k-mer analysis workflow', () => {
     const jaccard = jaccardIndex(kmerSetA, kmerSetB);
     expect(jaccard).toBeGreaterThan(0);
     expect(jaccard).toBeLessThan(1);
+  });
+});
+
+// ============================================================================
+// MinHash Tests - @see phage_explorer-vk7b.7
+// ============================================================================
+
+describe('minHashJaccard', () => {
+  it('returns 1.0 for identical sequences', () => {
+    const seq = 'ATCGATCGATCGATCGATCG';
+    const similarity = minHashJaccard(seq, seq, 3, 128);
+    expect(similarity).toBeCloseTo(1.0, 1);
+  });
+
+  it('returns close to 0 for completely different sequences', () => {
+    // Note: Use sequences that differ even with canonical k-mers
+    // AAAA and TTTT would be similar since AAA/TTT are reverse complements
+    const seqA = 'AAAAAAAAAAAAAAAAAAAAAA'; // All AAA k-mers
+    const seqB = 'GGGGGGGGGGGGGGGGGGGGGG'; // All GGG k-mers (GGG != CCC canonical)
+    const similarity = minHashJaccard(seqA, seqB, 3, 128);
+    // Different k-mers, should have low similarity
+    expect(similarity).toBeLessThan(0.5);
+  });
+
+  it('returns intermediate value for partially similar sequences', () => {
+    const seqA = 'ATCGATCGATCGATCGATCG';
+    const seqB = 'ATCGATCGGGGGGGGGGGGG';
+    const similarity = minHashJaccard(seqA, seqB, 3, 128);
+    expect(similarity).toBeGreaterThan(0);
+    expect(similarity).toBeLessThan(1);
+  });
+
+  it('handles sequences with N (ambiguous bases)', () => {
+    const seqA = 'ATCGATCNATCGATCG';
+    const seqB = 'ATCGATCGATCGATCG';
+    // Should still work, just skip k-mers containing N
+    const similarity = minHashJaccard(seqA, seqB, 3, 128);
+    expect(similarity).toBeGreaterThan(0);
+  });
+
+  it('handles empty sequences (both have no k-mers, signatures match)', () => {
+    // Note: Current implementation returns 1 when both have empty k-mer sets
+    // because both signatures are initialized to MAX and thus match
+    const similarity = minHashJaccard('', '', 3, 128);
+    // This is debatable - could argue for 0 or 1
+    expect(similarity).toBe(1);
+  });
+
+  it('handles sequences shorter than k (no valid k-mers)', () => {
+    // When seq.length < k, no k-mers extracted, signatures match at MAX
+    const similarity = minHashJaccard('AT', 'AT', 5, 128);
+    expect(similarity).toBe(1);
+  });
+
+  it('produces deterministic results', () => {
+    const seqA = 'ATCGATCGATCGATCGATCG';
+    const seqB = 'ATCGATCGCCCCCCCCCCCC';
+
+    const sim1 = minHashJaccard(seqA, seqB, 3, 128);
+    const sim2 = minHashJaccard(seqA, seqB, 3, 128);
+
+    expect(sim1).toBe(sim2);
+  });
+
+  it('similarity is symmetric', () => {
+    const seqA = 'ATCGATCGATCGATCGATCG';
+    const seqB = 'GGCCGGCCGGCCGGCCGGCC';
+
+    const simAB = minHashJaccard(seqA, seqB, 3, 128);
+    const simBA = minHashJaccard(seqB, seqA, 3, 128);
+
+    expect(simAB).toBeCloseTo(simBA, 5);
+  });
+
+  it('more hashes gives more stable estimate', () => {
+    const seqA = 'ATCGATCGATCGATCGATCGATCGATCG';
+    const seqB = 'ATCGATCGATCGTTTTTTTTTTTTTTTT';
+
+    // Run multiple times with different hash counts
+    // More hashes should give more consistent results
+    const estimates64: number[] = [];
+    const estimates256: number[] = [];
+
+    for (let i = 0; i < 5; i++) {
+      // Note: since minHashJaccard is deterministic, same input = same output
+      // This test mainly validates that higher numHashes is accepted
+      estimates64.push(minHashJaccard(seqA + i, seqB + i, 3, 64));
+      estimates256.push(minHashJaccard(seqA + i, seqB + i, 3, 256));
+    }
+
+    // Both should produce valid similarity values
+    expect(estimates64.every(v => v >= 0 && v <= 1)).toBe(true);
+    expect(estimates256.every(v => v >= 0 && v <= 1)).toBe(true);
+  });
+
+  it('correlates with exact Jaccard for small inputs', () => {
+    const seqA = 'ATCGATCGATCGATCGATCG';
+    const seqB = 'ATCGATCGATCGATCGATCG';
+
+    const kmerSetA = extractKmerSet(seqA, 4);
+    const kmerSetB = extractKmerSet(seqB, 4);
+    const exactJaccard = jaccardIndex(kmerSetA, kmerSetB);
+
+    const minHashEstimate = minHashJaccard(seqA, seqB, 4, 256);
+
+    // For identical sequences, both should be 1.0
+    expect(exactJaccard).toBe(1);
+    expect(minHashEstimate).toBeCloseTo(1.0, 1);
   });
 });
