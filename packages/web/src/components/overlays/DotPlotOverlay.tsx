@@ -23,15 +23,8 @@ import { AnalysisPanelSkeleton } from '../ui/Skeleton';
 import { InfoButton } from '../ui';
 import { HeatmapCanvas } from '../primitives/HeatmapCanvas';
 import type { HeatmapHover, ColorScale } from '../primitives/types';
-
-interface DotPlotWorkerResponse {
-  ok: boolean;
-  directValues?: Float32Array;
-  invertedValues?: Float32Array;
-  bins?: number;
-  window?: number;
-  error?: string;
-}
+import type { DotPlotWorkerResponse } from '../../workers/types';
+import { SharedSequencePool } from '../../workers/SharedSequencePool';
 
 // Color scales for direct vs inverted
 const directColorScale: ColorScale = (value: number): string => {
@@ -152,6 +145,8 @@ export function DotPlotOverlay({
     const worker = workerRef.current;
     if (!worker) return;
 
+    const phageId = currentPhage?.id;
+
     setLoading(true);
     setError(null);
 
@@ -173,15 +168,19 @@ export function DotPlotOverlay({
     };
 
     worker.onmessage = handleMessage;
-    worker.postMessage({
-      sequence,
-      config: { bins: resolution },
-    });
+
+    if (phageId) {
+      const { ref: sequenceRef, transfer } = SharedSequencePool.getInstance().getOrCreateRef(phageId, sequence);
+      worker.postMessage({ sequenceRef, config: { bins: resolution } }, transfer);
+    } else {
+      // Compatibility fallback: unknown phage id; keep string path.
+      worker.postMessage({ sequence, config: { bins: resolution } });
+    }
 
     return () => {
       worker.onmessage = null;
     };
-  }, [isOpen, sequence, resolution]);
+  }, [isOpen, sequence, resolution, currentPhage?.id]);
 
   // Combined values (max of direct and inverted)
   const combinedValues = useMemo(() => {
