@@ -6,6 +6,19 @@
   "framework": null,
   "headers": [
     {
+      "source": "/phage.db.gz",
+      "headers": [
+        {
+          "key": "Content-Encoding",
+          "value": "gzip"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {

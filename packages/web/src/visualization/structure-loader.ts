@@ -52,6 +52,20 @@ export interface LoadedStructure {
   radius: number;
   atomCount: number;
   functionalGroups: FunctionalGroup[];
+  timings?: WorkerTimings;
+}
+
+export interface WorkerTimings {
+  totalMs: number;
+  parseMs: number;
+  bondsMs: number;
+  tracesMs: number;
+  functionalMs: number;
+  boundsMs: number;
+  atomCount: number;
+  bondCount: number;
+  includeBonds: boolean;
+  includeFunctionalGroups: boolean;
 }
 
 type StructureWorkerCtor = new () => Worker;
@@ -367,13 +381,27 @@ async function getCache() {
 /**
  * Extract the bare PDB ID from an ID or URL for cache key purposes.
  */
-function extractPdbId(idOrUrl: string): string {
+export function extractPdbId(idOrUrl: string): string {
+  const normalize = (candidate: string): string =>
+    candidate.replace(/\.(pdb|cif|mmcif)(?:\.gz)?$/i, '').toUpperCase();
+
   if (idOrUrl.includes('://')) {
-    // Extract from URL like https://files.rcsb.org/download/5VF3.pdb
-    const match = idOrUrl.match(/\/([A-Za-z0-9]+)\.(pdb|cif|mmcif)$/i);
-    return match ? match[1].toUpperCase() : idOrUrl;
+    try {
+      const url = new URL(idOrUrl);
+      const parts = url.pathname.split('/').filter(Boolean);
+      const filename = parts.length > 0 ? parts[parts.length - 1] : null;
+      if (filename) {
+        return normalize(filename);
+      }
+    } catch {
+      // Fall back to regex parsing below.
+    }
+
+    const match = idOrUrl.match(/\/([A-Za-z0-9]+)\.(pdb|cif|mmcif)(?:\.gz)?(?:$|[?#])/i);
+    if (match) return match[1].toUpperCase();
   }
-  return idOrUrl.replace(/\.(pdb|cif|mmcif)$/i, '').toUpperCase();
+
+  return normalize(idOrUrl);
 }
 
 export async function loadStructure(
@@ -512,6 +540,16 @@ export async function loadStructure(
           color: new Color(fg.colorHex),
         }));
 
+        const timings = data.timings as WorkerTimings | undefined;
+        if (import.meta.env.DEV && timings) {
+          console.log('[structure-loader] timings', {
+            pdbId,
+            format,
+            fromCache,
+            ...timings,
+          });
+        }
+
         cleanup();
         resolve({
           atoms,
@@ -522,6 +560,7 @@ export async function loadStructure(
           radius,
           atomCount: atoms.length,
           functionalGroups,
+          timings,
         });
       }
     };

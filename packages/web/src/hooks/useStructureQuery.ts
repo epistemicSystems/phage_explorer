@@ -2,12 +2,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   loadStructure,
+  extractPdbId,
   type BondDetail,
   type LoadedStructure,
   type ProgressInfo,
   type LoadingStage,
 } from '../visualization/structure-loader';
-import { isStructureCached } from '../db/structure-cache';
+
+let structureCacheModule: typeof import('../db/structure-cache') | null = null;
+async function isStructureCached(pdbId: string): Promise<boolean> {
+  try {
+    if (!structureCacheModule) {
+      structureCacheModule = await import('../db/structure-cache');
+    }
+    return await structureCacheModule.isStructureCached(pdbId);
+  } catch {
+    return false;
+  }
+}
 
 export interface UseStructureQueryOptions {
   idOrUrl?: string | null;
@@ -71,7 +83,7 @@ export function useStructureQuery(options: UseStructureQueryOptions): StructureQ
       setFromCache(false);
 
       // Check if structure is cached before loading
-      const pdbId = idOrUrl.replace(/\.(pdb|cif|mmcif)$/i, '').toUpperCase();
+      const pdbId = extractPdbId(idOrUrl);
       wasCachedRef.current = await isStructureCached(pdbId);
 
       return loadStructure(idOrUrl, signal, progressCallbackRef.current ?? undefined, {

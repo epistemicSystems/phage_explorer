@@ -500,7 +500,7 @@ export class DatabaseLoader {
       loaded += value.length;
 
       if (total > 0) {
-        const percent = Math.round((loaded / total) * 40) + 10;
+        const percent = Math.min(50, Math.round((loaded / total) * 40) + 10);
         this.progress('downloading', percent, `${label}: ${Math.round(loaded / 1024)}KB`);
       } else {
         // Best-effort progress when total size is unknown/unreliable.

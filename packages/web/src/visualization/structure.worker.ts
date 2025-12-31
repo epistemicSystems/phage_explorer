@@ -45,6 +45,7 @@ export interface WorkerOutput {
   center: { x: number; y: number; z: number };
   radius: number;
   functionalGroups: SerializedFunctionalGroup[];
+  timings?: WorkerTimings;
 }
 
 export interface WorkerOptions {
@@ -58,6 +59,19 @@ export interface WorkerOptions {
    * This is expensive and is disabled by default in the UI.
    */
   includeFunctionalGroups?: boolean;
+}
+
+export interface WorkerTimings {
+  totalMs: number;
+  parseMs: number;
+  bondsMs: number;
+  tracesMs: number;
+  functionalMs: number;
+  boundsMs: number;
+  atomCount: number;
+  bondCount: number;
+  includeBonds: boolean;
+  includeFunctionalGroups: boolean;
 }
 
 // --- Logic duplicated/adapted from structure-loader.ts to run in worker ---
@@ -413,10 +427,14 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
   const { text, format, options } = e.data;
 
   try {
+    const totalStart = performance.now();
+
     // Report progress: parsing
     self.postMessage({ type: 'progress', stage: 'parsing', percent: 30 });
 
+    const parseStart = performance.now();
     const atoms = format === 'mmcif' ? parseMMCIF(text) : parsePDB(text);
+    const parseMs = performance.now() - parseStart;
     if (atoms.length === 0) {
       throw new Error('No atoms parsed from structure file');
     }
@@ -428,30 +446,39 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
       || (includeBondsSetting === 'auto' && atoms.length <= AUTO_BOND_ATOM_LIMIT);
 
     let bonds: Bond[] = [];
+    let bondsMs = 0;
     if (includeBonds) {
       // Report progress: bond detection
       // This now uses WASM spatial-hash for O(N) complexity on large structures
       self.postMessage({ type: 'progress', stage: 'bonds', percent: 45 });
+      const bondsStart = performance.now();
       bonds = await detectBonds(atoms);
+      bondsMs = performance.now() - bondsStart;
     }
 
     // Report progress: building traces
     self.postMessage({ type: 'progress', stage: 'traces', percent: 70 });
 
+    const tracesStart = performance.now();
     const backboneTraces = buildBackboneTraces(atoms);
+    const tracesMs = performance.now() - tracesStart;
     const chains = Array.from(new Set(atoms.map(a => a.chainId)));
 
     let functionalGroups: SerializedFunctionalGroup[] = [];
+    let functionalMs = 0;
     if (includeFunctionalGroups && bonds.length > 0) {
       // Report progress: functional groups
       self.postMessage({ type: 'progress', stage: 'functional', percent: 85 });
 
+      const functionalStart = performance.now();
       const rings = detectAromaticRings(atoms, bonds);
       const disulfides = detectDisulfides(atoms, bonds);
       const phosphates = detectPhosphates(atoms, bonds);
       functionalGroups = [...rings, ...disulfides, ...phosphates];
+      functionalMs = performance.now() - functionalStart;
     }
 
+    const boundsStart = performance.now();
     // Compute bounds
     let minX = Infinity, minY = Infinity, minZ = Infinity;
     let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
@@ -475,9 +502,23 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
     const sizeY = maxY - minY;
     const sizeZ = maxZ - minZ;
     const radius = Math.sqrt(sizeX*sizeX + sizeY*sizeY + sizeZ*sizeZ) / 2 || 1;
+    const boundsMs = performance.now() - boundsStart;
 
     // Report progress: finalizing
     self.postMessage({ type: 'progress', stage: 'finalizing', percent: 95 });
+
+    const timings: WorkerTimings = {
+      totalMs: performance.now() - totalStart,
+      parseMs,
+      bondsMs,
+      tracesMs,
+      functionalMs,
+      boundsMs,
+      atomCount: atoms.length,
+      bondCount: bonds.length,
+      includeBonds,
+      includeFunctionalGroups,
+    };
 
     const result: WorkerOutput = {
       atoms,
@@ -487,6 +528,7 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
       center,
       radius,
       functionalGroups,
+      timings,
     };
 
     self.postMessage({ type: 'success', data: result });

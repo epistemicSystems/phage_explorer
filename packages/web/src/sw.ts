@@ -6,7 +6,8 @@
  * Cache Strategy Summary:
  * - Precache: Build assets (HTML, JS, CSS) - versioned by build tool
  * - CacheFirst: WASM, fonts, PDB structures - immutable content
- * - StaleWhileRevalidate: Database, static resources - use cache, update background
+ * - CacheFirst (versioned): Database assets requested with `?v=<hash>`
+ * - StaleWhileRevalidate (fallback): Unversioned DB + static resources
  * - NetworkFirst: Navigation - prefer fresh but fallback to cache
  *
  * Note: The DB manifest is fetched by the app with its own ETag + IndexedDB cache.
@@ -53,18 +54,39 @@ precacheAndRoute(self.__WB_MANIFEST || []);
 // Application Data Caching
 // =============================================================================
 
-// Cache database with StaleWhileRevalidate (use cached, update in background)
-// Database is critical for app function, so we prefer cached data for speed
+const isDbAssetRequest = (url: URL, request: Request): boolean => {
+  // Keep DB caching tightly scoped to our own static asset(s) to avoid cache pollution.
+  if (request.method !== 'GET') return false;
+  if (url.origin !== self.location.origin) return false;
+  return url.pathname.endsWith('/phage.db') || url.pathname.endsWith('/phage.db.gz');
+};
+
+// Cache DB assets with a version-aware strategy.
+//
+// The app fetches a manifest hash and then requests `phage.db(.gz)?v=<hash>`:
+// - For versioned URLs, CacheFirst avoids re-downloading on every cold start.
+// - For unversioned URLs (manifest unavailable), SWR provides a best-effort offline fallback.
 registerRoute(
-  ({ url }) => url.pathname.endsWith('.db') || url.pathname.endsWith('.db.gz'),
-  new StaleWhileRevalidate({
+  ({ url, request }) => isDbAssetRequest(url, request) && url.searchParams.has('v'),
+  new CacheFirst({
     cacheName: CACHE_NAMES.database,
+    matchOptions: { ignoreSearch: false },
     plugins: [
       new ExpirationPlugin({
         maxEntries: 2, // Current + one backup
         maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+        purgeOnQuotaError: true,
       }),
     ],
+  })
+);
+
+registerRoute(
+  ({ url, request }) => isDbAssetRequest(url, request) && !url.searchParams.has('v'),
+  new StaleWhileRevalidate({
+    cacheName: CACHE_NAMES.database,
+    matchOptions: { ignoreSearch: false },
+    plugins: [],
   })
 );
 
