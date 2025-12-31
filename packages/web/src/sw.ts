@@ -5,12 +5,13 @@
  *
  * Cache Strategy Summary:
  * - Precache: Build assets (HTML, JS, CSS) - versioned by build tool
- * - CacheFirst: WASM, fonts, PDB structures - immutable content
+ * - CacheFirst: WASM, fonts, PDB structures, images - immutable content
  * - CacheFirst (versioned): Database assets requested with `?v=<hash>`
- * - StaleWhileRevalidate (fallback): Unversioned DB + static resources
+ * - StaleWhileRevalidate: Unversioned DB only (fallback for offline)
  * - NetworkFirst: Navigation - prefer fresh but fallback to cache
  *
- * Note: The DB manifest is fetched by the app with its own ETag + IndexedDB cache.
+ * Note: JS/CSS are NOT cached with StaleWhileRevalidate to prevent stale code bugs.
+ * The precache with content-hashed filenames handles JS/CSS versioning.
  */
 
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
@@ -256,8 +257,15 @@ self.addEventListener('activate', (event) => {
     console.log('[SW] Activated');
   }
   // Delete old v1 caches that may contain stale JS, then take control
+  // Use .catch() to ensure clients.claim() is called even if cache deletion fails
   event.waitUntil(
-    deleteOldCaches().then(() => self.clients.claim())
+    deleteOldCaches()
+      .catch((err) => {
+        if (import.meta.env.DEV) {
+          console.warn('[SW] Failed to delete old caches:', err);
+        }
+      })
+      .then(() => self.clients.claim())
   );
 });
 
