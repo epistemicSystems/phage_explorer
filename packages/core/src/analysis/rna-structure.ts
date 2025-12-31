@@ -455,10 +455,20 @@ export function detectRegulatoryElements(
 
   // Detect packaging signals (high GC, stable structure in terminal regions)
   const terminalWindow = 200;
-  const fivePrime = rna.slice(0, Math.min(terminalWindow, rna.length));
-  const threePrime = rna.slice(Math.max(0, rna.length - terminalWindow));
+  const fivePrimeStart = 0;
+  const fivePrimeEnd = Math.min(terminalWindow, rna.length);
+  const threePrimeStart = Math.max(0, rna.length - terminalWindow);
+  const threePrimeEnd = rna.length;
 
-  for (const [pos, region, label] of [[0, fivePrime, "5'"], [rna.length - terminalWindow, threePrime, "3'"]] as const) {
+  const terminalRegions: Array<{ start: number; end: number; label: "5'" | "3'" }> = [
+    { start: fivePrimeStart, end: fivePrimeEnd, label: "5'" },
+  ];
+  if (threePrimeStart !== fivePrimeStart) {
+    terminalRegions.push({ start: threePrimeStart, end: threePrimeEnd, label: "3'" });
+  }
+
+  for (const { start, end, label } of terminalRegions) {
+    const region = rna.slice(start, end);
     const gc = gcContent(region);
     const { mfe, pairingDensity } = estimateMFE(region);
 
@@ -466,8 +476,8 @@ export function detectRegulatoryElements(
       // Use mfe to boost confidence for very stable structures
       const stabilityBonus = mfe < -5 ? 0.1 : 0;
       hypotheses.push({
-        start: pos < 0 ? rna.length + pos : pos,
-        end: pos < 0 ? rna.length : pos + terminalWindow,
+        start,
+        end,
         type: 'packaging-signal',
         confidence: Math.min(0.9, gc * pairingDensity * 2 + stabilityBonus),
         description: `${label} terminal packaging signal candidate (GC=${(gc * 100).toFixed(1)}%, paired=${(pairingDensity * 100).toFixed(0)}%)`,
