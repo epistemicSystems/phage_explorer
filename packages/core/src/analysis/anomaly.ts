@@ -137,14 +137,18 @@ function getKmerFrequencies(sequence: string, k: number): Map<string, number> {
   const total = sequence.length - k + 1;
   if (total <= 0) return freq;
 
+  let validTotal = 0;
   for (let i = 0; i < total; i++) {
     const kmer = sequence.slice(i, i + k);
+    if (kmer.includes('N')) continue;
     freq.set(kmer, (freq.get(kmer) || 0) + 1);
+    validTotal++;
   }
 
   // Normalize
+  if (validTotal === 0) return freq;
   for (const [kmer, count] of freq) {
-    freq.set(kmer, count / total);
+    freq.set(kmer, count / validTotal);
   }
 
   return freq;
@@ -217,7 +221,9 @@ export function scanForAnomalies(
   stepSize = 100,
   k = 4
 ): AnomalyScanResult {
-  const seq = sequence.toUpperCase().replace(/[^ACGT]/g, '');
+  // Preserve original coordinate space: replace non-ACGT bases with 'N' instead of dropping them.
+  // This avoids shifting window positions relative to the original genome.
+  const seq = sequence.toUpperCase().replace(/[^ACGT]/g, 'N');
   if (seq.length < windowSize || windowSize <= 0 || stepSize <= 0) {
     return {
       windows: [],
@@ -300,7 +306,8 @@ function scanForAnomaliesDense(
     const kl = calculateKLDivergenceDense(windowFreq, globalFreq);
 
     // Compression Ratio
-    const comp = calculateCompressionRatio(windowSeq);
+    // Ignore ambiguous bases for compression so Ns don't dominate the signal.
+    const comp = calculateCompressionRatio(windowSeq.replace(/N/g, ''));
 
     klValuesArray[windowIndex] = kl;
     compressionValuesArray[windowIndex] = comp;
@@ -388,7 +395,8 @@ function scanForAnomaliesSparse(
     const kl = calculateKLDivergence(windowFreq, globalFreq);
 
     // Compression Ratio
-    const comp = calculateCompressionRatio(windowSeq);
+    // Ignore ambiguous bases for compression so Ns don't dominate the signal.
+    const comp = calculateCompressionRatio(windowSeq.replace(/N/g, ''));
 
     windows.push({
       position: i,
@@ -483,7 +491,8 @@ function finishScanWithKLValues(
   for (let i = 0; i < klValues.length; i++) {
     const pos = positions[i];
     const windowSeq = seq.slice(pos, pos + windowSize);
-    const comp = calculateCompressionRatio(windowSeq);
+    // Ignore ambiguous bases for compression so Ns don't dominate the signal.
+    const comp = calculateCompressionRatio(windowSeq.replace(/N/g, ''));
     compressionValues[i] = comp;
 
     windows.push({
