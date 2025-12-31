@@ -127,7 +127,8 @@ function entropy(seq: string): number {
   for (const ch of seq) {
     if (counts[ch] !== undefined) counts[ch] += 1;
   }
-  const total = seq.length || 1;
+  const total = counts.A + counts.C + counts.G + counts.T;
+  if (total === 0) return 0;
   let h = 0;
   for (const value of Object.values(counts)) {
     const p = value / total;
@@ -238,8 +239,8 @@ async function analyze(
   windowSize = 500,
   stepSize = 250
 ): Promise<AnomalyWorkerResult> {
-  const clean = sequence.toUpperCase().replace(/[^ACGT]/g, '');
-  if (clean.length < windowSize) {
+  const upper = sequence.toUpperCase();
+  if (upper.length < windowSize) {
     const emptyValues = new Float32Array();
     const empty: AnomalyWorkerResult = {
       windows: [],
@@ -258,16 +259,16 @@ async function analyze(
         metrics: METRICS,
         windowSize,
         stepSize,
-        genomeLength: clean.length,
+        genomeLength: upper.length,
         topRegions: [],
       },
     };
     return empty;
   }
 
-  const scan = scanForAnomalies(clean, windowSize, stepSize, 4);
-  const globalDinuc = computeDinucleotideFrequencies(clean);
-  const globalCodon = computeCodonFrequencies(clean);
+  const scan = scanForAnomalies(upper, windowSize, stepSize, 4);
+  const globalDinuc = computeDinucleotideFrequencies(upper);
+  const globalCodon = computeCodonFrequencies(upper);
 
   const metricSeries: MetricSeries = {
     gcContent: [],
@@ -285,14 +286,26 @@ async function analyze(
 
   const segments = scan.windows.map((w) => ({
     start: w.position,
-    end: Math.min(clean.length, w.position + windowSize),
+    end: Math.min(upper.length, w.position + windowSize),
   }));
 
   for (let i = 0; i < segments.length; i++) {
     const { start, end } = segments[i];
-    const windowSeq = clean.slice(start, end);
+    const windowSeq = upper.slice(start, end);
     const { gc, at } = skews(windowSeq);
-    const gcContent = (windowSeq.match(/[GC]/g)?.length ?? 0) / Math.max(1, windowSeq.length);
+
+    let validBases = 0;
+    let gcBases = 0;
+    for (let j = 0; j < windowSeq.length; j++) {
+      const ch = windowSeq[j];
+      if (ch === 'G' || ch === 'C') {
+        validBases++;
+        gcBases++;
+      } else if (ch === 'A' || ch === 'T') {
+        validBases++;
+      }
+    }
+    const gcContent = validBases > 0 ? gcBases / validBases : 0;
     const dinuc = computeDinucleotideFrequencies(windowSeq);
     const codon = computeCodonFrequencies(windowSeq);
 
@@ -388,7 +401,7 @@ async function analyze(
       metrics: METRICS,
       windowSize,
       stepSize,
-      genomeLength: clean.length,
+      genomeLength: upper.length,
       topRegions,
     },
   };
@@ -405,5 +418,3 @@ const api: AnomalyWorkerAPI = {
 };
 
 Comlink.expose(api);
-
-
