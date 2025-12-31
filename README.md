@@ -71,12 +71,13 @@ curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/phage_explorer/ma
 - **Full-Screen HUD Interface** — Navigate between phages instantly with arrow keys
 - **Color-Coded Sequences** — DNA (ACTG) and amino acid views with distinct, beautiful colors
 - **5 Color Themes** — Classic, Ocean, Matrix, Sunset, Forest (cycle with `T`)
-- **3D ASCII Phage Models** — Rotating wireframe models of phage structures
+- **3D Structure Viewer** — Real PDB structures from RCSB with cartoon/ball-and-stick/surface modes (web), ASCII wireframe (TUI)
 - **Gene Map Navigation** — Visual gene bar with position tracking and snap-to-gene
 - **Layer-1 Quick Overlays** — `G` GC skew, `X` complexity, `B` bendability, `P` promoter/RBS motifs, `R` repeats/palindromes
 - **Diff Mode** — Compare sequences between phages visually
 - **Search** — Fuzzy search by name, host, family, or accession
-- **12 Real Phages** — Lambda, T4, T7, PhiX174, MS2, M13, P22, Phi29, Mu, Phi6, SPbeta, T5
+- **24 Real Phages** — Lambda, T4, T7, PhiX174, MS2, M13, P22, Phi29, Mu, Phi6, SPbeta, T5, P1, P2, N4, Felix O1, D29, L5, PhiC31, PhiKZ, PRD1, PM2, Qβ, T1
+- **WASM-Accelerated** — Rust-compiled spatial algorithms for instant analysis of large structures
 - **Zero Dependencies at Runtime** — Single binary, no Bun/Node required
 
 ---
@@ -108,22 +109,28 @@ bun run build:db
 bun run dev
 ```
 
-### Option 3: Web App (Preview)
+### Option 3: Web App
 
-We ship a lightweight web landing/preview at **https://phage-explorer.org**. It showcases the design system, keyboard-first philosophy, and links to the installer/GitHub. The production **TUI** remains the primary experience; the web build is intentionally static with no telemetry or runtime genome features.
+The full web experience is live at **https://phage-explorer.org**. It includes:
+
+- **3D Structure Viewer** — Real PDB structures from RCSB with cartoon, ball-and-stick, and surface rendering modes
+- **Interactive Sequence Grid** — Color-coded DNA/amino acid display with smooth scrolling
+- **30+ Analysis Overlays** — GC skew, dot plots, Hilbert curves, HGT detection, synteny, and more
+- **WASM-Accelerated** — Rust-compiled spatial algorithms for instant loading of large structures (50K+ atoms)
+- **Mobile-Friendly** — Touch gestures, bottom sheets, haptic feedback
 
 Deployment details:
 - Hosting: Vercel (prod alias: `phage-explorer.org`)
 - Build command: `bun run build:web`
 - Output: `packages/web/dist`
-- What works in the web preview:
-  - Landing page, theming preview, keyboard ethos, and quick links.
-  - No database access, no heavy analyses, no overlays—just a safe, static preview.
-- What works in the TUI (full experience):
-  - Local SQLite DB reads, all overlays (GC skew, repeats, HGT, dot plot, Hilbert, gel, non-B DNA, etc.).
-  - Real-time keyboard controls, diff mode, 3D model, simulations, command palette.
-  - Offline-friendly; zero telemetry.
-  - Build locally: `bun install && bun run build:db && bun run dev` (or use the prebuilt binary).
+- SQLite database bundled as static asset, queried via sql.js in-browser
+- Zero telemetry, works offline after initial load
+
+The **TUI** remains available for terminal enthusiasts:
+- Local SQLite DB with instant queries
+- ASCII 3D wireframe models
+- Real-time keyboard controls, diff mode, command palette
+- Build locally: `bun install && bun run build:db && bun run dev` (or use the prebuilt binary)
 
 ---
 
@@ -164,6 +171,18 @@ Deployment details:
 | **Phi6** | 2,948 bp | dsRNA | P. syringae | Rare dsRNA phage with envelope |
 | **SPbeta** | 134,416 bp | dsDNA | B. subtilis | Large temperate phage |
 | **T5** | 121,750 bp | dsDNA | E. coli | Two-step DNA injection |
+| **P1** | 94,800 bp | dsDNA | E. coli | Plasmid prophage, Cre-lox origin |
+| **P2** | 33,593 bp | dsDNA | E. coli | Founding Peduovirus |
+| **N4** | 70,153 bp | dsDNA | E. coli | Injects its own RNA polymerase |
+| **Felix O1** | 86,155 bp | dsDNA | Salmonella | Classic Salmonella-typing phage |
+| **D29** | 49,136 bp | dsDNA | Mycobacterium | SEA-PHAGES workhorse, TB research |
+| **L5** | 52,297 bp | dsDNA | Mycobacterium | First sequenced mycobacteriophage |
+| **PhiC31** | 41,491 bp | dsDNA | Streptomyces | Serine integrase for gene therapy |
+| **PhiKZ** | 280,334 bp | dsDNA | Pseudomonas | Jumbo phage, forms nucleus-like shell |
+| **PRD1** | 14,927 bp | dsDNA | E. coli | Tailless, internal lipid membrane |
+| **PM2** | 10,079 bp | dsDNA | Pseudoalteromonas | Marine, first lipid-containing phage |
+| **Qβ** | 4,217 bp | ssRNA | E. coli | RNA replicase, isothermal amplification |
+| **T1** | 48,836 bp | dsDNA | E. coli | Notorious lab contaminant |
 
 ---
 
@@ -193,7 +212,9 @@ phage-explorer/
 │   ├── db-runtime/     # Repository implementations over SQLite
 │   ├── state/          # Zustand store for UI state management
 │   ├── renderer-3d/    # ASCII 3D rendering engine with Z-buffering
+│   ├── wasm-compute/   # Rust/WASM for performance-critical algorithms
 │   ├── data-pipeline/  # NCBI fetcher and database builder
+│   ├── web/            # React web app with WebGL 3D viewer
 │   └── tui/            # Ink/React TUI components
 ├── phage.db            # SQLite database (generated)
 └── install.sh          # One-liner installer script
@@ -315,9 +336,11 @@ curl -fsSL .../install.sh | bash -s -- --easy-mode
 
 - **Sequence Storage**: Chunked in 10kb segments for efficient virtualized rendering
 - **Virtualized Rendering**: Only visible sequence portion rendered, smooth 60fps scrolling
-- **3D Engine**: Custom ASCII renderer with perspective projection and Z-buffering
+- **3D Engine**: Custom ASCII renderer (TUI) and WebGL/Three.js viewer (web) with real PDB structures
+- **WASM Acceleration**: Rust-compiled WebAssembly for compute-intensive operations (spatial-hash bond detection, dot plots, k-mer analysis) with automatic JS fallback
+- **3D Structure Loading**: Fetches PDB/mmCIF from RCSB, parses in Web Worker, O(N) spatial-hash bond detection for structures with 50,000+ atoms
 - **State Management**: Zustand for reactive UI updates
-- **Database**: SQLite with Drizzle ORM, ~1.4MB for 12 phages
+- **Database**: SQLite with Drizzle ORM, ~6MB for 24 phages with PDB structure references
 
 ---
 
@@ -349,6 +372,9 @@ curl -fsSL .../install.sh | bash -s -- --easy-mode
 - Virtualized sequence rendering for genomes up to 500kb+
 - Chunked fetching avoids loading entire genomes into memory
 - 3D model rendering at ~20fps with minimal CPU usage
+- **WASM spatial-hash**: O(N) bond detection vs O(N²) naive—1000x faster for large structures (50K atoms: <1s vs 60s+)
+- Web Worker isolation keeps UI responsive during heavy computation
+- Automatic fallback to pure JS when WASM unavailable
 
 ---
 
