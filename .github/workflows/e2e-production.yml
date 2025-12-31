@@ -1,0 +1,244 @@
+name: E2E Production Tests
+
+# Run after deployment to Vercel
+on:
+  # Trigger when Vercel deployment completes
+  deployment_status:
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: 'Site URL to test (default: https://phage-explorer.org)'
+        required: false
+        default: 'https://phage-explorer.org'
+
+env:
+  PLAYWRIGHT_BASE_URL: ${{ github.event.inputs.site_url || 'https://phage-explorer.org' }}
+
+jobs:
+  e2e-production:
+    name: E2E Tests (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    if: github.event.deployment_status.state == 'success' || github.event_name == 'workflow_dispatch'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - chromium
+          - mobile-small        # iPhone SE
+          - mobile-medium       # iPhone 14
+          - mobile-large        # iPhone 14 Pro Max
+          - android-phone       # Pixel 7
+          - mobile-landscape    # iPhone 14 landscape
+          - tablet-small        # iPad Mini
+          - tablet-large        # iPad Pro 11
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium webkit
+
+      - name: Wait for site to be ready
+        run: |
+          echo "Waiting for ${{ env.PLAYWRIGHT_BASE_URL }} to be ready..."
+          timeout=60
+          while [ $timeout -gt 0 ]; do
+            if curl -s -o /dev/null -w "%{http_code}" "${{ env.PLAYWRIGHT_BASE_URL }}" | grep -q "200"; then
+              echo "Site is ready!"
+              break
+            fi
+            echo "Waiting... ($timeout seconds remaining)"
+            sleep 5
+            timeout=$((timeout - 5))
+          done
+          if [ $timeout -le 0 ]; then
+            echo "Timeout waiting for site"
+            exit 1
+          fi
+
+      - name: Run E2E tests
+        working-directory: packages/web
+        env:
+          PLAYWRIGHT_LIVE: '1'
+          PLAYWRIGHT_BASE_URL: ${{ env.PLAYWRIGHT_BASE_URL }}
+        run: |
+          bunx playwright test \
+            --project=${{ matrix.project }} \
+            --reporter=html,json \
+            --output=test-results-${{ matrix.project }} \
+            2>&1 | tee test-output-${{ matrix.project }}.log
+
+      - name: Capture JavaScript errors
+        if: always()
+        working-directory: packages/web
+        run: |
+          # Extract any console errors from the test output
+          echo "## JavaScript Console Errors for ${{ matrix.project }}" > js-errors-${{ matrix.project }}.md
+          echo "" >> js-errors-${{ matrix.project }}.md
+
+          if grep -i "error\|exception\|uncaught" test-output-${{ matrix.project }}.log 2>/dev/null; then
+            echo "Found errors in test output:" >> js-errors-${{ matrix.project }}.md
+            grep -i "error\|exception\|uncaught" test-output-${{ matrix.project }}.log >> js-errors-${{ matrix.project }}.md
+          else
+            echo "No JavaScript errors detected." >> js-errors-${{ matrix.project }}.md
+          fi
+
+          cat js-errors-${{ matrix.project }}.md
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-${{ matrix.project }}
+          path: |
+            packages/web/test-results-${{ matrix.project }}/
+            packages/web/playwright-report/
+            packages/web/screenshots/
+            packages/web/test-output-${{ matrix.project }}.log
+            packages/web/js-errors-${{ matrix.project }}.md
+          retention-days: 14
+
+      - name: Upload trace on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ matrix.project }}
+          path: packages/web/test-results-${{ matrix.project }}/**/*.zip
+          retention-days: 7
+
+  # Aggregate results and create summary
+  summarize:
+    name: Summarize Results
+    needs: e2e-production
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate summary report
+        run: |
+          echo "# E2E Production Test Summary" > summary.md
+          echo "" >> summary.md
+          echo "**Site:** ${{ env.PLAYWRIGHT_BASE_URL }}" >> summary.md
+          echo "**Run:** ${{ github.run_id }}" >> summary.md
+          echo "**Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> summary.md
+          echo "" >> summary.md
+
+          echo "## Test Results by Device" >> summary.md
+          echo "" >> summary.md
+
+          # Check each device result
+          for device in chromium mobile-small mobile-medium mobile-large android-phone mobile-landscape tablet-small tablet-large; do
+            dir="artifacts/playwright-results-$device"
+            if [ -d "$dir" ]; then
+              # Check for errors in the log
+              log_file="$dir/test-output-$device.log"
+              if [ -f "$log_file" ]; then
+                if grep -q "passed" "$log_file"; then
+                  echo "- **$device**: :white_check_mark: Passed" >> summary.md
+                elif grep -q "failed" "$log_file"; then
+                  echo "- **$device**: :x: Failed" >> summary.md
+                else
+                  echo "- **$device**: :warning: Unknown status" >> summary.md
+                fi
+              else
+                echo "- **$device**: :grey_question: No results" >> summary.md
+              fi
+            else
+              echo "- **$device**: :grey_question: Not run" >> summary.md
+            fi
+          done
+
+          echo "" >> summary.md
+          echo "## JavaScript Errors" >> summary.md
+          echo "" >> summary.md
+
+          # Aggregate JS errors
+          found_errors=false
+          for device in chromium mobile-small mobile-medium mobile-large android-phone mobile-landscape tablet-small tablet-large; do
+            error_file="artifacts/playwright-results-$device/js-errors-$device.md"
+            if [ -f "$error_file" ]; then
+              if ! grep -q "No JavaScript errors detected" "$error_file"; then
+                echo "### $device" >> summary.md
+                cat "$error_file" >> summary.md
+                echo "" >> summary.md
+                found_errors=true
+              fi
+            fi
+          done
+
+          if [ "$found_errors" = false ]; then
+            echo "No JavaScript errors detected across all devices." >> summary.md
+          fi
+
+          cat summary.md
+
+      - name: Create GitHub Issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('summary.md', 'utf8');
+
+            const issueTitle = `E2E Production Tests Failed - ${new Date().toISOString().split('T')[0]}`;
+
+            // Check for existing open issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'e2e-failure'
+            });
+
+            const existingIssue = issues.data.find(i => i.title.startsWith('E2E Production Tests Failed'));
+
+            if (existingIssue) {
+              // Add comment to existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `## New Failure - Run #${context.runNumber}\n\n${summary}\n\n[View Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: `${summary}\n\n[View Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                labels: ['e2e-failure', 'bug', 'automated']
+              });
+            }
+
+      - name: Post summary to workflow
+        if: always()
+        run: cat summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload summary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-summary
+          path: summary.md
+          retention-days: 30
