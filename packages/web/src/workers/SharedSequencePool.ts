@@ -8,9 +8,9 @@
  *
  * Usage:
  *   const pool = SharedSequencePool.getInstance();
- *   const buffer = pool.getOrCreate(phageId, sequence);
- *   // Pass buffer.sab to workers via Comlink
- *   // Workers can read directly without deserialization
+ *   const { ref, transfer } = pool.getOrCreateRef(phageId, sequence);
+ *   // postMessage/Comlink: pass the ref + transfer list (ArrayBuffer path needs transfer)
+ *   worker.postMessage({ sequenceRef: ref }, transfer);
  */
 
 import { canUseSharedArrayBuffer } from '../utils/wasm';
@@ -32,6 +32,16 @@ export interface SequenceBuffer {
 
 interface PoolEntry {
   buffer: SequenceBuffer;
+  /**
+   * Pin count for eviction avoidance.
+   *
+   * Important: This is NOT incremented by normal accessors. It is only meant
+   * for explicit "keep this resident" leases (e.g., current phage, diff ref).
+   *
+   * Rationale: Many call sites treat get/getOrCreate/getOrCreateRef as idempotent
+   * accessors; incrementing here easily causes unbounded growth and defeats
+   * eviction heuristics.
+   */
   refCount: number;
   lastAccess: number;
 }
@@ -196,7 +206,6 @@ export class SharedSequencePool {
   getOrCreate(phageId: number, sequence: string): SequenceBuffer {
     const existing = this.pool.get(phageId);
     if (existing) {
-      existing.refCount++;
       existing.lastAccess = Date.now();
       return existing.buffer;
     }
@@ -228,7 +237,8 @@ export class SharedSequencePool {
 
     this.pool.set(phageId, {
       buffer,
-      refCount: 1,
+      // New entries start unpinned; eviction is guided by lastAccess unless a caller pins.
+      refCount: 0,
       lastAccess: Date.now(),
     });
 
@@ -242,7 +252,6 @@ export class SharedSequencePool {
   get(phageId: number): SequenceBuffer | undefined {
     const entry = this.pool.get(phageId);
     if (entry) {
-      entry.refCount++;
       entry.lastAccess = Date.now();
       return entry.buffer;
     }
@@ -263,8 +272,31 @@ export class SharedSequencePool {
   release(phageId: number): void {
     const entry = this.pool.get(phageId);
     if (entry) {
-      entry.refCount = Math.max(0, entry.refCount - 1);
+      if (entry.refCount <= 0) {
+        if (import.meta.env.DEV) {
+          console.warn(`[SharedSequencePool] release(${phageId}) called with refCount=0`);
+        }
+        entry.refCount = 0;
+        return;
+      }
+      entry.refCount -= 1;
     }
+  }
+
+  /**
+   * Pin a sequence in the pool to deprioritize eviction.
+   * Prefer this for long-lived UI state (current phage, diff reference), not per-job usage.
+   */
+  pin(phageId: number, sequence?: string): void {
+    if (sequence !== undefined) {
+      this.getOrCreate(phageId, sequence);
+    }
+    const entry = this.pool.get(phageId);
+    if (!entry) {
+      return;
+    }
+    entry.refCount += 1;
+    entry.lastAccess = Date.now();
   }
 
   /**
