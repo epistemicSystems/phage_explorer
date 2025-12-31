@@ -196,6 +196,7 @@ export const PHAGE_CATALOG: PhageCatalogEntry[] = [
     genomeType: 'dsDNA',
     baltimoreGroup: 'I',
     description: 'P1 is a temperate phage that uniquely maintains its prophage as a low-copy circular plasmid rather than integrating into the chromosome. Classic workhorse for generalized transduction and the Cre-lox recombination system.',
+    pdbIds: ['9AY3', '9AY5'], // 9AY3: tail sheath (3.53Å, 2024), 9AY5: tail-baseplate (6.00Å, 2024) - no capsid structure available
   },
   {
     slug: 'p2',
@@ -209,6 +210,7 @@ export const PHAGE_CATALOG: PhageCatalogEntry[] = [
     genomeType: 'dsDNA',
     baltimoreGroup: 'I',
     description: 'P2 is the founding member of the P2-like temperate phages (Peduovirinae). It has a contractile tail and integrates site-specifically into the host chromosome. Historically important in phage genetics research.',
+    pdbIds: ['3AQJ'], // Tail spike protein gpV C-terminal domain (1.27Å, 2011) - only P2 structure available; no capsid structure as of Dec 2025
   },
   {
     slug: 'n4',
@@ -236,6 +238,8 @@ export const PHAGE_CATALOG: PhageCatalogEntry[] = [
     genomeType: 'dsDNA',
     baltimoreGroup: 'I',
     description: 'Felix O1 is the classic Salmonella-typing phage, historically used to identify Salmonella species. It has an exceptionally broad host range within Salmonella and is a model for applied phage microbiology.',
+    // No direct Felix O1 structures in PDB as of Dec 2025. Related Felixounavirus Bas63 capsid (9NCF, 2025) exists but is a different phage.
+    // Searched: RCSB PDB for "Felix O1", "FelixO1", "Felixounavirus" - no direct matches.
   },
   {
     slug: 'd29',

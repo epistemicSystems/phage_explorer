@@ -348,26 +348,95 @@ export interface ProgressInfo {
 
 export type ProgressCallback = (info: ProgressInfo) => void;
 
+export type BondDetail = boolean | 'auto';
+
+export interface LoadStructureOptions {
+  includeBonds?: BondDetail;
+  includeFunctionalGroups?: boolean;
+}
+
+// Lazy-loaded cache module to avoid circular dependencies
+let cacheModule: typeof import('../db/structure-cache') | null = null;
+async function getCache() {
+  if (!cacheModule) {
+    cacheModule = await import('../db/structure-cache');
+  }
+  return cacheModule;
+}
+
+/**
+ * Extract the bare PDB ID from an ID or URL for cache key purposes.
+ */
+function extractPdbId(idOrUrl: string): string {
+  if (idOrUrl.includes('://')) {
+    // Extract from URL like https://files.rcsb.org/download/5VF3.pdb
+    const match = idOrUrl.match(/\/([A-Za-z0-9]+)\.(pdb|cif|mmcif)$/i);
+    return match ? match[1].toUpperCase() : idOrUrl;
+  }
+  return idOrUrl.replace(/\.(pdb|cif|mmcif)$/i, '').toUpperCase();
+}
+
 export async function loadStructure(
   idOrUrl: string,
   signal?: AbortSignal,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  options?: LoadStructureOptions
 ): Promise<LoadedStructure> {
   const format = detectFormat(idOrUrl);
   const url = resolveDownloadUrl(idOrUrl, format);
+  const pdbId = extractPdbId(idOrUrl);
+  const resolvedOptions: LoadStructureOptions = {
+    includeBonds: options?.includeBonds ?? 'auto',
+    includeFunctionalGroups: options?.includeFunctionalGroups ?? false,
+  };
 
-  // Report: fetching (10%)
-  onProgress?.({ stage: 'fetching', percent: 10 });
+  // Report: fetching (5%)
+  onProgress?.({ stage: 'fetching', percent: 5 });
 
-  const res = await fetch(url, { signal });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch structure (${res.status})`);
+  // Check IndexedDB cache first
+  let text: string;
+  let fromCache = false;
+
+  try {
+    const cache = await getCache();
+    const cached = await cache.getCachedStructure(pdbId);
+    if (cached) {
+      // Decode cached ArrayBuffer to text
+      const decoder = new TextDecoder();
+      text = decoder.decode(cached.data);
+      fromCache = true;
+      // Report: cache hit (20%)
+      onProgress?.({ stage: 'fetching', percent: 20 });
+    }
+  } catch {
+    // Cache miss or error, continue with fetch
   }
 
-  // Report: fetching complete (20%)
-  onProgress?.({ stage: 'fetching', percent: 20 });
+  // If not cached, fetch from network
+  if (!fromCache) {
+    // Report: fetching (10%)
+    onProgress?.({ stage: 'fetching', percent: 10 });
 
-  const text = await res.text();
+    const res = await fetch(url, { signal });
+    if (!res.ok) {
+      throw new Error(`Failed to fetch structure (${res.status})`);
+    }
+
+    // Report: fetching complete (20%)
+    onProgress?.({ stage: 'fetching', percent: 20 });
+
+    text = await res.text();
+
+    // Cache the fetched data (async, don't block)
+    try {
+      const cache = await getCache();
+      const encoder = new TextEncoder();
+      const data = encoder.encode(text).buffer;
+      void cache.cacheStructure(pdbId, data, format);
+    } catch {
+      // Cache write failed, ignore
+    }
+  }
 
   if (signal?.aborted) {
     throw new DOMException('Aborted', 'AbortError');
@@ -464,7 +533,7 @@ export async function loadStructure(
       reject(new Error(e.message));
     };
 
-    worker.postMessage({ text, format });
+    worker.postMessage({ text, format, options: resolvedOptions });
   });
 }
 

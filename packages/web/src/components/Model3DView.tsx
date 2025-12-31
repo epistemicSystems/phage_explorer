@@ -344,9 +344,12 @@ function Model3DViewBase({ phage }: Model3DViewProps): React.ReactElement {
     refetch: refetchStructure,
     progress: structureProgress,
     loadingStage,
+    fromCache,
   } = useStructureQuery({
     idOrUrl: pdbId ?? undefined,
     enabled: show3DModel && Boolean(pdbId),
+    includeBonds: 'auto',
+    includeFunctionalGroups: showFunctionalGroups,
   });
 
   // Build a lightweight mapping index from PDB chain residues -> likely gene coordinates (heuristic by length).
@@ -864,9 +867,13 @@ function Model3DViewBase({ phage }: Model3DViewProps): React.ReactElement {
     }
 
     if (structureLoading || structureFetching) {
-      setLoadState('loading');
-      // Use actual progress from hook instead of static 20%
-      setProgress(structureProgress > 0 ? structureProgress : 5);
+      // If we already have a rendered structure, keep it visible while we fetch
+      // additional detail (e.g. functional groups) in the background.
+      if (!structureData) {
+        setLoadState('loading');
+        // Use actual progress from hook instead of static 20%
+        setProgress(structureProgress > 0 ? structureProgress : 5);
+      }
       setError(null);
       return;
     }
@@ -877,45 +884,55 @@ function Model3DViewBase({ phage }: Model3DViewProps): React.ReactElement {
       const controls = controlsRef.current;
       if (!scene || !camera || !controls) return;
 
+      const hasExistingStructureForPdb =
+        structureDataRef.current != null && initialModeForPdbRef.current === pdbId;
       structureDataRef.current = structureData;
       const hasBackboneTraces = structureData.backboneTraces.some(trace => trace.length >= 2);
-      let mode: RenderMode = renderModeRef.current;
-      if (initialModeForPdbRef.current !== pdbId) {
-        initialModeForPdbRef.current = pdbId;
-        const suggested = suggestInitialRenderMode({
-          coarsePointer,
-          atomCount: structureData.atomCount,
-          hasBackboneTraces,
-        });
-        if (suggested !== renderModeRef.current) {
-          setRenderMode(suggested);
-          mode = suggested;
+
+      // If we already rendered this structure, don't reset camera pose just because
+      // we're upgrading detail (e.g. adding functional group highlights).
+      if (!hasExistingStructureForPdb) {
+        let mode: RenderMode = renderModeRef.current;
+        if (initialModeForPdbRef.current !== pdbId) {
+          initialModeForPdbRef.current = pdbId;
+          const suggested = suggestInitialRenderMode({
+            coarsePointer,
+            atomCount: structureData.atomCount,
+            hasBackboneTraces,
+          });
+          if (suggested !== renderModeRef.current) {
+            setRenderMode(suggested);
+            mode = suggested;
+          }
         }
+
+        // Build immediately in addition to the loadState effect to avoid a race
+        // where the renderMode effect fires before loadState flips to "ready".
+        rebuildStructure(mode);
+
+        // ZOOM TO EXTENTS: Calculate optimal camera distance
+        // Formula: dist = radius / tan(fov/2), with 1.15 padding for ~10% margin
+        // Must consider BOTH vertical and horizontal FOV for proper fit
+        const vFovRad = (camera.fov * Math.PI) / 180;
+        const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * camera.aspect);
+        // Use the tighter (smaller) FOV to ensure molecule fits in both dimensions
+        const effectiveFov = Math.min(vFovRad, hFovRad);
+        const optimalDist = (structureData.radius / Math.tan(effectiveFov / 2)) * 1.15;
+        const dist = Math.max(optimalDist, structureData.radius * 2); // At least 2x radius
+
+        // Structure is centered at origin by rebuildStructure, so camera targets origin
+        // Position camera at slight angle for better 3D perception
+        // IMPORTANT: Normalize the direction vector then scale to exact distance
+        const viewDirection = new Vector3(1, 0.7, 1).normalize();
+        camera.position.copy(viewDirection.multiplyScalar(dist));
+        camera.near = Math.max(0.1, structureData.radius * 0.01);
+        camera.far = Math.max(5000, structureData.radius * 10);
+        camera.updateProjectionMatrix();
+        controls.target.set(0, 0, 0);
+        controls.update();
+      } else {
+        rebuildStructure(renderModeRef.current);
       }
-      // Build immediately in addition to the loadState effect to avoid a race
-      // where the renderMode effect fires before loadState flips to "ready".
-      rebuildStructure(mode);
-
-      // ZOOM TO EXTENTS: Calculate optimal camera distance
-      // Formula: dist = radius / tan(fov/2), with 1.15 padding for ~10% margin
-      // Must consider BOTH vertical and horizontal FOV for proper fit
-      const vFovRad = (camera.fov * Math.PI) / 180;
-      const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * camera.aspect);
-      // Use the tighter (smaller) FOV to ensure molecule fits in both dimensions
-      const effectiveFov = Math.min(vFovRad, hFovRad);
-      const optimalDist = (structureData.radius / Math.tan(effectiveFov / 2)) * 1.15;
-      const dist = Math.max(optimalDist, structureData.radius * 2); // At least 2x radius
-
-      // Structure is centered at origin by rebuildStructure, so camera targets origin
-      // Position camera at slight angle for better 3D perception
-      // IMPORTANT: Normalize the direction vector then scale to exact distance
-      const viewDirection = new Vector3(1, 0.7, 1).normalize();
-      camera.position.copy(viewDirection.multiplyScalar(dist));
-      camera.near = Math.max(0.1, structureData.radius * 0.01);
-      camera.far = Math.max(5000, structureData.radius * 10);
-      camera.updateProjectionMatrix();
-      controls.target.set(0, 0, 0);
-      controls.update();
       setAtomCount(structureData.atomCount);
       setProgress(100);
       setLoadState('ready');
@@ -1077,7 +1094,7 @@ function Model3DViewBase({ phage }: Model3DViewProps): React.ReactElement {
   };
 
   const stateLabel = loadState === 'ready'
-    ? 'Loaded'
+    ? (fromCache ? 'Cached' : 'Loaded')
     : loadState === 'loading'
       ? 'Loading…'
       : loadState === 'error'
@@ -1332,10 +1349,25 @@ function Model3DViewBase({ phage }: Model3DViewProps): React.ReactElement {
               <IconDna size={40} />
             </div>
             <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>No Structure Available</h4>
-            <p className="text-dim" style={{ margin: 0, maxWidth: '280px' }}>
-              This phage doesn't have a 3D structure in our database.
+            <p className="text-dim" style={{ margin: 0, maxWidth: '320px' }}>
+              This phage doesn't have a 3D structure in our database yet.
               Not all phages have experimentally determined or predicted structures.
             </p>
+            <a
+              href={`https://www.rcsb.org/search?request=%7B%22query%22%3A%7B%22type%22%3A%22terminal%22%2C%22service%22%3A%22text%22%2C%22parameters%22%3A%7B%22value%22%3A%22${encodeURIComponent(phage?.name ?? 'bacteriophage')}%22%7D%7D%2C%22return_type%22%3A%22entry%22%7D`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-link"
+              style={{
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: 'var(--color-accent)',
+              }}
+            >
+              Search RCSB PDB →
+            </a>
           </div>
         )}
 

@@ -168,15 +168,14 @@ function getSequenceBytesView(ref: SequenceBytesRef): Uint8Array {
 }
 
 /**
- * Calculate GC skew along the sequence
+ * Calculate GC skew along the sequence (JS fallback)
  */
-function calculateGCSkew(sequence: string, windowSize = 1000): GCSkewResult {
-  const seq = sequence.toUpperCase();
+function calculateGCSkewJS(seq: string, windowSize: number, stepSize: number): GCSkewResult {
   const skew: number[] = [];
   const cumulative: number[] = [];
   let cumSum = 0;
 
-  for (let i = 0; i < seq.length - windowSize; i += windowSize / 4) {
+  for (let i = 0; i < seq.length - windowSize; i += stepSize) {
     const window = seq.slice(i, i + windowSize);
     let g = 0, c = 0;
     for (const char of window) {
@@ -204,7 +203,6 @@ function calculateGCSkew(sequence: string, windowSize = 1000): GCSkewResult {
     }
   }
 
-  const stepSize = windowSize / 4;
   return {
     type: 'gc-skew',
     skew,
@@ -212,6 +210,66 @@ function calculateGCSkew(sequence: string, windowSize = 1000): GCSkewResult {
     originPosition: minIdx * stepSize,
     terminusPosition: maxIdx * stepSize,
   };
+}
+
+/**
+ * Calculate GC skew along the sequence
+ * Uses WASM acceleration when available, falls back to JS.
+ */
+async function calculateGCSkewWasm(sequence: string, windowSize = 1000): Promise<GCSkewResult> {
+  const seq = sequence.toUpperCase();
+  const stepSize = Math.floor(windowSize / 4);
+
+  try {
+    const wasm = await getWasmCompute();
+    if (wasm && typeof wasm.compute_gc_skew === 'function') {
+      // Use WASM for acceleration
+      const skew = Array.from(wasm.compute_gc_skew(seq, windowSize, stepSize));
+      const cumulative = Array.from(wasm.compute_cumulative_gc_skew(seq));
+
+      // Trim cumulative to match skew length (WASM returns per-base cumulative)
+      // Sample at stepSize intervals to match skew positions
+      const cumulativeSampled: number[] = [];
+      for (let i = 0; i < skew.length; i++) {
+        const pos = i * stepSize;
+        if (pos < cumulative.length) {
+          cumulativeSampled.push(cumulative[pos]);
+        } else if (cumulative.length > 0) {
+          cumulativeSampled.push(cumulative[cumulative.length - 1]);
+        }
+      }
+
+      // Find origin (min cumulative) and terminus (max cumulative)
+      let minIdx = 0, maxIdx = 0;
+      let minVal = cumulativeSampled[0] ?? 0, maxVal = cumulativeSampled[0] ?? 0;
+      for (let i = 1; i < cumulativeSampled.length; i++) {
+        if (cumulativeSampled[i] < minVal) {
+          minVal = cumulativeSampled[i];
+          minIdx = i;
+        }
+        if (cumulativeSampled[i] > maxVal) {
+          maxVal = cumulativeSampled[i];
+          maxIdx = i;
+        }
+      }
+
+      return {
+        type: 'gc-skew',
+        skew,
+        cumulative: cumulativeSampled,
+        originPosition: minIdx * stepSize,
+        terminusPosition: maxIdx * stepSize,
+      };
+    }
+  } catch (err) {
+    // WASM failed, fall back to JS
+    if (typeof console !== 'undefined') {
+      console.warn('[analysis.worker] WASM GC skew failed, using JS fallback:', err);
+    }
+  }
+
+  // JS fallback
+  return calculateGCSkewJS(seq, windowSize, stepSize);
 }
 
 /**
@@ -638,7 +696,7 @@ async function runAnalysisImpl(request: AnalysisRequest): Promise<AnalysisResult
 
   switch (type) {
     case 'gc-skew':
-      return calculateGCSkew(sequence, options.windowSize || 1000);
+      return await calculateGCSkewWasm(sequence, options.windowSize || 1000);
     case 'complexity':
       return calculateComplexity(sequence, options.windowSize || 100);
     case 'bendability':
