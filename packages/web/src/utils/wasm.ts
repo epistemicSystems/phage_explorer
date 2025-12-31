@@ -17,9 +17,11 @@
  */
 
 // Re-export from centralized module for consistency
+// NOTE: canUseSharedArrayBuffer is NOT re-exported here to avoid conflict
+// with the local deprecated version. Import directly from browser-capabilities
+// for the new implementation.
 export {
   canUseWasm,
-  canUseSharedArrayBuffer as canUseSharedArrayBufferNew,
   canUseWasmSimd,
   isCrossOriginIsolated,
   getBrowserCapabilities,

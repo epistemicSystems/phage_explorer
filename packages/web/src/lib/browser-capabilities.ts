@@ -136,19 +136,10 @@ let detectionPromise: Promise<BrowserCapabilities> | null = null;
  * @returns true if WASM compile/instantiate are available
  */
 export function canUseWasm(): boolean {
-  if (syncCapabilitiesCache !== null) {
-    return syncCapabilitiesCache.wasm;
+  if (syncCapabilitiesCache === null) {
+    initSyncCache();
   }
-
-  const supported =
-    typeof WebAssembly !== 'undefined' &&
-    typeof WebAssembly.compile === 'function' &&
-    typeof WebAssembly.instantiate === 'function';
-
-  // Initialize cache with all sync checks
-  initSyncCache();
-
-  return supported;
+  return syncCapabilitiesCache!.wasm;
 }
 
 /**
@@ -391,19 +382,17 @@ function detectWorkerCapabilities(): WorkerCapabilities {
   const webWorkers = typeof Worker !== 'undefined';
 
   // Module workers detection
-  // We can't easily detect this without creating a worker, so we use a heuristic:
-  // All modern browsers (Chrome 80+, Firefox 114+, Safari 15+) support module workers
+  // There's no reliable sync way to detect module worker support without creating one.
+  // We assume module workers are available if:
+  // 1. Web Workers are supported
+  // 2. Dynamic import() is available (required for module workers)
+  // This covers Chrome 80+, Firefox 114+, Safari 15+ which all support module workers.
   let moduleWorkers = false;
   if (webWorkers) {
-    try {
-      // Check if Worker accepts options object (required for type: 'module')
-      // This doesn't guarantee module workers work, but it's a good proxy
-      moduleWorkers = 'Worker' in globalThis;
-      // More specific check: Safari 15+ and all Chromium 80+ support it
-      // Firefox added support in 114, but we assume modern Firefox
-    } catch {
-      // Keep as false
-    }
+    // Check for dynamic import support as a proxy for module worker support
+    // This is a reasonable heuristic: browsers that support dynamic import()
+    // in workers generally support module workers (type: 'module')
+    moduleWorkers = typeof import.meta !== 'undefined';
   }
 
   return {
