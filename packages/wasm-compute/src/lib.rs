@@ -3733,4 +3733,69 @@ mod myers_diff_tests {
             assert_eq!(result.mask_b[i], DIFF_OP_MATCH, "mask_b[{}] should be MATCH", i);
         }
     }
+
+    #[test]
+    fn test_single_char_sequences() {
+        // Same single char
+        let result = myers_diff(b"A", b"A");
+        assert_eq!(result.edit_distance, 0);
+        assert_eq!(result.matches, 1);
+        assert_eq!(result.mask_a, vec![DIFF_OP_MATCH]);
+        assert_eq!(result.mask_b, vec![DIFF_OP_MATCH]);
+
+        // Different single chars
+        let result = myers_diff(b"A", b"G");
+        assert_eq!(result.edit_distance, 2); // 1 delete + 1 insert
+        assert_eq!(result.deletions, 1);
+        assert_eq!(result.insertions, 1);
+        assert_eq!(result.matches, 0);
+    }
+
+    #[test]
+    fn test_one_empty_one_nonempty() {
+        // A empty, B has content
+        let result = myers_diff(b"", b"ACGT");
+        assert_eq!(result.edit_distance, 4);
+        assert_eq!(result.insertions, 4);
+        assert_eq!(result.mask_a.len(), 0);
+        assert_eq!(result.mask_b.len(), 4);
+        for i in 0..4 {
+            assert_eq!(result.mask_b[i], DIFF_OP_INSERT);
+        }
+
+        // A has content, B empty
+        let result = myers_diff(b"ACGT", b"");
+        assert_eq!(result.edit_distance, 4);
+        assert_eq!(result.deletions, 4);
+        assert_eq!(result.mask_a.len(), 4);
+        assert_eq!(result.mask_b.len(), 0);
+        for i in 0..4 {
+            assert_eq!(result.mask_a[i], DIFF_OP_DELETE);
+        }
+    }
+
+    #[test]
+    fn test_multiple_edits() {
+        // A = "ACGT", B = "AXXGT" (delete C, insert XX)
+        // This tests multiple edits in one diff
+        let result = myers_diff(b"ACGT", b"AXXGT");
+        // edit_distance should be 3: delete C, insert X, insert X
+        assert_eq!(result.edit_distance, 3);
+        // Total positions: matches (A, G, T = 3) + deletions (C = 1) + insertions (X, X = 2) = 6
+        // But wait, that's not how it works. Let me recalculate.
+        // Actually the shortest edit script would be:
+        // Keep A, delete C, insert X, insert X, keep G, keep T
+        // = 1 deletion + 2 insertions = 3 edits, 3 matches
+        assert_eq!(result.matches, 3);
+        assert!(result.insertions + result.deletions == 3);
+    }
+
+    #[test]
+    fn test_prefix_suffix_matches() {
+        // Only differ in the middle
+        let result = myers_diff(b"AAAXBBB", b"AAAYBBB");
+        // X and Y differ: delete X, insert Y = 2 edits
+        assert_eq!(result.edit_distance, 2);
+        assert_eq!(result.matches, 6); // AAA + BBB
+    }
 }
