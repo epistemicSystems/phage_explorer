@@ -1,6 +1,9 @@
 import { jaccardIndex, extractKmerSet } from './kmer-analysis';
 import type { GeneInfo } from '@phage-explorer/core';
 import type { HGTAnalysis, GenomicIsland, DonorCandidate, PassportStamp } from './types';
+import { getMinHashCache, makeCacheKeyFromId, type CacheStats } from './minhash-cache';
+
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 // ============================================================================
 // WASM MinHash Types and Loader
@@ -53,6 +56,7 @@ initMinHashWasm().catch(() => { /* WASM unavailable */ });
 
 /**
  * Compute MinHash signature for a sequence using WASM.
+ * Uses the global cache for transparent reuse across calls.
  * Returns null if WASM unavailable or sequence too short.
  */
 function computeMinHashSignature(
@@ -66,17 +70,21 @@ function computeMinHashSignature(
   const fn = canonical ? wasmMinHashSignatureCanonical : wasmMinHashSignature;
   if (!fn) return null;
 
-  try {
-    const bytes = textEncoder.encode(sequence.toUpperCase());
-    if (bytes.length < k) return null;
+  if (sequence.length < k) return null;
 
-    const sig = fn(bytes, k, numHashes);
-    const result = new Uint32Array(sig.signature); // Copy before free
-    sig.free();
-    return result;
-  } catch {
-    return null;
-  }
+  // Use cache for transparent reuse
+  const cache = getMinHashCache();
+  return cache.getOrCompute(sequence, k, numHashes, canonical, () => {
+    try {
+      const bytes = textEncoder!.encode(sequence.toUpperCase());
+      const sig = fn!(bytes, k, numHashes);
+      const result = new Uint32Array(sig.signature); // Copy before free
+      sig.free();
+      return result;
+    } catch {
+      return null;
+    }
+  });
 }
 
 export interface HGTOptions {
@@ -341,6 +349,7 @@ function inferDonorsMinHash(
 
 /**
  * Precompute MinHash signatures for reference sequences.
+ * Uses ID-based caching for efficient reuse across repeated calls.
  * Returns null if WASM MinHash is unavailable.
  */
 function precomputeReferenceSignatures(
@@ -349,10 +358,22 @@ function precomputeReferenceSignatures(
 ): Record<string, Uint32Array> | null {
   if (!wasmMinHashAvailable) return null;
 
+  const cache = getMinHashCache();
   const signatures: Record<string, Uint32Array> = {};
 
   for (const [taxon, seq] of Object.entries(referenceSketches)) {
-    const sig = computeMinHashSignature(seq, k, MINHASH_NUM_HASHES, true);
+    // Use taxon ID for stable cache key (avoids rehashing entire reference)
+    const cacheKey = makeCacheKeyFromId(taxon, k, MINHASH_NUM_HASHES, true);
+    let sig = cache.get(cacheKey);
+
+    if (!sig) {
+      // Compute and cache using ID-based key
+      sig = computeMinHashSignature(seq, k, MINHASH_NUM_HASHES, true);
+      if (sig) {
+        cache.set(cacheKey, sig);
+      }
+    }
+
     if (sig) {
       signatures[taxon] = sig;
     }
@@ -423,6 +444,17 @@ export function analyzeHGTProvenance(
       hallmarks: island.hallmarks,
     };
   });
+
+  // Dev-only: log cache performance
+  if (isDev && useMinHash) {
+    const stats = getMinHashCache().getStats();
+    console.log('[hgt-tracer] MinHash cache stats:', {
+      hitRate: `${(stats.hitRate * 100).toFixed(1)}%`,
+      entries: stats.entries,
+      bytesUsed: `${(stats.bytes / 1024).toFixed(1)}KB`,
+      islands: islands.length,
+    });
+  }
 
   return {
     genomeGC,

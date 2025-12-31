@@ -91,6 +91,17 @@ export {
 // HGT provenance tracer
 export { analyzeHGTProvenance, type HGTOptions } from './hgt-tracer';
 
+// MinHash signature cache
+export {
+  MinHashCache,
+  getMinHashCache,
+  initMinHashCache,
+  clearMinHashCache,
+  makeCacheKeyFromId,
+  type CacheConfig,
+  type CacheStats,
+} from './minhash-cache';
+
 // Tail fiber tropism / receptor atlas
 export {
   analyzeTailFiberTropism,

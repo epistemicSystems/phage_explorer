@@ -464,6 +464,6 @@ describe('Parity and Consistency', () => {
     for (const c of result.counts) {
       if (c > 0) nonZero++;
     }
-    expect(nonZero).toBe(result.uniqueCount);
+    expect(nonZero).toBe(result.uniqueCount ?? 0);
   });
 });
