@@ -139,10 +139,12 @@ function SequenceViewBase({
   const viewMode = usePhageStore((s) => s.viewMode);
   const readingFrame = usePhageStore((s) => s.readingFrame);
   const storeScrollPosition = usePhageStore((s) => s.scrollPosition);
+  const storeZoomScale = usePhageStore((s) => s.zoomScale);
   const setViewMode = usePhageStore((s) => s.setViewMode);
   const storeToggleViewMode = usePhageStore((s) => s.toggleViewMode);
   const setReadingFrame = usePhageStore((s) => s.setReadingFrame);
   const setScrollPosition = usePhageStore((s) => s.setScrollPosition);
+  const setStoreZoomScale = usePhageStore((s) => s.setZoomScale);
   const storeDiffEnabled = usePhageStore((s) => s.diffEnabled);
   const diffEnabled = diffEnabledOverride ?? storeDiffEnabled;
 
@@ -205,6 +207,7 @@ function SequenceViewBase({
     scrollToPosition,
     zoomScale,
     zoomPreset,
+    setZoomScale: setRendererZoomScale,
     zoomIn,
     zoomOut,
   } = useSequenceGrid({
@@ -223,10 +226,13 @@ function SequenceViewBase({
     reducedMotion,
     enablePinchZoom: true,
     snapToCodon,
-    initialZoomScale: densityMode === 'compact' ? 0.85 : 1.0,
+    initialZoomScale: storeZoomScale ?? (densityMode === 'compact' ? 0.85 : 1.0),
     densityMode,
     onVisibleRangeChange: (range) => {
       setScrollPosition(range.startIndex);
+    },
+    onZoomChange: (scale) => {
+      setStoreZoomScale(scale);
     },
   });
 
@@ -241,6 +247,21 @@ function SequenceViewBase({
     lastExternalScrollRef.current = storeScrollPosition;
     scrollToPosition(storeScrollPosition);
   }, [storeScrollPosition, scrollPosition, scrollToPosition]);
+
+  const lastExternalZoomRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (storeZoomScale === null) {
+      setStoreZoomScale(zoomScale);
+      return;
+    }
+
+    if (!Number.isFinite(storeZoomScale)) return;
+    if (Math.abs(storeZoomScale - zoomScale) < 1e-4) return;
+    if (lastExternalZoomRef.current === storeZoomScale) return;
+
+    lastExternalZoomRef.current = storeZoomScale;
+    setRendererZoomScale(storeZoomScale);
+  }, [storeZoomScale, zoomScale, setRendererZoomScale, setStoreZoomScale]);
 
   // Auto-compact for landscape mobile unless user overrode
   useEffect(() => {
@@ -662,7 +683,7 @@ function SequenceViewBase({
             width: '100%',
             height: resolvedHeight,
             display: 'block',
-            touchAction: hudVisible ? 'none' : 'pan-y',
+            touchAction: 'none', // Must be 'none' to enable custom touch scroll handling
           }}
         />
         {/* Loading skeleton state */}
