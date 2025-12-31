@@ -3580,6 +3580,389 @@ pub fn equal_len_diff(seq_a: &[u8], seq_b: &[u8]) -> MyersDiffResult {
     }
 }
 
+// ============================================================================
+// SequenceHandle: Zero-copy sequence storage in WASM memory
+// ============================================================================
+
+/// Encoding for DNA bases in SequenceHandle.
+/// A=0, C=1, G=2, T/U=3, N/other=4
+const SEQ_BASE_A: u8 = 0;
+const SEQ_BASE_C: u8 = 1;
+const SEQ_BASE_G: u8 = 2;
+const SEQ_BASE_T: u8 = 3;
+const SEQ_BASE_N: u8 = 4;
+
+/// Encode a single ASCII base to 2-bit encoding (A=0, C=1, G=2, T=3, N=4).
+#[inline(always)]
+fn encode_base(byte: u8) -> u8 {
+    match byte {
+        b'A' | b'a' => SEQ_BASE_A,
+        b'C' | b'c' => SEQ_BASE_C,
+        b'G' | b'g' => SEQ_BASE_G,
+        b'T' | b't' | b'U' | b'u' => SEQ_BASE_T,
+        _ => SEQ_BASE_N,
+    }
+}
+
+/// A handle to a sequence stored in WASM memory.
+///
+/// This struct stores an encoded DNA sequence once and exposes fast methods
+/// for various analyses without re-copying the sequence each call.
+///
+/// # Usage
+///
+/// ```js
+/// const handle = SequenceHandle.new(sequenceBytes);
+/// try {
+///   const gcSkew = handle.gc_skew(100, 10);
+///   const kmerCounts = handle.count_kmers(4);
+///   // ... use results
+/// } finally {
+///   handle.free(); // MUST call to release WASM memory
+/// }
+/// ```
+///
+/// # Memory Management
+///
+/// The caller MUST call `.free()` when done to release WASM memory.
+/// Failing to do so will leak memory.
+///
+/// @see phage_explorer-8qk2.5
+#[wasm_bindgen]
+pub struct SequenceHandle {
+    /// Encoded sequence: A=0, C=1, G=2, T=3, N=4
+    encoded: Vec<u8>,
+    /// Original sequence length
+    length: usize,
+    /// Count of valid (non-N) bases
+    valid_count: usize,
+}
+
+#[wasm_bindgen]
+impl SequenceHandle {
+    /// Create a new SequenceHandle from raw sequence bytes.
+    ///
+    /// The sequence is encoded into a compact representation stored in WASM memory.
+    /// Case-insensitive: a/A, c/C, g/G, t/T are all valid.
+    /// U is treated as T. Ambiguous/invalid bases are stored as N (code 4).
+    ///
+    /// # Arguments
+    /// * `seq_bytes` - ASCII bytes of the DNA/RNA sequence
+    ///
+    /// # Returns
+    /// A new SequenceHandle that must be freed with `.free()` when done.
+    #[wasm_bindgen(constructor)]
+    pub fn new(seq_bytes: &[u8]) -> SequenceHandle {
+        let length = seq_bytes.len();
+        let mut encoded = Vec::with_capacity(length);
+        let mut valid_count = 0;
+
+        for &byte in seq_bytes {
+            let code = encode_base(byte);
+            encoded.push(code);
+            if code != SEQ_BASE_N {
+                valid_count += 1;
+            }
+        }
+
+        SequenceHandle {
+            encoded,
+            length,
+            valid_count,
+        }
+    }
+
+    /// Get the original sequence length.
+    #[wasm_bindgen(getter)]
+    pub fn length(&self) -> usize {
+        self.length
+    }
+
+    /// Get the count of valid (non-N) bases.
+    #[wasm_bindgen(getter)]
+    pub fn valid_count(&self) -> usize {
+        self.valid_count
+    }
+
+    /// Compute GC skew values for sliding windows.
+    ///
+    /// GC skew = (G - C) / (G + C) for each window.
+    /// Returns an empty array if window_size or step_size is 0, or if
+    /// the sequence is shorter than window_size.
+    ///
+    /// # Arguments
+    /// * `window_size` - Size of the sliding window
+    /// * `step_size` - Step between windows
+    ///
+    /// # Returns
+    /// Float64Array of GC skew values, one per window position.
+    pub fn gc_skew(&self, window_size: usize, step_size: usize) -> Vec<f64> {
+        if window_size == 0 || step_size == 0 || self.length < window_size {
+            return Vec::new();
+        }
+
+        let mut result = Vec::with_capacity((self.length - window_size) / step_size + 1);
+
+        // Initial window counts
+        let mut g_count = 0usize;
+        let mut c_count = 0usize;
+
+        for i in 0..window_size {
+            match self.encoded[i] {
+                SEQ_BASE_G => g_count += 1,
+                SEQ_BASE_C => c_count += 1,
+                _ => {}
+            }
+        }
+
+        // First window
+        let gc_sum = g_count + c_count;
+        if gc_sum > 0 {
+            result.push((g_count as f64 - c_count as f64) / gc_sum as f64);
+        } else {
+            result.push(0.0);
+        }
+
+        // Slide the window
+        let mut pos = step_size;
+        while pos + window_size <= self.length {
+            // Remove bases exiting the window
+            for i in (pos - step_size)..pos {
+                if i < self.length {
+                    match self.encoded[i] {
+                        SEQ_BASE_G => g_count = g_count.saturating_sub(1),
+                        SEQ_BASE_C => c_count = c_count.saturating_sub(1),
+                        _ => {}
+                    }
+                }
+            }
+            // Add bases entering the window
+            for i in (pos + window_size - step_size)..(pos + window_size) {
+                if i < self.length {
+                    match self.encoded[i] {
+                        SEQ_BASE_G => g_count += 1,
+                        SEQ_BASE_C => c_count += 1,
+                        _ => {}
+                    }
+                }
+            }
+
+            let gc_sum = g_count + c_count;
+            if gc_sum > 0 {
+                result.push((g_count as f64 - c_count as f64) / gc_sum as f64);
+            } else {
+                result.push(0.0);
+            }
+
+            pos += step_size;
+        }
+
+        result
+    }
+
+    /// Compute cumulative GC skew.
+    ///
+    /// Running sum of (G - C) / (G + C) contribution per base.
+    /// The cumulative skew typically shows the origin (minimum) and terminus (maximum)
+    /// of replication for circular genomes.
+    ///
+    /// # Returns
+    /// Float64Array with cumulative skew at each position.
+    pub fn cumulative_gc_skew(&self) -> Vec<f64> {
+        let mut cumulative = Vec::with_capacity(self.length);
+        let mut sum = 0.0;
+
+        for &code in &self.encoded {
+            match code {
+                SEQ_BASE_G => sum += 1.0,
+                SEQ_BASE_C => sum -= 1.0,
+                _ => {}
+            }
+            cumulative.push(sum);
+        }
+
+        cumulative
+    }
+
+    /// Count k-mers using dense array (for k <= 10).
+    ///
+    /// Returns a DenseKmerResult with counts for all 4^k possible k-mers.
+    /// K-mers containing N are skipped.
+    ///
+    /// # Arguments
+    /// * `k` - K-mer size (1-10)
+    ///
+    /// # Returns
+    /// DenseKmerResult with counts, or empty result if k is invalid.
+    pub fn count_kmers(&self, k: usize) -> DenseKmerResult {
+        if k < 1 || k > DENSE_KMER_MAX_K || self.length < k {
+            return DenseKmerResult {
+                counts: Vec::new(),
+                total_valid: 0,
+                k,
+            };
+        }
+
+        let array_size = 1 << (2 * k);
+        let mask = array_size - 1;
+        let mut counts = vec![0u32; array_size];
+        let mut total_valid = 0u64;
+
+        let mut rolling_index = 0usize;
+        let mut valid_bases = 0usize;
+
+        for &code in &self.encoded {
+            if code == SEQ_BASE_N {
+                // Reset on N
+                rolling_index = 0;
+                valid_bases = 0;
+                continue;
+            }
+
+            rolling_index = ((rolling_index << 2) | (code as usize)) & mask;
+            valid_bases += 1;
+
+            if valid_bases >= k {
+                counts[rolling_index] = counts[rolling_index].saturating_add(1);
+                total_valid += 1;
+            }
+        }
+
+        DenseKmerResult {
+            counts,
+            total_valid,
+            k,
+        }
+    }
+
+    /// Compute MinHash signature for similarity estimation.
+    ///
+    /// Uses canonical k-mers (lexicographically smaller of forward/reverse complement)
+    /// for strand-independent comparison.
+    ///
+    /// # Arguments
+    /// * `num_hashes` - Number of hash functions (signature size)
+    /// * `k` - K-mer size
+    ///
+    /// # Returns
+    /// MinHashSignature containing the signature.
+    pub fn minhash(&self, num_hashes: usize, k: usize) -> MinHashSignature {
+        if k < 1 || k > 31 || self.length < k || num_hashes == 0 {
+            return MinHashSignature {
+                signature: vec![u32::MAX; num_hashes],
+                total_kmers: 0,
+                k,
+            };
+        }
+
+        // Convert encoded back to ASCII for canonical k-mer computation
+        // (Could optimize later with direct encoding)
+        let mut ascii = Vec::with_capacity(self.length);
+        for &code in &self.encoded {
+            ascii.push(match code {
+                SEQ_BASE_A => b'A',
+                SEQ_BASE_C => b'C',
+                SEQ_BASE_G => b'G',
+                SEQ_BASE_T => b'T',
+                _ => b'N',
+            });
+        }
+
+        // Use existing canonical minhash implementation
+        minhash_signature_canonical(&ascii, k, num_hashes)
+    }
+
+    /// Get the encoded sequence as a Uint8Array.
+    ///
+    /// Values: A=0, C=1, G=2, T=3, N=4
+    ///
+    /// This is useful for passing to other WASM functions or for debugging.
+    #[wasm_bindgen(getter)]
+    pub fn encoded_bytes(&self) -> js_sys::Uint8Array {
+        let arr = js_sys::Uint8Array::new_with_length(self.encoded.len() as u32);
+        arr.copy_from(&self.encoded);
+        arr
+    }
+}
+
+#[cfg(test)]
+mod sequence_handle_tests {
+    use super::*;
+
+    #[test]
+    fn test_new_and_length() {
+        let handle = SequenceHandle::new(b"ACGT");
+        assert_eq!(handle.length, 4);
+        assert_eq!(handle.valid_count, 4);
+    }
+
+    #[test]
+    fn test_encoding() {
+        let handle = SequenceHandle::new(b"ACGTacgt");
+        // All should be valid (case-insensitive)
+        assert_eq!(handle.valid_count, 8);
+        assert_eq!(handle.encoded[0], SEQ_BASE_A);
+        assert_eq!(handle.encoded[1], SEQ_BASE_C);
+        assert_eq!(handle.encoded[2], SEQ_BASE_G);
+        assert_eq!(handle.encoded[3], SEQ_BASE_T);
+    }
+
+    #[test]
+    fn test_n_handling() {
+        let handle = SequenceHandle::new(b"ACNGT");
+        assert_eq!(handle.length, 5);
+        assert_eq!(handle.valid_count, 4);
+        assert_eq!(handle.encoded[2], SEQ_BASE_N);
+    }
+
+    #[test]
+    fn test_gc_skew_basic() {
+        // GGGG has skew 1.0, CCCC has skew -1.0
+        let handle = SequenceHandle::new(b"GGGGCCCC");
+        let skew = handle.gc_skew(4, 4);
+        assert_eq!(skew.len(), 2);
+        assert!((skew[0] - 1.0).abs() < 0.001);
+        assert!((skew[1] - (-1.0)).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_cumulative_gc_skew() {
+        let handle = SequenceHandle::new(b"GGCC");
+        let cum = handle.cumulative_gc_skew();
+        assert_eq!(cum.len(), 4);
+        assert_eq!(cum[0], 1.0); // G
+        assert_eq!(cum[1], 2.0); // G
+        assert_eq!(cum[2], 1.0); // C
+        assert_eq!(cum[3], 0.0); // C
+    }
+
+    #[test]
+    fn test_count_kmers() {
+        let handle = SequenceHandle::new(b"ACGT");
+        let result = handle.count_kmers(2);
+        assert_eq!(result.total_valid, 3); // AC, CG, GT
+        assert_eq!(result.k, 2);
+    }
+
+    #[test]
+    fn test_count_kmers_with_n() {
+        let handle = SequenceHandle::new(b"ACNGT");
+        let result = handle.count_kmers(2);
+        // AC, then N breaks, then GT
+        assert_eq!(result.total_valid, 2);
+    }
+
+    #[test]
+    fn test_minhash() {
+        let handle = SequenceHandle::new(b"ACGTACGTACGT");
+        let sig = handle.minhash(128, 3);
+        assert_eq!(sig.signature.len(), 128);
+        assert_eq!(sig.k, 3);
+        // Signature should have some actual values (not all MAX)
+        assert!(sig.signature.iter().any(|&v| v != u32::MAX));
+    }
+}
+
 #[cfg(test)]
 mod myers_diff_tests {
     use super::*;

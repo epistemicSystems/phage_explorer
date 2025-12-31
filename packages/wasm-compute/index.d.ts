@@ -770,4 +770,106 @@ declare module '@phage/wasm-compute' {
    * @returns MyersDiffResult with mask codes 0=MATCH, 1=MISMATCH only
    */
   export function equal_len_diff(seq_a: Uint8Array, seq_b: Uint8Array): MyersDiffResult;
+
+  // ============================================================================
+  // SequenceHandle - Zero-copy sequence storage in WASM memory
+  // @see phage_explorer-8qk2.5
+  // ============================================================================
+
+  /**
+   * A handle to a sequence stored in WASM memory.
+   *
+   * This struct stores an encoded DNA sequence once and exposes fast methods
+   * for various analyses without re-copying the sequence each call.
+   *
+   * IMPORTANT: Must call `.free()` when done to release WASM memory.
+   *
+   * @example
+   * ```ts
+   * const encoder = new TextEncoder();
+   * const seqBytes = encoder.encode(genomeSequence);
+   * const handle = new SequenceHandle(seqBytes);
+   * try {
+   *   // Run multiple analyses on the same sequence - no re-copying!
+   *   const gcSkew = handle.gc_skew(100, 10);
+   *   const kmerCounts = handle.count_kmers(6);
+   *   const minhash = handle.minhash(128, 16);
+   *   // ... use results
+   * } finally {
+   *   handle.free(); // Required!
+   * }
+   * ```
+   *
+   * @see phage_explorer-8qk2.5
+   */
+  export class SequenceHandle {
+    /**
+     * Create a new SequenceHandle from raw sequence bytes.
+     *
+     * The sequence is encoded into a compact representation stored in WASM memory.
+     * Case-insensitive: a/A, c/C, g/G, t/T are all valid.
+     * U is treated as T. Ambiguous/invalid bases are stored as N (code 4).
+     *
+     * @param seq_bytes - ASCII bytes of the DNA/RNA sequence
+     */
+    constructor(seq_bytes: Uint8Array);
+
+    /** Release WASM memory. MUST call when done. */
+    free(): void;
+
+    /** Original sequence length. */
+    readonly length: number;
+
+    /** Count of valid (non-N) bases. */
+    readonly valid_count: number;
+
+    /**
+     * Get the encoded sequence as a Uint8Array.
+     * Values: A=0, C=1, G=2, T=3, N=4
+     */
+    readonly encoded_bytes: Uint8Array;
+
+    /**
+     * Compute GC skew values for sliding windows.
+     *
+     * GC skew = (G - C) / (G + C) for each window.
+     *
+     * @param window_size - Size of the sliding window
+     * @param step_size - Step between windows
+     * @returns Float64Array of GC skew values, one per window position
+     */
+    gc_skew(window_size: number, step_size: number): Float64Array;
+
+    /**
+     * Compute cumulative GC skew.
+     *
+     * Running sum of G-C contribution per base.
+     * Minimum indicates origin of replication, maximum indicates terminus.
+     *
+     * @returns Float64Array with cumulative skew at each position
+     */
+    cumulative_gc_skew(): Float64Array;
+
+    /**
+     * Count k-mers using dense array (for k <= 10).
+     *
+     * Returns a DenseKmerResult with counts for all 4^k possible k-mers.
+     * K-mers containing N are skipped.
+     *
+     * @param k - K-mer size (1-10)
+     * @returns DenseKmerResult with counts, or empty result if k is invalid
+     */
+    count_kmers(k: number): DenseKmerResult;
+
+    /**
+     * Compute MinHash signature for similarity estimation.
+     *
+     * Uses canonical k-mers (strand-independent) for comparison.
+     *
+     * @param num_hashes - Number of hash functions (signature size, e.g., 128)
+     * @param k - K-mer size
+     * @returns MinHashSignature containing the signature
+     */
+    minhash(num_hashes: number, k: number): MinHashSignature;
+  }
 }
