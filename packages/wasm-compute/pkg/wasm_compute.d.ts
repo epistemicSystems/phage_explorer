@@ -70,6 +70,22 @@ export class DenseKmerResult {
   readonly counts: Uint32Array;
 }
 
+export class DotPlotBuffers {
+  private constructor();
+  free(): void;
+  [Symbol.dispose](): void;
+  readonly bins: number;
+  /**
+   * Flattened direct identity values (row-major, bins*bins).
+   */
+  readonly direct: Float32Array;
+  readonly window: number;
+  /**
+   * Flattened inverted identity values (row-major, bins*bins).
+   */
+  readonly inverted: Float32Array;
+}
+
 export class GridResult {
   private constructor();
   free(): void;
@@ -91,6 +107,28 @@ export class HoeffdingResult {
    * Number of observations used
    */
   n: number;
+}
+
+export class KLScanResult {
+  private constructor();
+  free(): void;
+  [Symbol.dispose](): void;
+  /**
+   * Get the number of windows
+   */
+  readonly window_count: number;
+  /**
+   * Get the k-mer size used
+   */
+  readonly k: number;
+  /**
+   * Get the KL divergence values as Float32Array
+   */
+  readonly kl_values: Float32Array;
+  /**
+   * Get the window start positions as Uint32Array
+   */
+  readonly positions: Uint32Array;
 }
 
 export class KmerAnalysisResult {
@@ -136,6 +174,62 @@ export class Model3D {
   free(): void;
   [Symbol.dispose](): void;
   constructor(vertices: Float64Array, edges: Uint32Array);
+}
+
+export class MyersDiffResult {
+  private constructor();
+  free(): void;
+  [Symbol.dispose](): void;
+  /**
+   * Number of insertions.
+   */
+  readonly insertions: number;
+  /**
+   * Number of mismatches (substitutions).
+   */
+  readonly mismatches: number;
+  /**
+   * Edit distance (total number of edits).
+   */
+  readonly edit_distance: number;
+  /**
+   * Error message if any.
+   */
+  readonly error: string | undefined;
+  /**
+   * Length of sequence A.
+   */
+  readonly len_a: number;
+  /**
+   * Length of sequence B.
+   */
+  readonly len_b: number;
+  /**
+   * Get mask for sequence A as Uint8Array.
+   * Values: 0=MATCH, 1=MISMATCH, 3=DELETE
+   */
+  readonly mask_a: Uint8Array;
+  /**
+   * Get mask for sequence B as Uint8Array.
+   * Values: 0=MATCH, 1=MISMATCH, 2=INSERT
+   */
+  readonly mask_b: Uint8Array;
+  /**
+   * Number of matching positions.
+   */
+  readonly matches: number;
+  /**
+   * Sequence identity as fraction (0.0 - 1.0).
+   */
+  readonly identity: number;
+  /**
+   * Number of deletions.
+   */
+  readonly deletions: number;
+  /**
+   * Whether the computation was truncated.
+   */
+  readonly truncated: boolean;
 }
 
 export class PCAResult {
@@ -470,6 +564,22 @@ export function detect_palindromes(seq: string, min_len: number, max_gap: number
 export function detect_tandem_repeats(seq: string, min_unit: number, max_unit: number, min_copies: number): RepeatResult;
 
 /**
+ * Compute dotplot identity buffers for a sequence against itself.
+ *
+ * Matches the semantics of `packages/core/src/analysis/dot-plot.ts` but avoids substring
+ * allocations and object-heavy grids by returning flat typed arrays.
+ *
+ * # Arguments
+ * * `seq` - Sequence bytes (ASCII). Case-insensitive, U treated as T.
+ * * `bins` - Plot resolution (bins x bins). If 0, returns empty buffers.
+ * * `window` - Window size in bases. If 0, derives a conservative default similar to JS.
+ *
+ * # Output layout
+ * Row-major, with index `i*bins + j`.
+ */
+export function dotplot_self_buffers(seq: Uint8Array, bins: number, window: number): DotPlotBuffers;
+
+/**
  * Fast sequence encoding for canvas rendering.
  *
  * **STATUS: NOT WIRED IN** - JS `encodeSequence()` is used instead.
@@ -489,6 +599,21 @@ export function detect_tandem_repeats(seq: string, min_unit: number, max_unit: n
  * Uint8Array with encoded values (0-4)
  */
 export function encode_sequence_fast(seq: string): Uint8Array;
+
+/**
+ * Fast equal-length diff for sequences with only substitutions.
+ *
+ * This is O(n) and much faster than Myers when we know there are no indels.
+ * Use this when sequences are already aligned or have equal length.
+ *
+ * # Arguments
+ * * `seq_a` - First sequence (bytes)
+ * * `seq_b` - Second sequence (bytes)
+ *
+ * # Returns
+ * MyersDiffResult with mask codes 0=MATCH, 1=MISMATCH only.
+ */
+export function equal_len_diff(seq_a: Uint8Array, seq_b: Uint8Array): MyersDiffResult;
 
 /**
  * Get the maximum allowed k for dense k-mer counting.
@@ -556,6 +681,28 @@ export function jensen_shannon_divergence(p: Float64Array, q: Float64Array): num
  * Normalizes to probabilities internally.
  */
 export function jensen_shannon_divergence_from_counts(counts_a: Float64Array, counts_b: Float64Array): number;
+
+/**
+ * Compute Kullback-Leibler divergence between two dense k-mer count arrays.
+ *
+ * D_KL(P || Q) = sum(P(i) * log2(P(i) / Q(i)))
+ *
+ * Both arrays are normalized internally to probability distributions.
+ * Missing k-mers in Q are smoothed with epsilon to avoid log(0).
+ *
+ * # Arguments
+ * * `p_counts` - Dense count array for distribution P (window)
+ * * `q_counts` - Dense count array for distribution Q (background)
+ *
+ * # Returns
+ * KL divergence value (non-negative). Returns 0.0 if inputs are invalid.
+ *
+ * # Note
+ * Arrays must be the same length. For k-mer analysis, length should be 4^k.
+ *
+ * @see phage_explorer-vk7b.5
+ */
+export function kl_divergence_dense(p_counts: Uint32Array, q_counts: Uint32Array): number;
 
 /**
  * Compute Hoeffding's D between two k-mer frequency vectors derived from sequences.
@@ -633,6 +780,36 @@ export function minhash_signature(seq: Uint8Array, k: number, num_hashes: number
 export function minhash_signature_canonical(seq: Uint8Array, k: number, num_hashes: number): MinHashSignature;
 
 /**
+ * Compute Myers diff between two DNA sequences.
+ *
+ * Uses the Myers O(ND) algorithm with bounded edit distance for safety.
+ * Returns a diff result with masks for both sequences and summary statistics.
+ *
+ * # Arguments
+ * * `seq_a` - First sequence (bytes)
+ * * `seq_b` - Second sequence (bytes)
+ *
+ * # Returns
+ * MyersDiffResult with masks and statistics.
+ *
+ * # Guardrails
+ * - Max sequence length: 500,000 bp
+ * - Max edit distance: 10,000
+ * - If exceeded, returns truncated result with partial stats
+ */
+export function myers_diff(seq_a: Uint8Array, seq_b: Uint8Array): MyersDiffResult;
+
+/**
+ * Compute Myers diff with custom edit distance limit.
+ *
+ * # Arguments
+ * * `seq_a` - First sequence (bytes)
+ * * `seq_b` - Second sequence (bytes)
+ * * `max_d` - Maximum edit distance to compute
+ */
+export function myers_diff_with_limit(seq_a: Uint8Array, seq_b: Uint8Array, max_d: number): MyersDiffResult;
+
+/**
  * Compute PCA using power iteration method.
  *
  * # Arguments
@@ -683,6 +860,45 @@ export function render_ascii_model(model: Model3D, rx: number, ry: number, rz: n
 export function reverse_complement(seq: string): string;
 
 /**
+ * Scan a sequence for k-mer KL divergence anomalies.
+ *
+ * Computes KL divergence of each sliding window against the global
+ * sequence background. This is the core computation for anomaly detection.
+ *
+ * # Arguments
+ * * `seq` - Sequence bytes (ASCII DNA)
+ * * `k` - K-mer size (1-10)
+ * * `window_size` - Size of each window in bases
+ * * `step_size` - Step size between windows
+ *
+ * # Returns
+ * `KLScanResult` with:
+ * - `kl_values`: Float32Array of KL divergence for each window
+ * - `positions`: Uint32Array of window start positions
+ * - `window_count`: Number of windows scanned
+ *
+ * # Performance
+ * Uses dense k-mer counting for O(1) k-mer lookups.
+ * Avoids string allocations by working directly with byte arrays.
+ *
+ * # Example (from JS)
+ * ```js
+ * const seqBytes = new TextEncoder().encode(sequence);
+ * const result = wasm.scan_kl_windows(seqBytes, 4, 500, 100);
+ * try {
+ *   const klValues = result.kl_values; // Float32Array
+ *   const positions = result.positions; // Uint32Array
+ *   // Process anomalies...
+ * } finally {
+ *   result.free();
+ * }
+ * ```
+ *
+ * @see phage_explorer-vk7b.5
+ */
+export function scan_kl_windows(seq: Uint8Array, k: number, window_size: number, step_size: number): KLScanResult;
+
+/**
  * Compute Shannon entropy from a probability distribution.
  *
  * H(X) = -Σ p(x) * log2(p(x))
@@ -726,6 +942,7 @@ export interface InitOutput {
   readonly __wbg_bonddetectionresult_free: (a: number, b: number) => void;
   readonly __wbg_codonusageresult_free: (a: number, b: number) => void;
   readonly __wbg_densekmerresult_free: (a: number, b: number) => void;
+  readonly __wbg_dotplotbuffers_free: (a: number, b: number) => void;
   readonly __wbg_get_hoeffdingresult_d: (a: number) => number;
   readonly __wbg_get_hoeffdingresult_n: (a: number) => number;
   readonly __wbg_get_kmeranalysisresult_bray_curtis_dissimilarity: (a: number) => number;
@@ -738,8 +955,10 @@ export interface InitOutput {
   readonly __wbg_get_kmeranalysisresult_unique_kmers_b: (a: number) => number;
   readonly __wbg_gridresult_free: (a: number, b: number) => void;
   readonly __wbg_hoeffdingresult_free: (a: number, b: number) => void;
+  readonly __wbg_klscanresult_free: (a: number, b: number) => void;
   readonly __wbg_kmeranalysisresult_free: (a: number, b: number) => void;
   readonly __wbg_minhashsignature_free: (a: number, b: number) => void;
+  readonly __wbg_myersdiffresult_free: (a: number, b: number) => void;
   readonly __wbg_pcaresult_free: (a: number, b: number) => void;
   readonly __wbg_repeatresult_free: (a: number, b: number) => void;
   readonly __wbg_set_hoeffdingresult_d: (a: number, b: number) => void;
@@ -775,13 +994,21 @@ export interface InitOutput {
   readonly detect_bonds_spatial: (a: number, b: number, c: number, d: number) => number;
   readonly detect_palindromes: (a: number, b: number, c: number, d: number) => number;
   readonly detect_tandem_repeats: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly dotplot_self_buffers: (a: number, b: number, c: number, d: number) => number;
+  readonly dotplotbuffers_direct: (a: number) => any;
+  readonly dotplotbuffers_inverted: (a: number) => any;
+  readonly dotplotbuffers_window: (a: number) => number;
   readonly encode_sequence_fast: (a: number, b: number) => [number, number];
+  readonly equal_len_diff: (a: number, b: number, c: number, d: number) => number;
   readonly get_dense_kmer_max_k: () => number;
   readonly gridresult_json: (a: number) => [number, number];
   readonly hoeffdings_d: (a: number, b: number, c: number, d: number) => number;
   readonly is_valid_dense_kmer_k: (a: number) => number;
   readonly jensen_shannon_divergence: (a: number, b: number, c: number, d: number) => number;
   readonly jensen_shannon_divergence_from_counts: (a: number, b: number, c: number, d: number) => number;
+  readonly kl_divergence_dense: (a: number, b: number, c: number, d: number) => number;
+  readonly klscanresult_kl_values: (a: number) => [number, number];
+  readonly klscanresult_positions: (a: number) => [number, number];
   readonly kmer_hoeffdings_d: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly levenshtein_distance: (a: number, b: number, c: number, d: number) => number;
   readonly min_hash_jaccard: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
@@ -790,21 +1017,39 @@ export interface InitOutput {
   readonly minhash_signature_canonical: (a: number, b: number, c: number, d: number) => number;
   readonly minhashsignature_num_hashes: (a: number) => number;
   readonly minhashsignature_signature: (a: number) => any;
+  readonly myers_diff: (a: number, b: number, c: number, d: number) => number;
+  readonly myers_diff_with_limit: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly myersdiffresult_deletions: (a: number) => number;
+  readonly myersdiffresult_edit_distance: (a: number) => number;
+  readonly myersdiffresult_error: (a: number) => [number, number];
+  readonly myersdiffresult_identity: (a: number) => number;
+  readonly myersdiffresult_insertions: (a: number) => number;
+  readonly myersdiffresult_len_a: (a: number) => number;
+  readonly myersdiffresult_len_b: (a: number) => number;
+  readonly myersdiffresult_mask_a: (a: number) => any;
+  readonly myersdiffresult_mask_b: (a: number) => any;
+  readonly myersdiffresult_matches: (a: number) => number;
+  readonly myersdiffresult_mismatches: (a: number) => number;
+  readonly myersdiffresult_truncated: (a: number) => number;
   readonly pca_power_iteration: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly pcaresult_eigenvalues: (a: number) => [number, number];
   readonly pcaresult_eigenvectors: (a: number) => [number, number];
-  readonly pcaresult_n_features: (a: number) => number;
   readonly repeatresult_json: (a: number) => [number, number];
   readonly reverse_complement: (a: number, b: number) => [number, number];
+  readonly scan_kl_windows: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly shannon_entropy: (a: number, b: number) => number;
   readonly shannon_entropy_from_counts: (a: number, b: number) => number;
   readonly translate_sequence: (a: number, b: number, c: number) => [number, number];
   readonly init_panic_hook: () => void;
   readonly __wbg_set_kmeranalysisresult_jaccard_index: (a: number, b: number) => void;
   readonly __wbg_get_kmeranalysisresult_jaccard_index: (a: number) => number;
+  readonly dotplotbuffers_bins: (a: number) => number;
+  readonly klscanresult_k: (a: number) => number;
+  readonly klscanresult_window_count: (a: number) => number;
   readonly minhashsignature_k: (a: number) => number;
   readonly minhashsignature_total_kmers: (a: number) => bigint;
   readonly pcaresult_n_components: (a: number) => number;
+  readonly pcaresult_n_features: (a: number) => number;
   readonly __wbg_get_vector3_x: (a: number) => number;
   readonly __wbg_get_vector3_y: (a: number) => number;
   readonly __wbg_get_vector3_z: (a: number) => number;

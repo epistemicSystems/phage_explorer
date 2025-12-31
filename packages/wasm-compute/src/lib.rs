@@ -3326,7 +3326,10 @@ fn myers_diff_core(seq_a: &[u8], seq_b: &[u8], max_d: usize) -> MyersDiffResult 
 
             // Choose starting x based on whether we came from diagonal k-1 or k+1
             let mut x: isize;
-            if k == -(d as isize) {
+            if d == 0 {
+                // Special case: d=0 means we start at (0,0) on diagonal k=0
+                x = 0;
+            } else if k == -(d as isize) {
                 // Must come from k+1 (insertion from B)
                 x = v[(k + 1 + offset) as usize];
             } else if k == (d as isize) {
@@ -3401,7 +3404,8 @@ fn myers_diff_core(seq_a: &[u8], seq_b: &[u8], max_d: usize) -> MyersDiffResult 
         }
 
         let k = x as isize - y as isize;
-        let v_prev = &history[d - 1];
+        // history[d] contains V after iteration d-1 completed (pushed at start of d)
+        let v_prev = &history[d];
 
         // Determine if we came from k-1 (deletion) or k+1 (insertion)
         let k_prev_del = k - 1;
@@ -3674,5 +3678,59 @@ mod myers_diff_tests {
         let result = myers_diff_with_limit(&a, &b, 10);
         // Should truncate since edit distance is 100 but limit is 10
         assert!(result.truncated);
+    }
+
+    #[test]
+    fn test_insertion_mask_positions() {
+        // A = "ACGT", B = "ACGGT" (extra G in B at position 3)
+        // Correct alignment:
+        //   A: ACG-T
+        //   B: ACGGT
+        // So B[3]=G is the inserted base
+        let result = myers_diff(b"ACGT", b"ACGGT");
+        assert_eq!(result.edit_distance, 1);
+        assert_eq!(result.insertions, 1);
+        assert_eq!(result.matches, 4);
+
+        // Check mask_a: all should be MATCH
+        assert_eq!(result.mask_a.len(), 4);
+        for i in 0..4 {
+            assert_eq!(result.mask_a[i], DIFF_OP_MATCH, "mask_a[{}] should be MATCH", i);
+        }
+
+        // Check mask_b: position 3 should be INSERT, others MATCH
+        assert_eq!(result.mask_b.len(), 5);
+        assert_eq!(result.mask_b[0], DIFF_OP_MATCH, "mask_b[0] should be MATCH");
+        assert_eq!(result.mask_b[1], DIFF_OP_MATCH, "mask_b[1] should be MATCH");
+        assert_eq!(result.mask_b[2], DIFF_OP_MATCH, "mask_b[2] should be MATCH");
+        assert_eq!(result.mask_b[3], DIFF_OP_INSERT, "mask_b[3] should be INSERT");
+        assert_eq!(result.mask_b[4], DIFF_OP_MATCH, "mask_b[4] should be MATCH");
+    }
+
+    #[test]
+    fn test_deletion_mask_positions() {
+        // A = "ACGGT", B = "ACGT" (extra G in A at position 3)
+        // Correct alignment:
+        //   A: ACGGT
+        //   B: ACG-T
+        // So A[3]=G is the deleted base
+        let result = myers_diff(b"ACGGT", b"ACGT");
+        assert_eq!(result.edit_distance, 1);
+        assert_eq!(result.deletions, 1);
+        assert_eq!(result.matches, 4);
+
+        // Check mask_a: position 3 should be DELETE, others MATCH
+        assert_eq!(result.mask_a.len(), 5);
+        assert_eq!(result.mask_a[0], DIFF_OP_MATCH, "mask_a[0] should be MATCH");
+        assert_eq!(result.mask_a[1], DIFF_OP_MATCH, "mask_a[1] should be MATCH");
+        assert_eq!(result.mask_a[2], DIFF_OP_MATCH, "mask_a[2] should be MATCH");
+        assert_eq!(result.mask_a[3], DIFF_OP_DELETE, "mask_a[3] should be DELETE");
+        assert_eq!(result.mask_a[4], DIFF_OP_MATCH, "mask_a[4] should be MATCH");
+
+        // Check mask_b: all should be MATCH
+        assert_eq!(result.mask_b.len(), 4);
+        for i in 0..4 {
+            assert_eq!(result.mask_b[i], DIFF_OP_MATCH, "mask_b[{}] should be MATCH", i);
+        }
     }
 }
