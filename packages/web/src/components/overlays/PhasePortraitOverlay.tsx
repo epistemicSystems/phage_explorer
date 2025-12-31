@@ -15,10 +15,10 @@ import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
 import { ScatterCanvas } from './primitives/ScatterCanvas';
-import { computePhasePortrait, translateSequence } from '@phage-explorer/core';
-import type { DominantProperty, PortraitPoint } from '@phage-explorer/core';
+import type { DominantProperty, PhasePortraitResult, PortraitPoint } from '@phage-explorer/core';
 import { usePhageStore } from '@phage-explorer/state';
 import type { ScatterPoint, ScatterHover } from './primitives/types';
+import { ComputeOrchestrator } from '../../workers/ComputeOrchestrator';
 
 // Color mapping for dominant properties
 const PROPERTY_COLORS: Record<DominantProperty, string> = {
@@ -71,11 +71,15 @@ export function PhasePortraitOverlay({ repository, currentPhage }: PhasePortrait
   const { theme } = useTheme();
   const colors = theme.colors;
   const { isOpen, toggle } = useOverlay();
+  const overlayOpen = isOpen('phasePortrait');
   const viewMode = usePhageStore((s) => s.viewMode);
   const setScrollPosition = usePhageStore((s) => s.setScrollPosition);
   const sequenceCache = useRef<Map<number, string>>(new Map());
   const [sequence, setSequence] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<PhasePortraitResult | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // Hover state for tooltip
   const [hoveredPoint, setHoveredPoint] = useState<ScatterHover | null>(null);
@@ -95,7 +99,7 @@ export function PhasePortraitOverlay({ repository, currentPhage }: PhasePortrait
 
   // Fetch full genome when overlay opens or phage changes
   useEffect(() => {
-    if (!isOpen('phasePortrait')) return;
+    if (!overlayOpen) return;
     if (!repository || !currentPhage) {
       setSequence('');
       setLoading(false);
@@ -132,20 +136,42 @@ export function PhasePortraitOverlay({ repository, currentPhage }: PhasePortrait
     return () => {
       cancelled = true;
     };
-  }, [isOpen, repository, currentPhage]);
+  }, [overlayOpen, repository, currentPhage]);
 
-  // Translate sequence and compute phase portrait
-  const analysis = useMemo(() => {
-    if (!sequence || sequence.length < 100) return null;
+  // Compute phase portrait off the main thread (worker)
+  useEffect(() => {
+    if (!overlayOpen) return;
+    if (!currentPhage || !sequence) {
+      setAnalysis(null);
+      setAnalysisLoading(false);
+      setAnalysisError(null);
+      return;
+    }
 
-    // Translate the DNA sequence to amino acids
-    const aaSequence = translateSequence(sequence, 0);
-    if (aaSequence.length < windowSize) return null;
+    let cancelled = false;
+    setAnalysisLoading(true);
+    setAnalysisError(null);
 
-    // Compute phase portrait using core function
-    const result = computePhasePortrait(aaSequence, windowSize, stepSize);
-    return { ...result, aaSequence };
-  }, [sequence, windowSize, stepSize]);
+    ComputeOrchestrator
+      .getInstance()
+      .computePhasePortraitWithSharedBuffer(currentPhage.id, sequence, windowSize, stepSize)
+      .then((result) => {
+        if (cancelled) return;
+        setAnalysis(result);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setAnalysis(null);
+        setAnalysisError(err instanceof Error ? err.message : 'Failed to compute phase portrait');
+      })
+      .finally(() => {
+        if (!cancelled) setAnalysisLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [overlayOpen, currentPhage, sequence, windowSize, stepSize]);
 
   // Convert portrait points to scatter points for visualization
   const scatterPoints = useMemo((): ScatterPoint[] => {
@@ -197,7 +223,7 @@ export function PhasePortraitOverlay({ repository, currentPhage }: PhasePortrait
     }
   }, [setScrollPosition, viewMode]);
 
-  if (!isOpen('phasePortrait')) return null;
+  if (!overlayOpen) return null;
 
   const legendItems = Object.entries(PROPERTY_COLORS).map(([key, color]) => ({
     label: key.charAt(0).toUpperCase() + key.slice(1),
@@ -225,8 +251,12 @@ export function PhasePortraitOverlay({ repository, currentPhage }: PhasePortrait
           Clusters reveal functional domains; outliers may indicate HGT or specialized functions.
         </div>
 
-        {loading ? (
+        {loading || analysisLoading ? (
           <AnalysisPanelSkeleton />
+        ) : analysisError ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: colors.error }}>
+            {analysisError}
+          </div>
         ) : !analysis ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: colors.textMuted }}>
             {!sequence ? 'No sequence loaded' : 'Sequence too short for analysis'}
@@ -310,7 +340,9 @@ export function PhasePortraitOverlay({ repository, currentPhage }: PhasePortrait
               />
 
               {/* Tooltip */}
-              {hoveredPoint?.point?.data != null && (
+              {hoveredPoint &&
+                hoveredPoint.point.data !== undefined &&
+                hoveredPoint.point.data !== null && (
                 <div
                   style={{
                     position: 'absolute',

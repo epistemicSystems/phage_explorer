@@ -205,6 +205,8 @@ export class CanvasSequenceGridRenderer {
   private cellHeight: number;
   private rowHeight: number;      // Effective row height (dual rows double this)
   private dpr: number;
+  private canvasScaleX: number = 1;
+  private canvasScaleY: number = 1;
   private zoomScale: number = 1.0;
   private currentZoomPreset: ZoomPreset;
   private enablePinchZoom: boolean;
@@ -222,7 +224,7 @@ export class CanvasSequenceGridRenderer {
 
   private scanlines: boolean;
   private glow: boolean;
-  private animationFrameId: number | null = null;
+  private animationFrameId: number | ReturnType<typeof setTimeout> | null = null;
   private isRendering = false;
   private postProcess?: PostProcessPipeline;
   private reducedMotion: boolean;
@@ -278,7 +280,9 @@ export class CanvasSequenceGridRenderer {
 
     // Initialize zoom scale - use mobile-aware default if not specified
     // This ensures mobile users start with readable cell sizes
-    const defaultZoom = getDefaultZoomScale(options.viewportWidth ?? (this.isDomCanvas() ? this.canvas.clientWidth : 0));
+    const defaultZoom = getDefaultZoomScale(
+      options.viewportWidth ?? (this.isDomCanvas(this.canvas) ? this.canvas.clientWidth : 0)
+    );
     this.zoomScale = options.zoomScale ?? defaultZoom;
     this.currentZoomPreset = getZoomPresetForScale(this.zoomScale);
 
@@ -366,15 +370,27 @@ export class CanvasSequenceGridRenderer {
     // Apply zoom to get effective cell sizes
     this.updateCellSizes();
 
-    // Set canvas size with DPI scaling
-    this.canvas.width = width * this.dpr;
-    this.canvas.height = height * this.dpr;
+    // Set canvas size with DPI scaling.
+    // IMPORTANT: width/height can be fractional (getBoundingClientRect), so always round the backing
+    // buffer size and then derive the actual scale from pixelWidth/width. This avoids subtle blur on
+    // fractional DPR screens (e.g., 1.25) when width*dpr is not an integer.
+    const safeWidth = Math.max(1, width);
+    const safeHeight = Math.max(1, height);
+    const pixelWidth = Math.max(1, Math.round(safeWidth * this.dpr));
+    const pixelHeight = Math.max(1, Math.round(safeHeight * this.dpr));
+    this.canvas.width = pixelWidth;
+    this.canvas.height = pixelHeight;
 
-    // Reset any existing transform then scale for DPI
+    const scaleX = pixelWidth / safeWidth;
+    const scaleY = pixelHeight / safeHeight;
+    this.canvasScaleX = scaleX;
+    this.canvasScaleY = scaleY;
+
     if (typeof this.ctx.setTransform === 'function') {
-      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+    } else {
+      this.ctx.scale(scaleX, scaleY);
     }
-    this.ctx.scale(this.dpr, this.dpr);
 
     // Create/resize back buffer
     this.createBackBuffer(width, height);
@@ -461,8 +477,8 @@ export class CanvasSequenceGridRenderer {
       return;
     }
 
-    const targetWidth = safeWidth * this.dpr;
-    const targetHeight = safeHeight * this.dpr;
+    const targetWidth = Math.max(1, Math.round(safeWidth * this.dpr));
+    const targetHeight = Math.max(1, Math.round(safeHeight * this.dpr));
 
     if (!this.backBuffer) {
       this.backBuffer = hasOffscreen ? new OffscreenCanvas(targetWidth, targetHeight) : document.createElement('canvas');
@@ -483,10 +499,13 @@ export class CanvasSequenceGridRenderer {
       return;
     }
     this.backCtx = ctx;
+    const scaleX = targetWidth / safeWidth;
+    const scaleY = targetHeight / safeHeight;
     if (typeof ctx.setTransform === 'function') {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+    } else {
+      ctx.scale(scaleX, scaleY);
     }
-    ctx.scale(this.dpr, this.dpr);
   }
 
   /**
@@ -624,10 +643,13 @@ export class CanvasSequenceGridRenderer {
     const tileCtx = tile.canvas.getContext('2d', { alpha: false });
     if (!tileCtx) return null;
 
+    const scaleX = expectedPixelWidth / Math.max(1, tileWidth);
+    const scaleY = expectedPixelHeight / Math.max(1, tileHeight);
     if (typeof tileCtx.setTransform === 'function') {
-      tileCtx.setTransform(1, 0, 0, 1, 0, 0);
+      tileCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+    } else {
+      tileCtx.scale(scaleX, scaleY);
     }
-    tileCtx.scale(this.dpr, this.dpr);
     this.renderRowToTile(tileCtx, row, cols, rowHeight, viewMode);
 
     // Store in cache with LRU eviction
@@ -1167,7 +1189,14 @@ export class CanvasSequenceGridRenderer {
     if (this.isRendering || !this.currentState) return;
     const { width: clientWidth, height: clientHeight } = this.getViewportSize();
     if (clientWidth === 0 || clientHeight === 0) {
-      // Canvas not laid out yet; skip this frame
+      // Canvas not laid out yet (common on iOS with dvh before layout completes).
+      // Schedule a retry after a short delay to recover once dimensions are available.
+      if (this.animationFrameId === null && !this.paused) {
+        this.animationFrameId = globalThis.setTimeout(() => {
+          this.animationFrameId = null;
+          this.scheduleRender();
+        }, 50) as unknown as number;
+      }
       return;
     }
     this.isRendering = true;
@@ -1177,7 +1206,14 @@ export class CanvasSequenceGridRenderer {
     const { sequence, aminoSequence, viewMode, diffSequence, diffEnabled, diffMask } = this.currentState;
 
     // Get visible range from scroller
-    const range = this.scroller.getVisibleRange();
+    const rawRange = this.scroller.getVisibleRange();
+    // Keep glyphs crisp during scroll by snapping offsets to device-pixel boundaries.
+    // (Fractional offsets cause atlas draws to interpolate and look blurry.)
+    const range: VisibleRange = {
+      ...rawRange,
+      offsetX: this.snapToDevicePixels(rawRange.offsetX, this.canvasScaleX),
+      offsetY: this.snapToDevicePixels(rawRange.offsetY, this.canvasScaleY),
+    };
     const layout = this.scroller.getLayout();
 
     const rowHeight = viewMode === 'dual' ? this.cellHeight * 2 : this.cellHeight;
@@ -1246,12 +1282,12 @@ export class CanvasSequenceGridRenderer {
       if (!postProcessed) {
         this.ctx.drawImage(this.backBuffer, 0, 0);
       }
-      this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); // Restore DPR scaling
+      this.ctx.setTransform(this.canvasScaleX, 0, 0, this.canvasScaleY, 0, 0); // Restore render scaling
     } else if (shouldPostProcess) {
       // Ensure identity transform for the 2D context copy inside PostProcessPipeline.
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.postProcess!.process(this.canvas, this.canvas);
-      this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); // Restore DPR scaling
+      this.ctx.setTransform(this.canvasScaleX, 0, 0, this.canvasScaleY, 0, 0); // Restore render scaling
     }
 
     // Performance tracking
@@ -2134,19 +2170,19 @@ export class CanvasSequenceGridRenderer {
     this.scroller.dispose();
   }
 
-  private requestRaf(callback: FrameRequestCallback): number {
+  private requestRaf(callback: FrameRequestCallback): number | ReturnType<typeof setTimeout> {
     if (this.useNativeRaf) {
       return globalThis.requestAnimationFrame(callback);
     }
     return globalThis.setTimeout(() => callback(performance.now()), 16);
   }
 
-  private cancelRaf(handle: number): void {
+  private cancelRaf(handle: number | ReturnType<typeof setTimeout>): void {
     if (this.useNativeRaf) {
-      globalThis.cancelAnimationFrame(handle);
+      globalThis.cancelAnimationFrame(handle as number);
       return;
     }
-    globalThis.clearTimeout(handle);
+    globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>);
   }
 
   private getViewportSize(widthOverride?: number, heightOverride?: number): { width: number; height: number } {
@@ -2157,7 +2193,7 @@ export class CanvasSequenceGridRenderer {
       return { width, height };
     }
 
-    if (this.isDomCanvas()) {
+    if (this.isDomCanvas(this.canvas)) {
       const rect = this.canvas.getBoundingClientRect();
       return { width: rect.width, height: rect.height };
     }
@@ -2168,8 +2204,13 @@ export class CanvasSequenceGridRenderer {
     };
   }
 
-  private isDomCanvas(): this is { canvas: HTMLCanvasElement } {
-    return typeof (this.canvas as HTMLCanvasElement).getBoundingClientRect === 'function';
+  private isDomCanvas(canvas: HTMLCanvasElement | OffscreenCanvas): canvas is HTMLCanvasElement {
+    return typeof (canvas as HTMLCanvasElement).getBoundingClientRect === 'function';
+  }
+
+  private snapToDevicePixels(value: number, scale: number): number {
+    const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
+    return Math.round(value * s) / s;
   }
 }
 

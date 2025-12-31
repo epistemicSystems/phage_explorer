@@ -62,7 +62,13 @@ export function CRISPROverlay({ repository, phage }: CRISPROverlayProps): React.
 
   // Create worker once
   useEffect(() => {
-    const worker = new Worker(new URL('../../workers/crispr.worker.ts', import.meta.url), { type: 'module' });
+    const workerUrl = new URL('../../workers/crispr.worker.ts', import.meta.url);
+    let worker: Worker;
+    try {
+      worker = new Worker(workerUrl, { type: 'module' });
+    } catch {
+      worker = new Worker(workerUrl);
+    }
     workerRef.current = worker;
     return () => {
       worker.terminate();

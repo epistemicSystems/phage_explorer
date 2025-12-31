@@ -75,7 +75,8 @@ function d2xy(size: number, d: number): { x: number; y: number } {
 function calculateOrder(length: number): number {
   const order = Math.ceil(Math.log(Math.max(length, 1)) / Math.log(4));
   // Clamp to avoid enormous canvases; phage genomes stay well within this.
-  return Math.min(Math.max(order, 4), 12);
+  // Keep allocations bounded (2048^2 RGBA = ~16MB).
+  return Math.min(Math.max(order, 4), 11);
 }
 
 function buildHilbertImage(sequence: string, theme: Theme): HilbertRender {
@@ -122,13 +123,13 @@ export function HilbertOverlay({ repository, currentPhage }: HilbertOverlayProps
   const { isOpen, toggle } = useOverlay();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sequenceCache = useRef<Map<number, string>>(new Map());
-const workerRef = useRef<Worker | null>(null);
-const workerApiRef = useRef<Comlink.Remote<HilbertWorkerAPI> | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const workerApiRef = useRef<Comlink.Remote<HilbertWorkerAPI> | null>(null);
   const [sequence, setSequence] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-const [renderResult, setRenderResult] = useState<HilbertRender | null>(null);
-const [colorMode, setColorMode] = useState<ColorMode>('nucleotide');
+  const [renderResult, setRenderResult] = useState<HilbertRender | null>(null);
+  const [colorMode, setColorMode] = useState<ColorMode>('nucleotide');
 
   useHotkey(
     { key: 'h', modifiers: { alt: true, shift: true } },
@@ -141,9 +142,21 @@ const [colorMode, setColorMode] = useState<ColorMode>('nucleotide');
   useEffect(() => {
     if (workerRef.current) return () => undefined;
 
-    const worker = new Worker(new URL('../../workers/hilbert.worker.ts', import.meta.url), {
-      type: 'module',
-    });
+    const workerUrl = new URL('../../workers/hilbert.worker.ts', import.meta.url);
+    let worker: Worker;
+    try {
+      worker = new Worker(workerUrl, { type: 'module' });
+    } catch {
+      try {
+        worker = new Worker(workerUrl);
+      } catch {
+        // Older browsers may not support module workers; fall back to main-thread rendering.
+        workerRef.current = null;
+        workerApiRef.current = null;
+        return () => undefined;
+      }
+    }
+
     workerRef.current = worker;
     workerApiRef.current = Comlink.wrap<HilbertWorkerAPI>(worker);
 
@@ -233,7 +246,16 @@ const [colorMode, setColorMode] = useState<ColorMode>('nucleotide');
         }
 
         if (cancelled) return;
-        const image = new ImageData(new Uint8ClampedArray(result.buffer), result.size, result.size);
+        // Avoid extra copies when possible: the worker typically transfers an ArrayBuffer-backed Uint8ClampedArray.
+        // Some TS libdefs (and some browser APIs) don't accept SharedArrayBuffer-backed views for ImageData,
+        // so we gate the zero-copy path on the buffer being a real ArrayBuffer.
+        const image = result.buffer.buffer instanceof ArrayBuffer
+          ? new ImageData(result.buffer as unknown as Uint8ClampedArray, result.size, result.size)
+          : (() => {
+              const img = new ImageData(result.size, result.size);
+              img.data.set(result.buffer);
+              return img;
+            })();
         setRenderResult({
           order: result.order,
           size: result.size,

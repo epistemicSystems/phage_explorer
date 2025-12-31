@@ -83,9 +83,15 @@ export function AnomalyOverlay({
   // Spin up worker once
   useEffect(() => {
     if (workerRef.current) return () => undefined;
-    const worker = new Worker(new URL('../../workers/anomaly.worker.ts', import.meta.url), {
-      type: 'module',
-    });
+
+    const workerUrl = new URL('../../workers/anomaly.worker.ts', import.meta.url);
+    let worker: Worker;
+    try {
+      worker = new Worker(workerUrl, { type: 'module' });
+    } catch {
+      worker = new Worker(workerUrl);
+    }
+
     workerRef.current = worker;
     workerApiRef.current = Comlink.wrap<AnomalyWorkerAPI>(worker);
 
@@ -208,7 +214,7 @@ export function AnomalyOverlay({
   }, [analysis, colors.borderLight, effectiveThreshold, scoreScale]);
 
   const selectedWindow: AnomalyWindow | null = useMemo(() => {
-    if (!analysis || selectedIndex == null) return null;
+    if (!analysis || selectedIndex === null) return null;
     return analysis.windows[selectedIndex] ?? null;
   }, [analysis, selectedIndex]);
 

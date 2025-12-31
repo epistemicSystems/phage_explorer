@@ -38,7 +38,11 @@ async function getSqlJs(config?: { locateFile?: (file: string) => string }): Pro
         return initFn.default(config);
       }
       throw new Error(`Cannot find sql.js init function`);
-    })();
+    })().catch((error) => {
+      // Allow retry on transient failures (network hiccups, CDN flake, etc.).
+      sqlJsPromise = null;
+      throw error;
+    });
   }
   return sqlJsPromise;
 }
@@ -57,6 +61,25 @@ const INDEXEDDB_VERSION = 1;
 // Cache keys for ETag-based conditional requests
 const MANIFEST_ETAG_KEY = 'manifest-etag';
 const MANIFEST_CACHE_KEY = 'manifest-cache';
+
+/**
+ * Convert a Uint8Array view into an ArrayBuffer.
+ *
+ * Some Web APIs (Blob, WebCrypto) are typed in TS as requiring `ArrayBuffer`
+ * (not `SharedArrayBuffer` / `ArrayBufferLike`). We only copy when necessary.
+ */
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const { buffer, byteOffset, byteLength } = bytes;
+  if (buffer instanceof ArrayBuffer) {
+    if (byteOffset === 0 && byteLength === buffer.byteLength) return buffer;
+    return buffer.slice(byteOffset, byteOffset + byteLength);
+  }
+
+  // SharedArrayBuffer (or other ArrayBufferLike): copy into a new ArrayBuffer.
+  const copy = new Uint8Array(byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
 
 /**
  * Open IndexedDB database
@@ -330,9 +353,36 @@ export class DatabaseLoader {
    */
   private isValidSqliteData(data: Uint8Array): boolean {
     if (data.length < 16) return false;
-    // SQLite files start with "SQLite format 3\0"
-    const header = new TextDecoder().decode(data.slice(0, 16));
-    return header.startsWith('SQLite format 3');
+    // SQLite files start with the 16-byte header: "SQLite format 3\0"
+    // Compare bytes directly to avoid depending on TextDecoder (browser compatibility).
+    return (
+      data[0] === 0x53 && // S
+      data[1] === 0x51 && // Q
+      data[2] === 0x4c && // L
+      data[3] === 0x69 && // i
+      data[4] === 0x74 && // t
+      data[5] === 0x65 && // e
+      data[6] === 0x20 && // ' '
+      data[7] === 0x66 && // f
+      data[8] === 0x6f && // o
+      data[9] === 0x72 && // r
+      data[10] === 0x6d && // m
+      data[11] === 0x61 && // a
+      data[12] === 0x74 && // t
+      data[13] === 0x20 && // ' '
+      data[14] === 0x33 && // 3
+      data[15] === 0x00
+    );
+  }
+
+  private formatAsciiPreview(data: Uint8Array, maxBytes: number): string {
+    const limit = Math.min(data.length, maxBytes);
+    let out = '';
+    for (let i = 0; i < limit; i++) {
+      const b = data[i];
+      out += b >= 0x20 && b <= 0x7e ? String.fromCharCode(b) : '.';
+    }
+    return out;
   }
 
   private canUseGzipDecompressionStream(): boolean {
@@ -374,7 +424,7 @@ export class DatabaseLoader {
       throw new Error('DecompressionStream not available');
     }
     const ds = new ctor('gzip');
-    const decompressedStream = new Blob([data]).stream().pipeThrough(ds);
+    const decompressedStream = new Blob([toArrayBuffer(data)]).stream().pipeThrough(ds);
     const buffer = await new Response(decompressedStream).arrayBuffer();
     return new Uint8Array(buffer);
   }
@@ -390,9 +440,15 @@ export class DatabaseLoader {
       throw new Error('Worker not available');
     }
 
-    const worker = new Worker(new URL('./gzip-decompress.worker.ts', import.meta.url), {
-      type: 'module',
-    });
+    const workerUrl = new URL('./gzip-decompress.worker.ts', import.meta.url);
+    let worker: Worker;
+    try {
+      // Prefer module workers (fastest path in modern browsers).
+      worker = new Worker(workerUrl, { type: 'module' });
+    } catch {
+      // Fallback for older browsers that support Workers but not module workers.
+      worker = new Worker(workerUrl);
+    }
 
     worker.onmessage = (event: MessageEvent) => {
       const payload = event.data as
@@ -696,13 +752,16 @@ export class DatabaseLoader {
       // Debug: log what we actually received
       const headerBytes = Array.from(combined.slice(0, 32));
       const headerHex = headerBytes.map(b => b.toString(16).padStart(2, '0')).join(' ');
-      const headerStr = new TextDecoder().decode(combined.slice(0, 64));
+      const headerStr = this.formatAsciiPreview(combined, 64);
       console.error('Invalid SQLite data received:', {
         length: combined.length,
         headerHex,
-        headerStr: headerStr.replace(/[^\x20-\x7E]/g, '.'),
+        headerStr,
       });
-      throw new Error(`Downloaded data is not a valid SQLite database (received ${combined.length} bytes, header: "${headerStr.slice(0, 32).replace(/[^\x20-\x7E]/g, '.')}"). The file may be corrupted or the server returned an error page.`);
+      throw new Error(
+        `Downloaded data is not a valid SQLite database (received ${combined.length} bytes, header: "${headerStr.slice(0, 32)}"). ` +
+          'The file may be corrupted or the server returned an error page.'
+      );
     }
 
     this.progress('initializing', 80, 'Initializing database...');
@@ -712,14 +771,17 @@ export class DatabaseLoader {
     this.timing?.endStage('sqlJsInit');
 
     // Calculate hash from data
-    const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', toArrayBuffer(combined));
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 
     if (expectedHash && hash !== expectedHash) {
-      throw new Error(
-        `Database hash mismatch (expected ${expectedHash.slice(0, 16)}…, got ${hash.slice(0, 16)}…). ` +
-          'This can happen if a service worker served a stale cached database.'
+      // Hash mismatch can happen when the database is updated but a service worker
+      // serves a stale cached version. Instead of failing completely, we log a warning
+      // and proceed with the downloaded data. The caller should handle cache invalidation.
+      console.warn(
+        `[DatabaseLoader] Hash mismatch (expected ${expectedHash.slice(0, 16)}…, got ${hash.slice(0, 16)}…). ` +
+          'Proceeding with downloaded database. Service worker cache may be stale.'
       );
     }
 

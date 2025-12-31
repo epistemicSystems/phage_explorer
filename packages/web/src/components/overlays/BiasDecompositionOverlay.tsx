@@ -16,33 +16,19 @@ import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
 import { ScatterCanvas } from './primitives/ScatterCanvas';
 import {
-  decomposeBias,
-  computeDinucleotideFrequencies,
   DINUCLEOTIDES,
 } from '@phage-explorer/core';
-import type { BiasDecomposition, BiasProjection } from '@phage-explorer/core';
+import type { BiasProjection } from '@phage-explorer/core';
 import { usePhageStore } from '@phage-explorer/state';
 import type { ScatterPoint, ScatterHover } from './primitives/types';
+import { ComputeOrchestrator } from '../../workers/ComputeOrchestrator';
+import type { BiasDecompositionWorkerResult } from '../../workers/types';
 
 // Color scale for GC content
 function gcColor(gcContent: number): string {
   // Low GC = blue, High GC = red
   const hue = (1 - gcContent) * 240; // 240 = blue, 0 = red
   return `hsl(${hue}, 70%, 50%)`;
-}
-
-// Calculate GC content of a sequence
-function calculateGC(seq: string): number {
-  const upper = seq.toUpperCase();
-  let gc = 0;
-  let total = 0;
-  for (const c of upper) {
-    if ('ACGT'.includes(c)) {
-      total++;
-      if (c === 'G' || c === 'C') gc++;
-    }
-  }
-  return total > 0 ? gc / total : 0.5;
 }
 
 interface BiasDecompositionOverlayProps {
@@ -85,11 +71,15 @@ export function BiasDecompositionOverlay({
   const { theme } = useTheme();
   const colors = theme.colors;
   const { isOpen, toggle } = useOverlay();
+  const overlayOpen = isOpen('biasDecomposition');
   const viewMode = usePhageStore((s) => s.viewMode);
   const setScrollPosition = usePhageStore((s) => s.setScrollPosition);
   const sequenceCache = useRef<Map<number, string>>(new Map());
   const [sequence, setSequence] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<BiasDecompositionWorkerResult | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // Hover state for tooltip
   const [hoveredPoint, setHoveredPoint] = useState<ScatterHover | null>(null);
@@ -109,7 +99,7 @@ export function BiasDecompositionOverlay({
 
   // Fetch full genome when overlay opens or phage changes
   useEffect(() => {
-    if (!isOpen('biasDecomposition')) return;
+    if (!overlayOpen) return;
     if (!repository || !currentPhage) {
       setSequence('');
       setLoading(false);
@@ -135,42 +125,42 @@ export function BiasDecompositionOverlay({
       })
       .catch(() => setSequence(''))
       .finally(() => setLoading(false));
-  }, [isOpen, repository, currentPhage]);
+  }, [overlayOpen, repository, currentPhage]);
 
-  // Compute bias decomposition
-  const analysis = useMemo((): {
-    decomposition: BiasDecomposition;
-    gcContents: number[];
-    positions: number[];
-  } | null => {
-    if (!sequence || sequence.length < windowSize * 2) return null;
-
-    // Create sliding windows
-    const windows: Array<{ name: string; vector: number[]; gc: number; pos: number }> = [];
-
-    for (let start = 0; start + windowSize <= sequence.length; start += stepSize) {
-      const windowSeq = sequence.slice(start, start + windowSize);
-      const vector = computeDinucleotideFrequencies(windowSeq);
-      const gc = calculateGC(windowSeq);
-      windows.push({
-        name: `${start}-${start + windowSize}`,
-        vector,
-        gc,
-        pos: start,
-      });
+  // Compute bias decomposition off the main thread (worker)
+  useEffect(() => {
+    if (!overlayOpen) return;
+    if (!currentPhage || !sequence) {
+      setAnalysis(null);
+      setAnalysisLoading(false);
+      setAnalysisError(null);
+      return;
     }
 
-    if (windows.length < 3) return null;
+    let cancelled = false;
+    setAnalysisLoading(true);
+    setAnalysisError(null);
 
-    const decomposition = decomposeBias(windows);
-    if (!decomposition) return null;
+    ComputeOrchestrator
+      .getInstance()
+      .computeBiasDecompositionWithSharedBuffer(currentPhage.id, sequence, windowSize, stepSize)
+      .then((result) => {
+        if (cancelled) return;
+        setAnalysis(result);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setAnalysis(null);
+        setAnalysisError(err instanceof Error ? err.message : 'Failed to compute bias decomposition');
+      })
+      .finally(() => {
+        if (!cancelled) setAnalysisLoading(false);
+      });
 
-    return {
-      decomposition,
-      gcContents: windows.map((w) => w.gc),
-      positions: windows.map((w) => w.pos),
+    return () => {
+      cancelled = true;
     };
-  }, [sequence, windowSize, stepSize]);
+  }, [overlayOpen, currentPhage, sequence, windowSize, stepSize]);
 
   // Convert to scatter points
   const scatterPoints = useMemo((): ScatterPoint[] => {
@@ -222,7 +212,7 @@ export function BiasDecompositionOverlay({
     }
   }, [setScrollPosition, viewMode]);
 
-  if (!isOpen('biasDecomposition')) return null;
+  if (!overlayOpen) return null;
 
   return (
     <Overlay
@@ -247,8 +237,12 @@ export function BiasDecompositionOverlay({
           PC2 reveals other compositional biases. Outliers may indicate HGT or unusual regions.
         </div>
 
-        {loading ? (
+        {loading || analysisLoading ? (
           <AnalysisPanelSkeleton />
+        ) : analysisError ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: colors.error }}>
+            {analysisError}
+          </div>
         ) : !analysis ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: colors.textMuted }}>
             {!sequence ? 'No sequence loaded' : 'Sequence too short for analysis'}
@@ -335,7 +329,10 @@ export function BiasDecompositionOverlay({
               />
 
               {/* Tooltip */}
-              {hoveredPoint?.point?.data != null && (() => {
+              {hoveredPoint &&
+                hoveredPoint.point.data !== undefined &&
+                hoveredPoint.point.data !== null &&
+                (() => {
                 const data = hoveredPoint.point.data as {
                   projection: BiasProjection;
                   gc: number;

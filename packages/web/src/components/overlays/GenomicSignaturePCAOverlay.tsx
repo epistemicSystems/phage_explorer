@@ -17,13 +17,11 @@ import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
 import { ScatterCanvas } from './primitives/ScatterCanvas';
 import {
-  computeKmerFrequencies,
-  computeGcContent,
-  performPCA,
   getTopLoadings,
 } from '@phage-explorer/core';
 import type { PCAResult, KmerVector, PCAProjection } from '@phage-explorer/core';
 import type { ScatterPoint, ScatterHover } from './primitives/types';
+import { ComputeOrchestrator } from '../../workers/ComputeOrchestrator';
 
 // Color scale for GC content (blue=low, red=high)
 function gcColor(gcContent: number): string {
@@ -105,8 +103,10 @@ export function GenomicSignaturePCAOverlay({
   const [kmerVectors, setKmerVectors] = useState<KmerVector[]>([]);
   const [phageSummaries, setPhageSummaries] = useState<PhageSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pcaLoading, setPcaLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [pcaResult, setPcaResult] = useState<PCAResult | null>(null);
 
   // Hover state for tooltip
   const [hoveredPoint, setHoveredPoint] = useState<ScatterHover | null>(null);
@@ -181,18 +181,20 @@ export function GenomicSignaturePCAOverlay({
             // Fetch sequence and compute
             const length = await repository!.getFullGenomeLength(phage.id);
             const sequence = await repository!.getSequenceWindow(phage.id, 0, length);
-
-            const frequencies = computeKmerFrequencies(sequence, {
-              k: kmerSize,
-              normalize: true,
-              includeReverseComplement,
-            });
+            const vectorFromWorker = await ComputeOrchestrator.getInstance().computeKmerVectorWithSharedBuffer(
+              phage.id,
+              phage.name,
+              sequence,
+              {
+                k: kmerSize,
+                normalize: true,
+                includeReverseComplement,
+              }
+            );
 
             const vector: KmerVector = {
-              phageId: phage.id,
-              name: phage.name,
-              frequencies,
-              gcContent: computeGcContent(sequence),
+              ...vectorFromWorker,
+              // Prefer repository-reported length (should match sequence length).
               genomeLength: length,
             };
 
@@ -228,11 +230,38 @@ export function GenomicSignaturePCAOverlay({
     return new Map(phageSummaries.map(p => [p.id, p] as const));
   }, [phageSummaries]);
 
-  // Perform PCA on vectors
-  const pcaResult = useMemo((): PCAResult | null => {
-    if (kmerVectors.length < 3) return null;
-    return performPCA(kmerVectors, { numComponents: 3 });
-  }, [kmerVectors]);
+  // Perform PCA off the main thread (worker)
+  useEffect(() => {
+    if (!overlayOpen) return;
+    if (kmerVectors.length < 3) {
+      setPcaResult(null);
+      setPcaLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setPcaLoading(true);
+
+    ComputeOrchestrator
+      .getInstance()
+      .computeGenomicSignaturePca(kmerVectors, { numComponents: 3 })
+      .then((result) => {
+        if (cancelled) return;
+        setPcaResult(result);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setPcaResult(null);
+        setError(err instanceof Error ? err.message : 'Failed to compute PCA');
+      })
+      .finally(() => {
+        if (!cancelled) setPcaLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [kmerVectors, overlayOpen]);
 
   useEffect(() => {
     if (!overlayOpen) return;
@@ -284,7 +313,7 @@ export function GenomicSignaturePCAOverlay({
 
       // Highlight current phage
       const isCurrent = currentPhage && proj.phageId === currentPhage.id;
-      const isSelected = selectedPhageId != null && proj.phageId === selectedPhageId;
+      const isSelected = selectedPhageId !== null && proj.phageId === selectedPhageId;
       const size = isCurrent && highlightCurrent ? 8 : isSelected ? 7 : 4;
 
       return {
@@ -328,7 +357,7 @@ export function GenomicSignaturePCAOverlay({
   }, []);
 
   const selectedProjection = useMemo((): PCAProjection | null => {
-    if (!pcaResult || selectedPhageId == null) return null;
+    if (!pcaResult || selectedPhageId === null) return null;
     return pcaResult.projections.find(p => p.phageId === selectedPhageId) ?? null;
   }, [pcaResult, selectedPhageId]);
 
@@ -392,11 +421,13 @@ export function GenomicSignaturePCAOverlay({
           Similar signatures suggest related evolutionary history or similar host environments.
         </div>
 
-        {loading ? (
+        {loading || pcaLoading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <AnalysisPanelSkeleton />
             <div style={{ color: colors.textMuted, textAlign: 'center', fontSize: '0.85rem' }}>
-              Computing {kmerSize}-mer frequencies... {progress}%
+              {loading
+                ? `Computing ${kmerSize}-mer frequencies... ${progress}%`
+                : 'Computing PCA projection...'}
             </div>
           </div>
         ) : error ? (
@@ -557,37 +588,40 @@ export function GenomicSignaturePCAOverlay({
               />
 
               {/* Tooltip */}
-	              {hoveredPoint?.point?.data != null && (() => {
-	                const data = hoveredPoint.point.data as { projection: PCAProjection };
-	                // Ensure tooltip stays within bounds (canvas width=600, tooltip width~200)
-	                const leftPos = hoveredPoint.canvasX + 10;
-	                const adjustedLeft = leftPos + 200 > 600 ? leftPos - 210 : leftPos;
+              {hoveredPoint &&
+                hoveredPoint.point.data !== undefined &&
+                hoveredPoint.point.data !== null &&
+                (() => {
+                  const data = hoveredPoint.point.data as { projection: PCAProjection };
+                  // Ensure tooltip stays within bounds (canvas width=600, tooltip width~200)
+                  const leftPos = hoveredPoint.canvasX + 10;
+                  const adjustedLeft = leftPos + 200 > 600 ? leftPos - 210 : leftPos;
 
-	                return (
-	                  <div
-	                    style={{
-	                      position: 'absolute',
-	                      left: Math.max(10, adjustedLeft),
-                      top: Math.max(hoveredPoint.canvasY - 80, 10),
-                      backgroundColor: colors.backgroundAlt,
-                      border: `1px solid ${colors.borderLight}`,
-                      borderRadius: '4px',
-                      padding: '0.5rem',
-                      fontSize: '0.75rem',
-                      color: colors.text,
-                      pointerEvents: 'none',
-                      zIndex: 10,
-	                      maxWidth: '200px',
-	                    }}
-	                  >
-	                    <TooltipContent
-	                      projection={data.projection}
-	                      meta={phageMetaById.get(data.projection.phageId) ?? null}
-	                      colors={colors}
-	                    />
-	                  </div>
-	                );
-	              })()}
+                  return (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: Math.max(10, adjustedLeft),
+                        top: Math.max(hoveredPoint.canvasY - 80, 10),
+                        backgroundColor: colors.backgroundAlt,
+                        border: `1px solid ${colors.borderLight}`,
+                        borderRadius: '4px',
+                        padding: '0.5rem',
+                        fontSize: '0.75rem',
+                        color: colors.text,
+                        pointerEvents: 'none',
+                        zIndex: 10,
+                        maxWidth: '200px',
+                      }}
+                    >
+                      <TooltipContent
+                        projection={data.projection}
+                        meta={phageMetaById.get(data.projection.phageId) ?? null}
+                        colors={colors}
+                      />
+                    </div>
+                  );
+                })()}
             </div>
 
             {/* Selection panel */}

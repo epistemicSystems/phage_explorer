@@ -5,14 +5,23 @@
   "main": "pkg/wasm_compute.js",
   "types": "pkg/wasm_compute.d.ts",
   "files": [
-    "pkg"
+    "pkg",
+    "pkg-simd"
   ],
   "exports": {
-    ".": "./pkg/wasm_compute.js",
-    "./wasm_compute_bg.wasm": "./pkg/wasm_compute_bg.wasm"
+    ".": {
+      "types": "./pkg/wasm_compute.d.ts",
+      "default": "./pkg/wasm_compute.js"
+    },
+    "./simd": {
+      "types": "./pkg-simd/wasm_compute.d.ts",
+      "default": "./pkg-simd/wasm_compute.js"
+    },
+    "./wasm_compute_bg.wasm": "./pkg/wasm_compute_bg.wasm",
+    "./simd/wasm_compute_bg.wasm": "./pkg-simd/wasm_compute_bg.wasm"
   },
   "scripts": {
-    "build": "wasm-pack build --target web"
+    "build": "RUSTFLAGS=\"-C target-feature=-simd128\" wasm-pack build --target bundler --out-dir pkg && bun run ../../scripts/inline-wasm-compute.ts --pkg-dir pkg && RUSTFLAGS=\"-C target-feature=+simd128\" wasm-pack build --target bundler --out-dir pkg-simd && bun run ../../scripts/inline-wasm-compute.ts --pkg-dir pkg-simd"
   },
   "devDependencies": {
     "wasm-pack": "^0.13.1"

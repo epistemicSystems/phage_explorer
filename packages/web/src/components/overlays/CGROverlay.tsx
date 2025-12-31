@@ -5,7 +5,8 @@
  * set of controls (k-mer depth, hotkey toggle) and basic stats.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import * as Comlink from 'comlink';
 import type { PhageFull } from '@phage-explorer/core';
 import { computeCGR } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
@@ -15,6 +16,8 @@ import { useHotkey } from '../../hooks';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
+import { getWasmCompute } from '../../lib/wasm-loader';
+import type { CgrWorkerResult, HilbertWorkerAPI } from '../../workers/hilbert.worker';
 
 interface CGROverlayProps {
   repository: PhageRepository | null;
@@ -29,6 +32,58 @@ interface RgbColor {
 
 const DEFAULT_K = 7;
 const K_OPTIONS = [6, 7, 8];
+
+interface CgrRenderResult {
+  grid: Uint32Array | Float32Array;
+  resolution: number;
+  k: number;
+  maxCount: number;
+  totalPoints: number;
+  entropy: number;
+}
+
+const textEncoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
+
+async function computeCgrWasm(sequence: string, k: number): Promise<CgrWorkerResult> {
+  const wasm = await getWasmCompute();
+  const cgrCounts = (wasm as unknown as { cgr_counts?: (seq: Uint8Array, k: number) => unknown } | null)?.cgr_counts;
+  if (!wasm || typeof cgrCounts !== 'function') {
+    throw new Error('cgr_counts not available');
+  }
+
+  // Keep allocations bounded (2048^2 u32 = 16MB).
+  const kInt = Math.max(0, Math.min(11, Math.floor(k)));
+  const seqBytes = textEncoder
+    ? textEncoder.encode(sequence)
+    : Uint8Array.from(sequence, (c) => c.charCodeAt(0) & 255);
+
+  const result = cgrCounts(seqBytes, kInt);
+  try {
+    const r = result as {
+      readonly counts: Uint32Array;
+      readonly resolution: number;
+      readonly k: number;
+      readonly max_count: number;
+      readonly total_points: number;
+      readonly entropy: number;
+    };
+
+    if (!r.counts || r.counts.byteLength === 0 || r.resolution <= 0) {
+      throw new Error('Empty result from cgr_counts');
+    }
+
+    return {
+      grid: r.counts,
+      resolution: r.resolution,
+      k: r.k,
+      maxCount: r.max_count,
+      totalPoints: r.total_points,
+      entropy: r.entropy,
+    };
+  } finally {
+    (result as { free?: () => void } | null)?.free?.();
+  }
+}
 
 function hexToRgb(hex: string): RgbColor {
   const normalized = hex.startsWith('#') ? hex.slice(1) : hex;
@@ -62,10 +117,16 @@ export function CGROverlay({ repository, currentPhage }: CGROverlayProps): React
   const { isOpen, toggle } = useOverlay();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sequenceCache = useRef<Map<number, string>>(new Map());
+  const workerRef = useRef<Worker | null>(null);
+  const workerApiRef = useRef<Comlink.Remote<HilbertWorkerAPI> | null>(null);
   const [sequence, setSequence] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const [sequenceLoading, setSequenceLoading] = useState(false);
+  const [computeLoading, setComputeLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [k, setK] = useState<number>(DEFAULT_K);
+  const [cgrResult, setCgrResult] = useState<CgrRenderResult | null>(null);
+
+  const loading = sequenceLoading || computeLoading;
 
   // Hotkey to toggle overlay (Alt+Shift+C)
   useHotkey(
@@ -75,12 +136,44 @@ export function CGROverlay({ repository, currentPhage }: CGROverlayProps): React
     { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
   );
 
+  // Initialize worker (module worker when available; fallback to main thread compute)
+  useEffect(() => {
+    if (workerRef.current) return () => undefined;
+
+    const workerUrl = new URL('../../workers/hilbert.worker.ts', import.meta.url);
+    let worker: Worker;
+    try {
+      worker = new Worker(workerUrl, { type: 'module' });
+    } catch {
+      try {
+        worker = new Worker(workerUrl);
+      } catch {
+        workerRef.current = null;
+        workerApiRef.current = null;
+        return () => undefined;
+      }
+    }
+
+    workerRef.current = worker;
+    workerApiRef.current = Comlink.wrap<HilbertWorkerAPI>(worker);
+
+    return () => {
+      if (workerApiRef.current && 'releaseProxy' in workerApiRef.current) {
+        // @ts-expect-error Comlink runtime helper
+        workerApiRef.current.releaseProxy?.();
+      }
+      workerRef.current?.terminate();
+      workerRef.current = null;
+      workerApiRef.current = null;
+    };
+  }, []);
+
   // Fetch full genome when overlay opens or phage changes
   useEffect(() => {
     if (!isOpen('cgr')) return;
     if (!repository || !currentPhage) {
       setSequence('');
-      setLoading(false);
+      setSequenceLoading(false);
       return;
     }
 
@@ -89,11 +182,11 @@ export function CGROverlay({ repository, currentPhage }: CGROverlayProps): React
     const cached = sequenceCache.current.get(phageId);
     if (cached) {
       setSequence(cached);
-      setLoading(false);
+      setSequenceLoading(false);
       return;
     }
 
-    setLoading(true);
+    setSequenceLoading(true);
     setError(null);
     void (async () => {
       try {
@@ -111,7 +204,7 @@ export function CGROverlay({ repository, currentPhage }: CGROverlayProps): React
         }
       } finally {
         if (!cancelled) {
-          setLoading(false);
+          setSequenceLoading(false);
         }
       }
     })();
@@ -121,10 +214,46 @@ export function CGROverlay({ repository, currentPhage }: CGROverlayProps): React
     };
   }, [isOpen, repository, currentPhage]);
 
-  const cgrResult = useMemo(() => {
-    if (!sequence) return null;
-    return computeCGR(sequence, k);
-  }, [sequence, k]);
+  // Compute CGR (worker preferred, WASM fallback, JS fallback)
+  useEffect(() => {
+    if (!isOpen('cgr') || !sequence) {
+      setCgrResult(null);
+      setComputeLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setComputeLoading(true);
+    setError(null);
+
+    void (async () => {
+      try {
+        let result: CgrRenderResult;
+        if (workerApiRef.current) {
+          result = await workerApiRef.current.renderCgr(sequence, k);
+        } else {
+          result = await computeCgrWasm(sequence, k).catch(() => computeCGR(sequence, k));
+        }
+        if (!cancelled) {
+          setCgrResult(result);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to compute CGR';
+        if (!cancelled) {
+          setError(message);
+          setCgrResult(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setComputeLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, sequence, k]);
 
   // Draw density map when data changes
   useEffect(() => {

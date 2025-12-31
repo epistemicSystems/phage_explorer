@@ -105,6 +105,35 @@ interface SequenceViewProps {
   onControlsReady?: (controls: { jumpToDiff: (direction: 'next' | 'prev') => number | null }) => void;
 }
 
+/**
+ * Detect if the browser supports dvh (dynamic viewport height) units.
+ * Falls back to vh on older browsers (pre Safari 15.4, etc).
+ */
+function useDvhSupport(): boolean {
+  const [supported, setSupported] = useState(() => {
+    if (typeof window === 'undefined' || typeof CSS === 'undefined') return false;
+    // Check if CSS.supports is available and dvh is recognized
+    try {
+      return CSS.supports('height', '1dvh');
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    // Re-check on mount in case SSR detection was wrong
+    if (typeof CSS !== 'undefined') {
+      try {
+        setSupported(CSS.supports('height', '1dvh'));
+      } catch {
+        setSupported(false);
+      }
+    }
+  }, []);
+
+  return supported;
+}
+
 function SequenceViewBase({
   sequence,
   diffSequence = null,
@@ -118,6 +147,7 @@ function SequenceViewBase({
   const { theme } = useTheme();
   const colors = theme.colors;
   const reducedMotion = useReducedMotion();
+  const supportsDvh = useDvhSupport();
   const [snapToCodon, setSnapToCodon] = useState(true);
   const defaultDensity: 'compact' | 'standard' =
     typeof window !== 'undefined' && window.innerWidth < 1024 ? 'compact' : 'standard';
@@ -525,6 +555,9 @@ function SequenceViewBase({
   const visibleEnd = visibleRange?.endIndex ?? Math.min(seqLength, visibleStart + 1);
   const visiblePercent = seqLength ? Math.round((visibleStart / seqLength) * 100) : 0;
   const descriptionId = 'sequence-view-description';
+  // Use dvh (dynamic viewport height) when supported, fallback to vh for older browsers.
+  // dvh accounts for mobile browser chrome (address bar), vh does not.
+  const vhUnit = supportsDvh ? 'dvh' : 'vh';
   const resolvedHeight =
     typeof height === 'number'
       ? height
@@ -532,11 +565,11 @@ function SequenceViewBase({
         ? height
         : isMobile
           ? orientation === 'portrait'
-            ? '78dvh' // taller in portrait to show more bases
-            : 'calc(100dvh - 120px)' // landscape: more usable height
+            ? `78${vhUnit}` // taller in portrait to show more bases
+            : `calc(100${vhUnit} - 120px)` // landscape: more usable height
           : orientation === 'portrait'
-            ? '60dvh'
-            : '70dvh';
+            ? `60${vhUnit}`
+            : `70${vhUnit}`;
 
   return (
     <div

@@ -76,6 +76,7 @@ test-output/
 **/*.rlib
 packages/wasm-compute/target/
 packages/wasm-compute/pkg/
+packages/wasm-compute/pkg-simd/
 packages/wasm-compute/node_modules/
 .vercel
 .env*.local

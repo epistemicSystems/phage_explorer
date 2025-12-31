@@ -47,6 +47,8 @@ const DEFAULT_OPTIONS: SearchOptions = {
   maxResults: 500,
 };
 
+const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
+
 function extractContext(sequence: string, start: number, end: number, pad = 20): string {
   const s = Math.max(0, start - pad);
   const e = Math.min(sequence.length, end + pad);
@@ -98,7 +100,7 @@ export function SearchOverlay({ repository, currentPhage }: SearchOverlayProps):
               setWorkerReady(true);
             }
           } catch (e) {
-            console.error('Preloaded search worker failed:', e);
+            if (isDev) console.error('Preloaded search worker failed:', e);
           }
         })();
       }
@@ -107,7 +109,13 @@ export function SearchOverlay({ repository, currentPhage }: SearchOverlayProps):
 
     // No preloaded worker - create new one (fallback)
     usingPreloadedRef.current = false;
-    const worker = new Worker(new URL('../../workers/search.worker.ts', import.meta.url), { type: 'module' });
+    const workerUrl = new URL('../../workers/search.worker.ts', import.meta.url);
+    let worker: Worker;
+    try {
+      worker = new Worker(workerUrl, { type: 'module' });
+    } catch {
+      worker = new Worker(workerUrl);
+    }
     workerInstanceRef.current = worker;
     const wrappedWorker = Comlink.wrap<SearchWorkerAPI>(worker);
     workerRef.current = wrappedWorker;
@@ -121,7 +129,7 @@ export function SearchOverlay({ repository, currentPhage }: SearchOverlayProps):
         }
       } catch (e) {
         // Worker failed to initialize - keep workerReady false
-        console.error('Search worker failed to initialize:', e);
+        if (isDev) console.error('Search worker failed to initialize:', e);
       }
     })();
 

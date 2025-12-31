@@ -381,19 +381,11 @@ function detectMemoryCapabilities(): MemoryCapabilities {
 function detectWorkerCapabilities(): WorkerCapabilities {
   const webWorkers = typeof Worker !== 'undefined';
 
-  // Module workers detection
-  // There's no reliable sync way to detect module worker support without creating one.
-  // We assume module workers are available if:
-  // 1. Web Workers are supported
-  // 2. Dynamic import() is available (required for module workers)
-  // This covers Chrome 80+, Firefox 114+, Safari 15+ which all support module workers.
-  let moduleWorkers = false;
-  if (webWorkers) {
-    // Check for dynamic import support as a proxy for module worker support
-    // This is a reasonable heuristic: browsers that support dynamic import()
-    // in workers generally support module workers (type: 'module')
-    moduleWorkers = typeof import.meta !== 'undefined';
-  }
+  // Module worker support is not reliably detectable without creating one. We avoid dynamic code
+  // generation (e.g. `new Function(...)`) for CSP compatibility and keep this as a best-effort hint.
+  //
+  // Call sites should still be robust: try `{ type: "module" }`, fall back if it fails.
+  const moduleWorkers = webWorkers;
 
   return {
     webWorkers,

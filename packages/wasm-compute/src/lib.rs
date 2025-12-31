@@ -1491,6 +1491,307 @@ fn dot_product_vec(a: &[f64], b: &[f64]) -> f64 {
 }
 
 // ============================================================================
+// PCA (f32) - optimized ABI for JS Float32Array inputs
+// ============================================================================
+
+/// PCA result buffers in f32.
+///
+/// # Ownership
+/// The caller must call `.free()` to release WASM memory.
+#[wasm_bindgen]
+pub struct PCAResultF32 {
+    eigenvectors: Vec<f32>,
+    eigenvalues: Vec<f32>,
+    mean: Vec<f32>,
+    total_variance: f32,
+    n_components: usize,
+    n_features: usize,
+}
+
+#[wasm_bindgen]
+impl PCAResultF32 {
+    /// Eigenvectors as flat array (row-major: [pc1_feat1, pc1_feat2, ..., pc2_feat1, ...]).
+    #[wasm_bindgen(getter)]
+    pub fn eigenvectors(&self) -> js_sys::Float32Array {
+        let arr = js_sys::Float32Array::new_with_length(self.eigenvectors.len() as u32);
+        arr.copy_from(&self.eigenvectors);
+        arr
+    }
+
+    /// Eigenvalues (sample-covariance scale, i.e. divided by (n_samples - 1) when n_samples > 1).
+    #[wasm_bindgen(getter)]
+    pub fn eigenvalues(&self) -> js_sys::Float32Array {
+        let arr = js_sys::Float32Array::new_with_length(self.eigenvalues.len() as u32);
+        arr.copy_from(&self.eigenvalues);
+        arr
+    }
+
+    /// Mean vector used for centering.
+    #[wasm_bindgen(getter)]
+    pub fn mean(&self) -> js_sys::Float32Array {
+        let arr = js_sys::Float32Array::new_with_length(self.mean.len() as u32);
+        arr.copy_from(&self.mean);
+        arr
+    }
+
+    /// Total variance of centered data (sample-covariance scale).
+    #[wasm_bindgen(getter)]
+    pub fn total_variance(&self) -> f32 {
+        self.total_variance
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn n_components(&self) -> usize {
+        self.n_components
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn n_features(&self) -> usize {
+        self.n_features
+    }
+}
+
+/// Compute PCA using power iteration (f32 data path).
+///
+/// This entrypoint is designed to accept JS `Float32Array` inputs without the caller
+/// having to upcast to `Float64Array`.
+///
+/// Determinism:
+/// - Initialization is deterministic (no randomness).
+/// - Output eigenvectors are canonicalized to a stable sign (largest-magnitude element is positive).
+#[wasm_bindgen]
+pub fn pca_power_iteration_f32(
+    data: &[f32],
+    n_samples: usize,
+    n_features: usize,
+    n_components: usize,
+    max_iterations: usize,
+    tolerance: f32,
+) -> PCAResultF32 {
+    if data.len() != n_samples * n_features || n_samples == 0 || n_features == 0 {
+        return PCAResultF32 {
+            eigenvectors: Vec::new(),
+            eigenvalues: Vec::new(),
+            mean: Vec::new(),
+            total_variance: 0.0,
+            n_components: 0,
+            n_features,
+        };
+    }
+
+    let max_iter = if max_iterations == 0 { 100 } else { max_iterations };
+    let tol = if tolerance <= 0.0 { 1e-8 } else { tolerance };
+    let n_comp = n_components.min(n_samples).min(n_features);
+
+    // Compute mean for each feature
+    let mut mean = vec![0.0f32; n_features];
+    for i in 0..n_samples {
+        let row_start = i * n_features;
+        for j in 0..n_features {
+            mean[j] += data[row_start + j];
+        }
+    }
+    let inv_n = 1.0f32 / (n_samples as f32);
+    for j in 0..n_features {
+        mean[j] *= inv_n;
+    }
+
+    // Center the data (create centered copy)
+    let mut centered = vec![0.0f32; n_samples * n_features];
+    for i in 0..n_samples {
+        let row_start = i * n_features;
+        for j in 0..n_features {
+            centered[row_start + j] = data[row_start + j] - mean[j];
+        }
+    }
+
+    // Total variance (sample covariance scaling) for explained variance ratios.
+    let mut total_variance = 0.0f32;
+    for i in 0..(n_samples * n_features) {
+        total_variance += centered[i] * centered[i];
+    }
+    total_variance /= n_samples.saturating_sub(1).max(1) as f32;
+
+    // Find principal components
+    let mut eigenvectors = Vec::with_capacity(n_comp * n_features);
+    let mut eigenvalues = Vec::with_capacity(n_comp);
+    let mut previous_components: Vec<Vec<f32>> = Vec::new();
+
+    for _ in 0..n_comp {
+        let (eigenvector, eigenvalue) = power_iteration_single_f32(
+            &centered,
+            n_samples,
+            n_features,
+            &previous_components,
+            max_iter,
+            tol,
+        );
+
+        eigenvectors.extend_from_slice(&eigenvector);
+        eigenvalues.push(eigenvalue);
+        previous_components.push(eigenvector);
+    }
+
+    PCAResultF32 {
+        eigenvectors,
+        eigenvalues,
+        mean,
+        total_variance,
+        n_components: n_comp,
+        n_features,
+    }
+}
+
+fn power_iteration_single_f32(
+    centered: &[f32],
+    n_samples: usize,
+    n_features: usize,
+    previous_components: &[Vec<f32>],
+    max_iterations: usize,
+    tolerance: f32,
+) -> (Vec<f32>, f32) {
+    // Deterministic pseudo-random initialization (mirrors f64 PCA init but stays in f32).
+    let mut v: Vec<f32> = (0..n_features)
+        .map(|i| {
+            let seed = ((i as u64).wrapping_mul(7919).wrapping_add(104729) % 1000) as f32;
+            seed / 1000.0 - 0.5
+        })
+        .collect();
+
+    // Remove projections onto previous components
+    for pc in previous_components {
+        deflate_vec_f32(&mut v, pc);
+    }
+    normalize_vec_f32(&mut v);
+
+    let mut eigenvalue = 0.0f32;
+
+    for _ in 0..max_iterations {
+        // Compute X^T * X * v = X^T * (X * v)
+        let xv = multiply_xv_f32(centered, &v, n_samples, n_features);
+        let mut xtxv = multiply_xt_u_f32(centered, &xv, n_samples, n_features);
+
+        // Remove projections onto previous components
+        for pc in previous_components {
+            deflate_vec_f32(&mut xtxv, pc);
+        }
+
+        // Compute eigenvalue (Rayleigh quotient)
+        let new_eigenvalue = dot_product_vec_f32(&v, &xtxv);
+
+        // Normalize to get new eigenvector estimate
+        normalize_vec_f32(&mut xtxv);
+
+        // Align sign to avoid oscillation (v and -v represent the same eigenvector).
+        if dot_product_vec_f32(&v, &xtxv) < 0.0 {
+            for x in xtxv.iter_mut() {
+                *x = -*x;
+            }
+        }
+
+        // Check convergence
+        let mut diff = 0.0f32;
+        for i in 0..n_features {
+            diff += (v[i] - xtxv[i]).abs();
+        }
+
+        v = xtxv;
+        eigenvalue = new_eigenvalue;
+
+        if diff < tolerance {
+            break;
+        }
+    }
+
+    // Canonicalize sign for deterministic output: largest-magnitude entry is positive.
+    canonicalize_sign_f32(&mut v);
+
+    // Scale eigenvalue by (n_samples - 1) for sample covariance
+    let scaled_eigenvalue = if n_samples > 1 {
+        eigenvalue / (n_samples - 1) as f32
+    } else {
+        eigenvalue
+    };
+
+    (v, scaled_eigenvalue)
+}
+
+fn canonicalize_sign_f32(v: &mut [f32]) {
+    if v.is_empty() {
+        return;
+    }
+    let mut max_idx = 0usize;
+    let mut max_abs = v[0].abs();
+    for (i, &x) in v.iter().enumerate().skip(1) {
+        let ax = x.abs();
+        if ax > max_abs {
+            max_abs = ax;
+            max_idx = i;
+        }
+    }
+    if v[max_idx] < 0.0 {
+        for x in v.iter_mut() {
+            *x = -*x;
+        }
+    }
+}
+
+fn multiply_xv_f32(x: &[f32], v: &[f32], n_samples: usize, n_features: usize) -> Vec<f32> {
+    let mut result = vec![0.0f32; n_samples];
+    for i in 0..n_samples {
+        let row_start = i * n_features;
+        let mut sum = 0.0f32;
+        for j in 0..n_features {
+            sum += x[row_start + j] * v[j];
+        }
+        result[i] = sum;
+    }
+    result
+}
+
+fn multiply_xt_u_f32(x: &[f32], u: &[f32], n_samples: usize, n_features: usize) -> Vec<f32> {
+    let mut result = vec![0.0f32; n_features];
+    for i in 0..n_samples {
+        let row_start = i * n_features;
+        let ui = u[i];
+        for j in 0..n_features {
+            result[j] += x[row_start + j] * ui;
+        }
+    }
+    result
+}
+
+fn deflate_vec_f32(v: &mut [f32], u: &[f32]) {
+    let proj = dot_product_vec_f32(v, u);
+    for i in 0..v.len() {
+        v[i] -= proj * u[i];
+    }
+}
+
+fn normalize_vec_f32(v: &mut [f32]) {
+    let mut norm = 0.0f32;
+    for &x in v.iter() {
+        norm += x * x;
+    }
+    norm = norm.sqrt();
+
+    if norm > 0.0 {
+        let inv = 1.0f32 / norm;
+        for x in v.iter_mut() {
+            *x *= inv;
+        }
+    }
+}
+
+fn dot_product_vec_f32(a: &[f32], b: &[f32]) -> f32 {
+    let mut sum = 0.0f32;
+    for i in 0..a.len().min(b.len()) {
+        sum += a[i] * b[i];
+    }
+    sum
+}
+
+// ============================================================================
 // Hoeffding's D - Measures statistical dependence between two vectors
 // Based on: https://github.com/Dicklesworthstone/fast_vector_similarity
 // ============================================================================
@@ -2158,6 +2459,505 @@ pub fn compute_windowed_complexity(
     }
 
     results
+}
+
+/// Compute normalized Shannon entropy (0..=1) in sliding windows over A/C/G/T bases.
+///
+/// Semantics match `packages/web/src/workers/analysis.worker.ts`:
+/// - Non-ACGT bases are ignored (do not contribute to counts/total).
+/// - Windows are taken at starts `i = 0, step, 2*step, ...` while `i < n - window_size`
+///   (note: this intentionally excludes the final full window at `i = n - window_size`).
+/// - Output values are Shannon entropy in bits divided by 2 (max for 4 symbols).
+///
+/// # Arguments
+/// * `seq` - DNA sequence string (case-insensitive; U treated as T).
+/// * `window_size` - Size of each window.
+/// * `step_size` - Step between windows.
+///
+/// # Returns
+/// Array of normalized entropy values (0..=1), one per window.
+#[wasm_bindgen]
+pub fn compute_windowed_entropy_acgt(
+    seq: &str,
+    window_size: usize,
+    step_size: usize,
+) -> Vec<f64> {
+    let bytes = seq.as_bytes();
+    let n = bytes.len();
+
+    if window_size == 0 || step_size == 0 || n <= window_size {
+        return Vec::new();
+    }
+
+    // Match the JS loop condition: `i < n - window_size`.
+    let max_start_exclusive = n - window_size;
+    if max_start_exclusive == 0 {
+        return Vec::new();
+    }
+
+    let num_windows = (max_start_exclusive - 1) / step_size + 1;
+    let mut out = Vec::with_capacity(num_windows);
+
+    #[inline(always)]
+    fn entropy_norm(counts: &[u32; 4], total: u32) -> f64 {
+        if total == 0 {
+            return 0.0;
+        }
+        let inv_total = 1.0 / (total as f64);
+        let mut ent = 0.0;
+        for &c in counts.iter() {
+            if c == 0 {
+                continue;
+            }
+            let p = (c as f64) * inv_total;
+            ent -= p * p.log2();
+        }
+        ent / 2.0
+    }
+
+    // Initialize first window [0, window_size)
+    let mut counts = [0u32; 4];
+    let mut total = 0u32;
+    for &b in &bytes[0..window_size] {
+        let code = encode_base(b);
+        if code <= SEQ_BASE_T {
+            counts[code as usize] += 1;
+            total += 1;
+        }
+    }
+    out.push(entropy_norm(&counts, total));
+
+    // If step >= window, windows don't overlap; recompute each time.
+    if step_size >= window_size {
+        for w in 1..num_windows {
+            let start = w * step_size;
+            let end = start + window_size;
+            if end > n {
+                break;
+            }
+            counts = [0u32; 4];
+            total = 0u32;
+            for &b in &bytes[start..end] {
+                let code = encode_base(b);
+                if code <= SEQ_BASE_T {
+                    counts[code as usize] += 1;
+                    total += 1;
+                }
+            }
+            out.push(entropy_norm(&counts, total));
+        }
+        return out;
+    }
+
+    // Sliding update for overlapping windows.
+    for w in 1..num_windows {
+        let prev_start = (w - 1) * step_size;
+        let remove_end = prev_start + step_size;
+        let add_start = prev_start + window_size;
+        let add_end = add_start + step_size;
+        if add_end > n {
+            break;
+        }
+
+        for &b in &bytes[prev_start..remove_end] {
+            let code = encode_base(b);
+            if code <= SEQ_BASE_T {
+                counts[code as usize] = counts[code as usize].saturating_sub(1);
+                total = total.saturating_sub(1);
+            }
+        }
+
+        for &b in &bytes[add_start..add_end] {
+            let code = encode_base(b);
+            if code <= SEQ_BASE_T {
+                counts[code as usize] += 1;
+                total += 1;
+            }
+        }
+
+        out.push(entropy_norm(&counts, total));
+    }
+
+    out
+}
+
+// ============================================================================
+// Hilbert Curve Rendering (bytes-first, typed-array output)
+// ============================================================================
+
+const HILBERT_MIN_ORDER: u32 = 4;
+// Keep memory bounded for interactive use (4096^2 RGBA = ~64MB; 2048^2 RGBA = ~16MB).
+const HILBERT_MAX_ORDER: u32 = 11;
+const HILBERT_MAX_RGBA_BYTES: usize = 32 * 1024 * 1024;
+
+#[inline(always)]
+fn hilbert_rot(n: u32, mut x: u32, mut y: u32, rx: u32, ry: u32) -> (u32, u32) {
+    if ry == 0 {
+        if rx == 1 {
+            x = n - 1 - x;
+            y = n - 1 - y;
+        }
+        // Swap x/y
+        return (y, x);
+    }
+    (x, y)
+}
+
+#[inline(always)]
+fn hilbert_d2xy(size: u32, mut d: u32) -> (u32, u32) {
+    let mut x: u32 = 0;
+    let mut y: u32 = 0;
+    let mut s: u32 = 1;
+    while s < size {
+        let rx = (d >> 1) & 1;
+        let ry = (d ^ rx) & 1;
+        let (rx_x, rx_y) = hilbert_rot(s, x, y, rx, ry);
+        x = rx_x + s * rx;
+        y = rx_y + s * ry;
+        d >>= 2;
+        s <<= 1;
+    }
+    (x, y)
+}
+
+/// Render a Hilbert curve visualization as a flat RGBA buffer.
+///
+/// # Inputs
+/// - `seq_bytes`: ASCII DNA/RNA bytes OR already-encoded ACGT05 (0..=4).
+/// - `order`: Hilbert order (grid size = 2^order). Must be within guardrails.
+/// - `colors_rgb`: packed RGB palette for [A,C,G,T,N] as 15 bytes.
+///
+/// # Output
+/// - `Vec<u8>` interpreted as RGBA bytes (length = (2^order)^2 * 4).
+///
+/// # Guardrails
+/// - Caps order to avoid OOM. Returns an empty vec if requested output would exceed limits.
+#[wasm_bindgen]
+pub fn hilbert_rgba(seq_bytes: &[u8], order: u32, colors_rgb: &[u8]) -> Vec<u8> {
+    if seq_bytes.is_empty() {
+        return Vec::new();
+    }
+    if colors_rgb.len() < 15 {
+        return Vec::new();
+    }
+    if order < HILBERT_MIN_ORDER || order > HILBERT_MAX_ORDER {
+        return Vec::new();
+    }
+
+    let size: u32 = 1u32 << order;
+    let total_pixels: usize = (size as usize) * (size as usize);
+    let total_bytes = total_pixels.saturating_mul(4);
+    if total_bytes == 0 || total_bytes > HILBERT_MAX_RGBA_BYTES {
+        return Vec::new();
+    }
+
+    let bg_r = colors_rgb[12];
+    let bg_g = colors_rgb[13];
+    let bg_b = colors_rgb[14];
+
+    let mut out = vec![0u8; total_bytes];
+    for px in out.chunks_exact_mut(4) {
+        px[0] = bg_r;
+        px[1] = bg_g;
+        px[2] = bg_b;
+        px[3] = 255;
+    }
+
+    let max_idx = std::cmp::min(seq_bytes.len(), total_pixels);
+    for i in 0..max_idx {
+        let raw = seq_bytes[i];
+        // Accept either ASCII bytes or already-encoded ACGT05 (0..=4).
+        let code_u8 = if raw <= 4 { raw } else { encode_base(raw) };
+        let code = (code_u8 as usize).min(4);
+
+        let (x, y) = hilbert_d2xy(size, i as u32);
+        let idx = ((y as usize) * (size as usize) + (x as usize)) * 4;
+        let c = code * 3;
+        out[idx] = colors_rgb[c];
+        out[idx + 1] = colors_rgb[c + 1];
+        out[idx + 2] = colors_rgb[c + 2];
+        out[idx + 3] = 255;
+    }
+
+    out
+}
+
+// ============================================================================
+// Chaos Game Representation (CGR) rasterization (bytes-first, typed-array output)
+// ============================================================================
+
+const CGR_MAX_GRID_BYTES: usize = 32 * 1024 * 1024;
+
+#[wasm_bindgen]
+pub struct CgrCountsResult {
+    counts: Vec<u32>,
+    resolution: usize,
+    k: u32,
+    max_count: u32,
+    total_points: u32,
+    entropy: f64,
+}
+
+#[wasm_bindgen]
+impl CgrCountsResult {
+    #[wasm_bindgen(getter)]
+    pub fn counts(&self) -> js_sys::Uint32Array {
+        let arr = js_sys::Uint32Array::new_with_length(self.counts.len() as u32);
+        arr.copy_from(&self.counts);
+        arr
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn resolution(&self) -> usize {
+        self.resolution
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn k(&self) -> u32 {
+        self.k
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn max_count(&self) -> u32 {
+        self.max_count
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn total_points(&self) -> u32 {
+        self.total_points
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn entropy(&self) -> f64 {
+        self.entropy
+    }
+}
+
+/// Compute Chaos Game Representation (CGR) counts for a sequence.
+///
+/// Semantics match `packages/core/src/analysis/cgr.ts`:
+/// - Non-ACGT characters are skipped (no state update).
+/// - "Transient removal" uses the raw index: we only start plotting after `i >= k-1`,
+///   where `i` is the index in the *original* input (including skipped chars).
+///
+/// # Inputs
+/// - `seq_bytes`: ASCII DNA/RNA bytes OR already-encoded ACGT05 (0..=4).
+/// - `k`: CGR depth (resolution = 2^k). k=0 yields a 1x1 grid.
+///
+/// # Outputs
+/// - Dense grid counts as `Uint32Array` (row-major, length = resolution*resolution)
+/// - Metadata: resolution, max_count, total_points, entropy (Shannon, base2)
+#[wasm_bindgen]
+pub fn cgr_counts(seq_bytes: &[u8], k: u32) -> CgrCountsResult {
+    let resolution = if k == 0 {
+        1usize
+    } else {
+        match 1usize.checked_shl(k) {
+            Some(v) => v,
+            None => {
+                return CgrCountsResult {
+                    counts: Vec::new(),
+                    resolution: 0,
+                    k,
+                    max_count: 0,
+                    total_points: 0,
+                    entropy: 0.0,
+                }
+            }
+        }
+    };
+
+    let cells = match resolution.checked_mul(resolution) {
+        Some(v) => v,
+        None => {
+            return CgrCountsResult {
+                counts: Vec::new(),
+                resolution: 0,
+                k,
+                max_count: 0,
+                total_points: 0,
+                entropy: 0.0,
+            }
+        }
+    };
+
+    let bytes_needed = match cells.checked_mul(std::mem::size_of::<u32>()) {
+        Some(v) => v,
+        None => usize::MAX,
+    };
+    if bytes_needed > CGR_MAX_GRID_BYTES {
+        return CgrCountsResult {
+            counts: Vec::new(),
+            resolution: 0,
+            k,
+            max_count: 0,
+            total_points: 0,
+            entropy: 0.0,
+        };
+    }
+
+    let mut counts = vec![0u32; cells];
+    let mut max_count: u32 = 0;
+    let mut total_points: u32 = 0;
+
+    if seq_bytes.is_empty() {
+        return CgrCountsResult {
+            counts,
+            resolution,
+            k,
+            max_count,
+            total_points,
+            entropy: 0.0,
+        };
+    }
+
+    if k == 0 {
+        // With resolution=1, all points land in cell 0.
+        for &raw in seq_bytes {
+            let code = if raw <= 4 { raw } else { encode_base(raw) };
+            if code <= 3 {
+                counts[0] = counts[0].saturating_add(1);
+                total_points = total_points.saturating_add(1);
+                max_count = counts[0];
+            }
+        }
+
+        // Entropy is always 0 for a 1-cell distribution.
+        return CgrCountsResult {
+            counts,
+            resolution,
+            k,
+            max_count,
+            total_points,
+            entropy: 0.0,
+        };
+    }
+
+    // Fixed-point top-k-bit register with initial x=y=0.5.
+    // Start bits: 1000...0 (k bits) so floor(0.5 * 2^k) == 2^(k-1).
+    let shift = (k - 1) as u32;
+    let init = 1u32 << shift;
+    let mut x_bits: u32 = init;
+    let mut y_bits: u32 = init;
+
+    for (i, &raw) in seq_bytes.iter().enumerate() {
+        let code = if raw <= 4 { raw } else { encode_base(raw) };
+        if code > 3 {
+            continue;
+        }
+
+        // A=0, C=1, G=2, T=3.
+        // X: right half for T/G; Y: bottom half for C/G.
+        let bit_x: u32 = if code == SEQ_BASE_G || code == SEQ_BASE_T { 1 } else { 0 };
+        let bit_y: u32 = if code == SEQ_BASE_C || code == SEQ_BASE_G { 1 } else { 0 };
+
+        x_bits = (x_bits >> 1) | (bit_x << shift);
+        y_bits = (y_bits >> 1) | (bit_y << shift);
+
+        if i < (k as usize).saturating_sub(1) {
+            continue;
+        }
+
+        let gx = x_bits as usize;
+        let gy = y_bits as usize;
+        let idx = gy * resolution + gx;
+
+        let next = counts[idx].saturating_add(1);
+        counts[idx] = next;
+        total_points = total_points.saturating_add(1);
+        if next > max_count {
+            max_count = next;
+        }
+    }
+
+    let mut entropy = 0.0f64;
+    if total_points > 0 {
+        let denom = total_points as f64;
+        for &c in &counts {
+            if c == 0 {
+                continue;
+            }
+            let p = (c as f64) / denom;
+            entropy -= p * p.log2();
+        }
+        if entropy < 0.0 {
+            entropy = 0.0;
+        }
+    }
+
+    CgrCountsResult {
+        counts,
+        resolution,
+        k,
+        max_count,
+        total_points,
+        entropy,
+    }
+}
+
+#[cfg(test)]
+mod hilbert_tests {
+    use super::*;
+
+    #[test]
+    fn hilbert_rgba_maps_first_points_and_background() {
+        // Packed RGB palette for [A,C,G,T,N]
+        let colors: Vec<u8> = vec![
+            1, 2, 3,    // A
+            4, 5, 6,    // C
+            7, 8, 9,    // G
+            10, 11, 12, // T
+            13, 14, 15, // N (background)
+        ];
+
+        let out = hilbert_rgba(b"ACGT", 4, &colors);
+        assert_eq!(out.len(), 16 * 16 * 4);
+
+        // d=0 => (0,0): A
+        assert_eq!(&out[0..4], &[1, 2, 3, 255]);
+        // d=1 => (1,0): C
+        assert_eq!(&out[4..8], &[4, 5, 6, 255]);
+        // d=2 => (1,1): G
+        assert_eq!(&out[68..72], &[7, 8, 9, 255]);
+        // d=3 => (0,1): T
+        assert_eq!(&out[64..68], &[10, 11, 12, 255]);
+
+        // Ensure unused pixels remain background (N).
+        // Pixel (0,2) is not painted for seq length 4.
+        assert_eq!(&out[128..132], &[13, 14, 15, 255]);
+    }
+}
+
+#[cfg(test)]
+mod cgr_tests {
+    use super::*;
+
+    #[test]
+    fn cgr_counts_empty_sequence_matches_js_semantics() {
+        let r = cgr_counts(b"", 2);
+        assert_eq!(r.resolution, 4);
+        assert_eq!(r.total_points, 0);
+        assert_eq!(r.max_count, 0);
+        assert!((r.entropy - 0.0).abs() < 1e-12);
+        assert_eq!(r.counts.len(), 16);
+        assert!(r.counts.iter().all(|&v| v == 0));
+    }
+
+    #[test]
+    fn cgr_counts_transient_removal_matches_js_semantics() {
+        // Mirrors `packages/core/src/analysis/cgr.test.ts`.
+        let seq = b"AAAAAA";
+        let k = 3;
+        let r = cgr_counts(seq, k);
+        assert_eq!(r.total_points, (seq.len() as u32).saturating_sub((k - 1) as u32));
+        assert_eq!(r.max_count, r.total_points);
+    }
+
+    #[test]
+    fn cgr_counts_skips_non_acgt_characters() {
+        let r = cgr_counts(b"ANNT", 1);
+        assert_eq!(r.total_points, 2);
+    }
 }
 
 // ============================================================================
