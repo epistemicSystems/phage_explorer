@@ -12,23 +12,13 @@ import {
 } from './structure-loader';
 
 // --- WASM Module Loading ---
-// Dynamically load WASM for spatial-hash bond detection
-let wasmModule: typeof import('@phage/wasm-compute') | null = null;
-let wasmLoadAttempted = false;
+// Use centralized loader for consistent initialization across workers
+// @see packages/web/src/lib/wasm-loader.ts
+// @see phage_explorer-8qk2.2
+import { getWasmCompute } from '../lib/wasm-loader';
 
-async function getWasmModule() {
-  if (wasmLoadAttempted) return wasmModule;
-  wasmLoadAttempted = true;
-
-  try {
-    wasmModule = await import('@phage/wasm-compute');
-    wasmModule.init_panic_hook();
-    return wasmModule;
-  } catch (err) {
-    console.warn('[structure.worker] WASM module not available, using JS fallback:', err);
-    return null;
-  }
-}
+// Alias for compatibility with existing code
+const getWasmModule = getWasmCompute;
 
 // --- Worker-local Types (mirroring structure-loader but without Three.js deps) ---
 // We can't import Three.js here easily in a standard worker setup without careful bundling,
@@ -44,6 +34,7 @@ interface SerializedFunctionalGroup {
 export interface WorkerInput {
   text: string;
   format: 'pdb' | 'mmcif';
+  options?: WorkerOptions;
 }
 
 export interface WorkerOutput {
@@ -54,6 +45,19 @@ export interface WorkerOutput {
   center: { x: number; y: number; z: number };
   radius: number;
   functionalGroups: SerializedFunctionalGroup[];
+}
+
+export interface WorkerOptions {
+  /**
+   * Whether to compute bonds. `auto` computes bonds only for smaller structures
+   * (large capsids default to ribbon/surface rendering, where bonds are unused).
+   */
+  includeBonds?: boolean | 'auto';
+  /**
+   * Whether to compute functional groups (rings/disulfides/phosphates).
+   * This is expensive and is disabled by default in the UI.
+   */
+  includeFunctionalGroups?: boolean;
 }
 
 // --- Logic duplicated/adapted from structure-loader.ts to run in worker ---
@@ -234,6 +238,8 @@ function detectBondsJS(atoms: AtomRecord[]): Bond[] {
 
 // Threshold for using WASM vs JS (small structures are fast enough with JS)
 const WASM_ATOM_THRESHOLD = 2000;
+// Auto-mode cap: skip bonds for huge structures (matches UI's ribbon default threshold)
+const AUTO_BOND_ATOM_LIMIT = 15000;
 
 async function detectBonds(atoms: AtomRecord[]): Promise<Bond[]> {
   // For small structures, JS is fast enough
@@ -404,7 +410,7 @@ function detectPhosphates(atoms: AtomRecord[], bonds: Bond[]): SerializedFunctio
 }
 
 self.onmessage = async (e: MessageEvent<WorkerInput>) => {
-  const { text, format } = e.data;
+  const { text, format, options } = e.data;
 
   try {
     // Report progress: parsing
@@ -415,11 +421,19 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
       throw new Error('No atoms parsed from structure file');
     }
 
-    // Report progress: bond detection
-    // This now uses WASM spatial-hash for O(N) complexity on large structures
-    self.postMessage({ type: 'progress', stage: 'bonds', percent: 45 });
+    const includeFunctionalGroups = options?.includeFunctionalGroups === true;
+    const includeBondsSetting = options?.includeBonds ?? 'auto';
+    const includeBonds = includeFunctionalGroups
+      || includeBondsSetting === true
+      || (includeBondsSetting === 'auto' && atoms.length <= AUTO_BOND_ATOM_LIMIT);
 
-    const bonds = await detectBonds(atoms);
+    let bonds: Bond[] = [];
+    if (includeBonds) {
+      // Report progress: bond detection
+      // This now uses WASM spatial-hash for O(N) complexity on large structures
+      self.postMessage({ type: 'progress', stage: 'bonds', percent: 45 });
+      bonds = await detectBonds(atoms);
+    }
 
     // Report progress: building traces
     self.postMessage({ type: 'progress', stage: 'traces', percent: 70 });
@@ -427,14 +441,16 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
     const backboneTraces = buildBackboneTraces(atoms);
     const chains = Array.from(new Set(atoms.map(a => a.chainId)));
 
-    // Report progress: functional groups
-    self.postMessage({ type: 'progress', stage: 'functional', percent: 85 });
+    let functionalGroups: SerializedFunctionalGroup[] = [];
+    if (includeFunctionalGroups && bonds.length > 0) {
+      // Report progress: functional groups
+      self.postMessage({ type: 'progress', stage: 'functional', percent: 85 });
 
-    // Functional Groups
-    const rings = detectAromaticRings(atoms, bonds);
-    const disulfides = detectDisulfides(atoms, bonds);
-    const phosphates = detectPhosphates(atoms, bonds);
-    const functionalGroups = [...rings, ...disulfides, ...phosphates];
+      const rings = detectAromaticRings(atoms, bonds);
+      const disulfides = detectDisulfides(atoms, bonds);
+      const phosphates = detectPhosphates(atoms, bonds);
+      functionalGroups = [...rings, ...disulfides, ...phosphates];
+    }
 
     // Compute bounds
     let minX = Infinity, minY = Infinity, minZ = Infinity;

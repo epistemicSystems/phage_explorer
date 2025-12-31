@@ -2,7 +2,35 @@
  * WASM Support Detection
  *
  * Provides utilities for detecting WebAssembly support and streaming compilation capabilities.
+ *
+ * NOTE: This module is kept for backwards compatibility. New code should import from
+ * `../lib/browser-capabilities` which provides a more comprehensive and centralized
+ * feature detection API.
+ *
+ * @see ../lib/browser-capabilities.ts for the centralized capability detection
+ * @see phage_explorer-8qk2.7 for the browser feature matrix bead
+ *
+ * Browser capability tiers (progressive enhancement):
+ * - Tier A (best): WASM + `crossOriginIsolated` + `SharedArrayBuffer` → enable zero-copy paths.
+ * - Tier B: WASM but no SAB/COOP/COEP → use transferable `ArrayBuffer` for large binary payloads.
+ * - Tier C: no WASM → fall back to JS implementations (must remain correct).
  */
+
+// Re-export from centralized module for consistency
+export {
+  canUseWasm,
+  canUseSharedArrayBuffer as canUseSharedArrayBufferNew,
+  canUseWasmSimd,
+  isCrossOriginIsolated,
+  getBrowserCapabilities,
+  getWasmLoadingStrategy,
+  getSequenceTransportStrategy,
+  getBestMemoryTransport,
+  type BrowserCapabilities,
+  type WasmCapabilities,
+  type MemoryCapabilities,
+  type WorkerCapabilities,
+} from '../lib/browser-capabilities';
 
 export type WASMSupport =
   | { supported: false; reason: string }
@@ -16,6 +44,36 @@ export type WASMSupport =
         simd: boolean;
       };
     };
+
+let wasmSupportPromise: Promise<WASMSupport> | null = null;
+
+/**
+ * Cached feature detection (avoid recompiling probe modules repeatedly).
+ * @deprecated Use `getBrowserCapabilities()` from `../lib/browser-capabilities` instead
+ */
+export function detectWASMCached(): Promise<WASMSupport> {
+  if (!wasmSupportPromise) wasmSupportPromise = detectWASM();
+  return wasmSupportPromise;
+}
+
+/**
+ * SharedArrayBuffer requires cross-origin isolation (COOP/COEP) in modern browsers.
+ * We also sanity-check that SAB is constructible in the current execution context.
+ * @deprecated Use `canUseSharedArrayBuffer()` from `../lib/browser-capabilities` instead
+ */
+export function canUseSharedArrayBuffer(): boolean {
+  const isolated = (globalThis as unknown as { crossOriginIsolated?: boolean }).crossOriginIsolated === true;
+  if (!isolated) return false;
+
+  try {
+    if (typeof SharedArrayBuffer === 'undefined') return false;
+    // Some environments expose the symbol but disallow construction.
+    const test = new SharedArrayBuffer(1);
+    return test.byteLength === 1;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Detects WebAssembly support and available features.
@@ -53,9 +111,7 @@ export async function detectWASM(): Promise<WASMSupport> {
   // Check for threads support (SharedArrayBuffer)
   let threads = false;
   try {
-    threads =
-      typeof SharedArrayBuffer !== 'undefined' &&
-      typeof Atomics !== 'undefined';
+    threads = canUseSharedArrayBuffer() && typeof Atomics !== 'undefined';
   } catch {
     // SharedArrayBuffer may throw in some contexts
   }
