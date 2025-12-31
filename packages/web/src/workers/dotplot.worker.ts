@@ -138,13 +138,13 @@ self.onmessage = async (event: MessageEvent<DotPlotJob>) => {
     }
 
     const requestedBins = job.config?.bins;
-    const configBins = Number.isFinite(requestedBins) ? requestedBins : 120;
+    const configBins = typeof requestedBins === 'number' && Number.isFinite(requestedBins) ? requestedBins : 120;
     const targetBins = Math.max(1, Math.floor(configBins));
     const previewBins = targetBins >= 80 ? 40 : 0;
     const useProgressiveRefinement = previewBins > 0 && previewBins < targetBins;
 
     const requestedWindow = job.config?.window;
-    const targetWindow = Number.isFinite(requestedWindow) && requestedWindow > 0 ? Math.floor(requestedWindow) : 0;
+    const targetWindow = typeof requestedWindow === 'number' && Number.isFinite(requestedWindow) && requestedWindow > 0 ? Math.floor(requestedWindow) : 0;
 
     // Try using SequenceHandle for efficient progressive refinement.
     // This encodes the sequence once and reuses it for both preview and full resolution.
