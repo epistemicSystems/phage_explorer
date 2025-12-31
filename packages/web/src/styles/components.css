@@ -437,17 +437,20 @@ textarea:focus-visible,
   transition: transform var(--duration-normal) var(--ease-spring);
 }
 
-/* Hover state - subtle lift effect */
+/* Hover state - subtle lift effect with premium float */
 .list-item:hover {
   background: var(--color-background-elevated);
   border-color: var(--color-border-light);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm), 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 
-/* Focus state - accessible ring */
+/* Focus state - accessible ring with animation */
 .list-item:focus-visible {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
+  box-shadow: var(--shadow-focus-ring);
+  animation: focus-ring-expand var(--duration-focus) var(--ease-expo-out);
 }
 
 /* Active/pressed state - satisfying press feedback */
@@ -1394,6 +1397,7 @@ textarea:focus-visible,
    ============================================================================= */
 
 .view-mode-toggle {
+  position: relative;
   display: inline-flex;
   align-items: stretch;
   flex-wrap: wrap;
@@ -1405,7 +1409,29 @@ textarea:focus-visible,
   box-shadow: var(--shadow-sm);
 }
 
+/* Sliding indicator - animated background that follows active segment */
+.view-mode-indicator {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  height: calc(100% - 12px);
+  border-radius: var(--radius-md);
+  background: var(--view-toggle-active, var(--color-primary));
+  box-shadow: var(--shadow-md), var(--shadow-primary-glow);
+  pointer-events: none;
+  z-index: 0;
+  /* Smooth spring-like transition */
+  transition:
+    transform 350ms var(--ease-spring-soft),
+    width 300ms var(--ease-spring-soft);
+  /* Position controlled by CSS custom properties */
+  transform: translateX(var(--indicator-x, 0px));
+  width: var(--indicator-width, 100px);
+}
+
 .view-mode-segment {
+  position: relative;
+  z-index: 1; /* Above the sliding indicator */
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -1420,17 +1446,20 @@ textarea:focus-visible,
   font-weight: 600;
   letter-spacing: var(--tracking-normal);
   transition:
-    background var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
+    transform var(--duration-micro) var(--ease-out);
 }
 
+/* Active state - let sliding indicator provide background */
 .view-mode-segment.active {
-  background: var(--view-toggle-active, var(--color-primary));
   color: var(--view-toggle-active-text, var(--color-background));
-  border-color: var(--view-toggle-border, var(--color-border-light));
+  /* No background - the sliding indicator provides it */
+}
+
+/* Fallback for when JS indicator isn't available */
+.view-mode-toggle:not(.has-indicator) .view-mode-segment.active {
+  background: var(--view-toggle-active, var(--color-primary));
   box-shadow: var(--shadow-md);
 }
 
@@ -1438,6 +1467,11 @@ textarea:focus-visible,
   background: var(--color-background-hover);
   color: var(--view-toggle-text, var(--color-text));
   border-color: var(--view-toggle-border, var(--color-border-light));
+}
+
+/* Subtle press feedback */
+.view-mode-segment:active {
+  transform: scale(0.97);
 }
 
 .view-mode-segment:focus-visible {
