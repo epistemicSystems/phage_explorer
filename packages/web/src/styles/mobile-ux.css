@@ -1041,6 +1041,14 @@ html {
     max-width: 100vw;
   }
 
+  /* Stabilize viewport height against URL bar changes (first paint + dynamic updates) */
+  body,
+  #root,
+  .app-shell {
+    min-height: -webkit-fill-available;
+    min-height: var(--app-height, -webkit-fill-available);
+  }
+
   /* Fix: iOS Safari doesn't properly handle position:fixed with transform on parent */
   .app-shell {
     /* Prevent fixed children from breaking out of flow */
@@ -1055,6 +1063,13 @@ html {
     -webkit-appearance: none;
     appearance: none;
     border-radius: 0; /* iOS adds rounded corners by default */
+  }
+
+  /* Fix: prevent iOS Safari from zooming inputs with small font sizes */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
   }
 
   /* Fix: iOS Safari bounces the whole page when scrolling at edges */
@@ -1086,6 +1101,15 @@ html {
   .tab-btn {
     -webkit-user-select: none;
     user-select: none;
+  }
+
+  /* Fix: Prevent iOS callout/zoom on the sequence canvas */
+  .sequence-grid-canvas {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
   }
 
   /* Fix: iOS Safari sometimes shows focus outline after tap */

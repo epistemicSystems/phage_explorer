@@ -137,6 +137,7 @@ export function hapticImpact(): void {
 export function hapticCustom(pattern: number[]): void {
   if (prefersReducedMotion()) return;
   if (!supportsVibration()) return;
+  if (!hasUserActivation()) return;
 
   try {
     navigator.vibrate(pattern);
@@ -158,6 +159,84 @@ export function hapticCancel(): void {
   }
 }
 
+// =============================================================================
+// CONTEXTUAL HAPTIC SEQUENCES
+// Premium multi-step haptic patterns for complex interactions
+// =============================================================================
+
+/**
+ * Navigation complete - satisfying double-tap confirmation
+ * Use when: navigating to a new view, completing a swipe action
+ */
+export function hapticNavigationComplete(): void {
+  hapticLight();
+  setTimeout(() => hapticLight(), 100);
+}
+
+/**
+ * Long press buildup - increasing intensity as threshold approaches
+ * Use when: long-press is progressing toward activation
+ * @param progress - 0 to 1 indicating how close to activation
+ */
+export function hapticLongPressBuildup(progress: number): void {
+  if (progress > 0.7) {
+    hapticMedium();
+  } else if (progress > 0.4) {
+    hapticLight();
+  } else if (progress > 0.2) {
+    hapticSelection();
+  }
+}
+
+/**
+ * Success celebration - multi-step positive feedback
+ * Use when: completing an important action, achieving a goal
+ */
+export function hapticSuccessCelebration(): void {
+  hapticSuccess();
+  setTimeout(() => hapticLight(), 150);
+  setTimeout(() => hapticLight(), 300);
+}
+
+/**
+ * Error rhythm - emphatic negative feedback
+ * Use when: action failed, validation error
+ */
+export function hapticErrorRhythm(): void {
+  hapticError();
+  setTimeout(() => hapticLight(), 200);
+}
+
+/**
+ * Boundary hit - physical edge feedback
+ * Use when: reaching scroll boundary, limit of draggable area
+ */
+export function hapticBoundaryHit(): void {
+  hapticImpact();
+}
+
+/**
+ * Tick haptic for scrubbing interactions
+ * Use when: moving through discrete values (sliders, pickers)
+ * @param value - current value
+ * @param tickInterval - interval between ticks
+ * @param lastTickRef - mutable ref to track last tick (pass { current: 0 })
+ * @returns true if tick was triggered
+ */
+export function hapticTick(
+  value: number,
+  tickInterval: number,
+  lastTickRef: { current: number }
+): boolean {
+  const currentTick = Math.floor(value / tickInterval);
+  if (currentTick !== lastTickRef.current) {
+    hapticSelection();
+    lastTickRef.current = currentTick;
+    return true;
+  }
+  return false;
+}
+
 /**
  * React hook helper - returns haptic functions
  * Usage: const { tap, success } = useHaptics();
@@ -173,6 +252,13 @@ export const haptics = {
   impact: hapticImpact,
   cancel: hapticCancel,
   custom: hapticCustom,
+  // Contextual sequences
+  navigationComplete: hapticNavigationComplete,
+  longPressBuildup: hapticLongPressBuildup,
+  successCelebration: hapticSuccessCelebration,
+  errorRhythm: hapticErrorRhythm,
+  boundaryHit: hapticBoundaryHit,
+  tick: hapticTick,
 };
 
 export default haptics;

@@ -122,7 +122,14 @@ export function PhagePickerSheet({
     }
 
     usingPreloadedRef.current = false;
-    const worker = new Worker(new URL('../../workers/search.worker.ts', import.meta.url), { type: 'module' });
+    const workerUrl = new URL('../../workers/search.worker.ts', import.meta.url);
+    let worker: Worker;
+    try {
+      worker = new Worker(workerUrl, { type: 'module' });
+    } catch {
+      // Fallback for older browsers that support Workers but not module workers.
+      worker = new Worker(workerUrl);
+    }
     workerInstanceRef.current = worker;
     const wrapped = Comlink.wrap<SearchWorkerAPI>(worker);
     workerRef.current = wrapped;

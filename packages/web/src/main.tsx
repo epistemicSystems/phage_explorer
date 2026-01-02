@@ -8,6 +8,39 @@ import './styles.css';
 import './styles/scroll.css';
 import { queryClient } from './queryClient';
 
+function installViewportVariables(): void {
+  if (typeof window === 'undefined') return;
+  const root = document.documentElement;
+  let rafId: number | null = null;
+
+  const update = () => {
+    const vv = window.visualViewport;
+    const height = vv?.height ?? window.innerHeight;
+    const width = vv?.width ?? window.innerWidth;
+    root.style.setProperty('--visual-viewport-height', `${height}px`);
+    root.style.setProperty('--visual-viewport-width', `${width}px`);
+  };
+
+  const schedule = () => {
+    if (rafId !== null) return;
+    rafId = window.requestAnimationFrame(() => {
+      rafId = null;
+      update();
+    });
+  };
+
+  update();
+  window.addEventListener('resize', schedule);
+  window.addEventListener('orientationchange', schedule);
+  const vv = window.visualViewport;
+  if (vv) {
+    vv.addEventListener('resize', schedule);
+    vv.addEventListener('scroll', schedule);
+  }
+}
+
+installViewportVariables();
+
 const container = document.getElementById('root');
 
 if (container) {

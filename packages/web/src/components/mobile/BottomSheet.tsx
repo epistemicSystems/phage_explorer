@@ -120,6 +120,7 @@ export function BottomSheet({
 
   // Current snap point state
   const [snapPoint, setSnapPoint] = useState<SnapPoint>(initialSnapPoint);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Calculate actual heights
   const getSnapHeight = useCallback(
@@ -282,7 +283,10 @@ export function BottomSheet({
       }
 
       // On first touch, store initial y position
-      if (first) return spring.y.get();
+      if (first) {
+        setIsDragging(true);
+        return spring.y.get();
+      }
 
       const initialY = memo ?? spring.y.get();
       const windowHeight = window.visualViewport?.height ?? window.innerHeight;
@@ -332,6 +336,7 @@ export function BottomSheet({
       }
 
       if (last) {
+        setIsDragging(false);
         // On release, snap to nearest point
         const targetPoint = findNearestSnapPoint(newY, vy * dy);
         animateToSnapPoint(targetPoint);
@@ -542,7 +547,7 @@ export function BottomSheet({
 
   return createPortal(
     <div
-      className={`bottom-sheet ${shouldRender ? 'is-open' : ''}`}
+      className={`bottom-sheet ${shouldRender ? 'is-open' : ''} ${isDragging ? 'bottom-sheet--dragging' : ''}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
