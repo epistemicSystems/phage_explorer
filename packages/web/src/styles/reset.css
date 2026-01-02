@@ -44,6 +44,7 @@ ol[role='list'] {
 body {
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: var(--app-height, 100vh);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

@@ -335,3 +335,136 @@
 .skeleton-search-results__item .skeleton--shimmer {
   animation-delay: inherit;
 }
+
+/* ============================================================================
+ * CONTENT REVEAL ANIMATIONS
+ * Premium fade-up reveal when skeleton transitions to real content.
+ * Apply .content-reveal to the container when content is ready.
+ * ============================================================================ */
+
+@keyframes content-reveal-up {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes content-reveal-scale {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes content-reveal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Base content reveal - slide up */
+.content-reveal {
+  animation: content-reveal-up 400ms var(--ease-spring-soft, cubic-bezier(0.22, 1.0, 0.36, 1)) forwards;
+}
+
+/* Scale variant - for cards and panels */
+.content-reveal--scale {
+  animation: content-reveal-scale 400ms var(--ease-spring-soft, cubic-bezier(0.22, 1.0, 0.36, 1)) forwards;
+}
+
+/* Fade only variant - subtle for less emphasis */
+.content-reveal--fade {
+  animation: content-reveal-fade 300ms var(--ease-out, cubic-bezier(0, 0, 0.2, 1)) forwards;
+}
+
+/* ============================================================================
+ * STAGGERED CONTENT REVEAL FOR LISTS
+ * Apply .content-reveal-list to the container, children auto-stagger
+ * ============================================================================ */
+
+.content-reveal-list > * {
+  opacity: 0;
+  animation: content-reveal-up 400ms var(--ease-spring-soft, cubic-bezier(0.22, 1.0, 0.36, 1)) forwards;
+}
+
+/* Stagger delays (40ms increments for fluid cascade) */
+.content-reveal-list > *:nth-child(1) { animation-delay: 0ms; }
+.content-reveal-list > *:nth-child(2) { animation-delay: 40ms; }
+.content-reveal-list > *:nth-child(3) { animation-delay: 80ms; }
+.content-reveal-list > *:nth-child(4) { animation-delay: 120ms; }
+.content-reveal-list > *:nth-child(5) { animation-delay: 160ms; }
+.content-reveal-list > *:nth-child(6) { animation-delay: 200ms; }
+.content-reveal-list > *:nth-child(7) { animation-delay: 240ms; }
+.content-reveal-list > *:nth-child(8) { animation-delay: 280ms; }
+.content-reveal-list > *:nth-child(9) { animation-delay: 320ms; }
+.content-reveal-list > *:nth-child(10) { animation-delay: 360ms; }
+
+/* For longer lists, cap at 400ms to avoid waiting too long */
+.content-reveal-list > *:nth-child(n+11) { animation-delay: 400ms; }
+
+/* ============================================================================
+ * SKELETON TO CONTENT CROSSFADE
+ * Use with data-loading attribute for seamless transitions
+ * ============================================================================ */
+
+.skeleton-crossfade {
+  position: relative;
+}
+
+.skeleton-crossfade > .skeleton-wrapper {
+  transition: opacity 200ms var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
+}
+
+.skeleton-crossfade > .content-wrapper {
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
+  transition-delay: 100ms;
+}
+
+.skeleton-crossfade[data-loaded="true"] > .skeleton-wrapper {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.skeleton-crossfade[data-loaded="true"] > .content-wrapper {
+  opacity: 1;
+}
+
+/* ============================================================================
+ * ACCESSIBILITY: Reduced Motion
+ * ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .content-reveal,
+  .content-reveal--scale,
+  .content-reveal--fade,
+  .content-reveal-list > * {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .skeleton-crossfade > .skeleton-wrapper,
+  .skeleton-crossfade > .content-wrapper {
+    transition-duration: 0.01ms;
+  }
+}

@@ -58,7 +58,7 @@
   justify-content: center;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-2);
-  background: var(--color-surface);
+  background: var(--color-background-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
@@ -71,7 +71,7 @@
 
 .action-drawer__item:active {
   transform: scale(0.95);
-  background: var(--color-surface-active);
+  background: var(--color-background-active);
 }
 
 .action-drawer__item:focus-visible {
@@ -98,7 +98,7 @@
 
 .action-drawer__item--disabled:active {
   transform: none;
-  background: var(--color-surface);
+  background: var(--color-background-elevated);
 }
 
 /* =============================================================================
