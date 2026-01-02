@@ -60,7 +60,7 @@ export function LoadingProgress({
       className={`loading-progress ${className}`}
       style={{
         position: 'fixed',
-        top: 0,
+        top: 'env(safe-area-inset-top, 0px)',
         left: 0,
         right: 0,
         height: 3,

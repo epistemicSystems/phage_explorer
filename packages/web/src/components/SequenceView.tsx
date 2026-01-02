@@ -39,49 +39,36 @@ function ViewModeToggle({ value, onChange }: ViewModeToggleProps): React.ReactEl
   const segmentRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [indicatorStyle, setIndicatorStyle] = useState<{ x: number; width: number } | null>(null);
 
-  // Calculate indicator position when value changes
-  useEffect(() => {
+  // Shared helper to calculate indicator position
+  const updateIndicatorPosition = useCallback(() => {
     const activeIndex = VIEW_MODE_OPTIONS.findIndex(opt => opt.id === value);
     const activeButton = segmentRefs.current[activeIndex];
     const container = containerRef.current;
 
     if (!activeButton || !container) return;
 
-    // Use requestAnimationFrame for smooth measurement
-    requestAnimationFrame(() => {
-      const containerRect = container.getBoundingClientRect();
-      const buttonRect = activeButton.getBoundingClientRect();
-      const padding = 6; // Match the container padding
+    const containerRect = container.getBoundingClientRect();
+    const buttonRect = activeButton.getBoundingClientRect();
+    const padding = 6; // Match the container padding
 
-      setIndicatorStyle({
-        x: buttonRect.left - containerRect.left - padding,
-        width: buttonRect.width,
-      });
+    setIndicatorStyle({
+      x: buttonRect.left - containerRect.left - padding,
+      width: buttonRect.width,
     });
   }, [value]);
 
+  // Calculate indicator position when value changes
+  useEffect(() => {
+    // Use requestAnimationFrame for smooth measurement after render
+    const rafId = requestAnimationFrame(updateIndicatorPosition);
+    return () => cancelAnimationFrame(rafId);
+  }, [updateIndicatorPosition]);
+
   // Update on resize
   useEffect(() => {
-    const handleResize = () => {
-      const activeIndex = VIEW_MODE_OPTIONS.findIndex(opt => opt.id === value);
-      const activeButton = segmentRefs.current[activeIndex];
-      const container = containerRef.current;
-
-      if (!activeButton || !container) return;
-
-      const containerRect = container.getBoundingClientRect();
-      const buttonRect = activeButton.getBoundingClientRect();
-      const padding = 6;
-
-      setIndicatorStyle({
-        x: buttonRect.left - containerRect.left - padding,
-        width: buttonRect.width,
-      });
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [value]);
+    window.addEventListener('resize', updateIndicatorPosition);
+    return () => window.removeEventListener('resize', updateIndicatorPosition);
+  }, [updateIndicatorPosition]);
 
   const handleKey = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -968,7 +955,7 @@ function SequenceViewBase({
         <div
           style={{
             position: 'fixed',
-            right: '12px',
+            right: 'calc(12px + env(safe-area-inset-right))',
             bottom: 'calc(86px + env(safe-area-inset-bottom))',
             zIndex: 20,
             background: colors.backgroundAlt,

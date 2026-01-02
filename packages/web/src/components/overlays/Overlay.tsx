@@ -271,7 +271,13 @@ export function Overlay({
     display: 'flex',
     justifyContent: effectivePosition === 'left' ? 'flex-start' : effectivePosition === 'right' ? 'flex-end' : 'center',
     alignItems: effectivePosition === 'top' ? 'flex-start' : effectivePosition === 'bottom' ? 'flex-end' : 'center',
-    padding: shouldUseBottomSheet ? 0 : isMobile ? '1rem' : effectivePosition === 'center' ? '2rem' : 0,
+    padding: shouldUseBottomSheet
+      ? 0
+      : isMobile
+        ? 'calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left))'
+        : effectivePosition === 'center'
+          ? '2rem'
+          : 0,
     zIndex,
     cursor: showBackdrop && closeOnBackdrop && isBackdropHovered ? 'pointer' : 'default',
     // Hover transition handled separately from entry animation
