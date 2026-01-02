@@ -177,15 +177,42 @@ export function hapticNavigationComplete(): void {
  * Long press buildup - increasing intensity as threshold approaches
  * Use when: long-press is progressing toward activation
  * @param progress - 0 to 1 indicating how close to activation
+ * @param lastThresholdRef - mutable ref to track last threshold crossed (pass { current: 0 })
+ * @returns true if haptic was triggered
  */
-export function hapticLongPressBuildup(progress: number): void {
+export function hapticLongPressBuildup(
+  progress: number,
+  lastThresholdRef: { current: number }
+): boolean {
+  // Threshold levels: 0 = none, 1 = 0.2, 2 = 0.4, 3 = 0.7
+  let currentThreshold = 0;
   if (progress > 0.7) {
-    hapticMedium();
+    currentThreshold = 3;
   } else if (progress > 0.4) {
-    hapticLight();
+    currentThreshold = 2;
   } else if (progress > 0.2) {
-    hapticSelection();
+    currentThreshold = 1;
   }
+
+  // Only fire haptic when crossing to a higher threshold
+  if (currentThreshold > lastThresholdRef.current) {
+    lastThresholdRef.current = currentThreshold;
+    if (currentThreshold === 3) {
+      hapticMedium();
+    } else if (currentThreshold === 2) {
+      hapticLight();
+    } else if (currentThreshold === 1) {
+      hapticSelection();
+    }
+    return true;
+  }
+
+  // Reset if progress decreases below current threshold
+  if (currentThreshold < lastThresholdRef.current) {
+    lastThresholdRef.current = currentThreshold;
+  }
+
+  return false;
 }
 
 /**
