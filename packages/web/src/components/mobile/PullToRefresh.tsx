@@ -11,7 +11,7 @@
  * Uses @use-gesture/react and @react-spring/web for native-feeling physics.
  */
 
-import React, { useCallback, useRef, useState, type ReactNode } from 'react';
+import React, { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSpring, animated, config } from '@react-spring/web';
 import { useDrag } from '@use-gesture/react';
 import { haptics } from '../../utils/haptics';
@@ -69,6 +69,9 @@ export function PullToRefresh({
   // Track if we've triggered the ready haptic
   const hasTriggeredReadyHaptic = useRef(false);
 
+  // Track spinner interval for cleanup on unmount
+  const spinnerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Spring for pull distance and indicator
   const [spring, api] = useSpring(() => ({
     pullDistance: 0,
@@ -79,6 +82,16 @@ export function PullToRefresh({
       ? { duration: 0 }
       : { ...config.wobbly, tension: 400, friction: 30 },
   }));
+
+  // Cleanup spinner interval on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (spinnerIntervalRef.current !== null) {
+        clearInterval(spinnerIntervalRef.current);
+        spinnerIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Apply rubberband effect
   const applyRubberband = useCallback(
@@ -118,7 +131,7 @@ export function PullToRefresh({
 
   // Drag gesture handler
   const bindDrag = useDrag(
-    ({ movement: [, my], velocity: [, vy], direction: [, dy], active, first, cancel }) => {
+    ({ movement: [, my], active, first, cancel }) => {
       if (!enabled) return;
 
       // Only allow pull when at top of scroll
@@ -185,8 +198,11 @@ export function PullToRefresh({
             opacity: 1,
           });
 
-          // Start spinner animation
-          const spinnerInterval = setInterval(() => {
+          // Start spinner animation (use ref for cleanup on unmount)
+          if (spinnerIntervalRef.current !== null) {
+            clearInterval(spinnerIntervalRef.current);
+          }
+          spinnerIntervalRef.current = setInterval(() => {
             api.set({
               spinnerRotation: (spring.spinnerRotation.get() + SPINNER_ROTATION_SPEED) % 360,
             });
@@ -194,7 +210,10 @@ export function PullToRefresh({
 
           // Execute refresh
           completeRefresh().finally(() => {
-            clearInterval(spinnerInterval);
+            if (spinnerIntervalRef.current !== null) {
+              clearInterval(spinnerIntervalRef.current);
+              spinnerIntervalRef.current = null;
+            }
           });
         } else {
           // Not ready, spring back
