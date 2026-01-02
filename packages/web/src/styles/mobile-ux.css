@@ -432,21 +432,16 @@ html {
    Premium shimmer effect with Stripe-level polish
    ============================================================================= */
 
-@keyframes skeleton-shimmer {
+/* Note: skeleton-shimmer and skeleton-pulse keyframes are defined in components.css
+   This file uses those keyframes via the .skeleton class for consistency.
+   The transform-based shimmer effect below uses a distinct name to avoid conflicts. */
+
+@keyframes skeleton-translate-shimmer {
   0% {
     transform: translateX(-100%);
   }
   100% {
     transform: translateX(200%);
-  }
-}
-
-@keyframes skeleton-pulse {
-  0%, 100% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 0.4;
   }
 }
 
@@ -479,7 +474,7 @@ html {
     transparent 65%,
     transparent 100%
   );
-  animation: skeleton-shimmer 2s ease-in-out infinite;
+  animation: skeleton-translate-shimmer 2s ease-in-out infinite;
   will-change: transform;
 }
 
@@ -494,7 +489,7 @@ html {
     rgba(255, 255, 255, 0.02) 50%,
     transparent 100%
   );
-  animation: skeleton-shimmer 2s ease-in-out infinite;
+  animation: skeleton-translate-shimmer 2s ease-in-out infinite;
   animation-delay: 0.3s;
   will-change: transform;
 }
