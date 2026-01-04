@@ -14,9 +14,9 @@
  * The precache with content-hashed filenames handles JS/CSS versioning.
  */
 
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { CacheFirst, StaleWhileRevalidate, NetworkFirst } from 'workbox-strategies';
+import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
 declare const self: ServiceWorkerGlobalScope;
@@ -35,11 +35,7 @@ const CACHE_NAMES = {
   pdb: 'pdb-structures-v2',
   fonts: 'google-fonts-v2',
   images: 'images-v2',
-  pages: 'pages-v2',
 } as const;
-
-/** Network timeout before falling back to cache (ms) */
-const NETWORK_TIMEOUT_MS = 3000;
 
 // =============================================================================
 // Cache Cleanup
@@ -58,7 +54,7 @@ const OLD_CACHE_PREFIXES = [
   'google-fonts',
   'images',
   'static-resources', // v1 JS/CSS cache that caused stale code bugs
-  'pages',
+  'pages-v2',
 ];
 
 /** Delete old v1 caches */
@@ -215,23 +211,11 @@ registerRoute(
 // If a script isn't in the precache manifest, it will be fetched fresh from network.
 
 // =============================================================================
-// Navigation Caching
+// Navigation Handling (App Shell)
 // =============================================================================
 
-// Handle navigation requests with NetworkFirst + timeout
-// Falls back to cache quickly on slow connections
-const navigationHandler = new NetworkFirst({
-  cacheName: CACHE_NAMES.pages,
-  networkTimeoutSeconds: NETWORK_TIMEOUT_MS / 1000,
-  plugins: [
-    new ExpirationPlugin({
-      maxEntries: 10,
-      maxAgeSeconds: 24 * 60 * 60, // 1 day
-    }),
-  ],
-});
-
-registerRoute(new NavigationRoute(navigationHandler));
+// Serve the precached app shell for navigations to avoid mismatched HTML/assets.
+registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')));
 
 // =============================================================================
 // Service Worker Lifecycle
