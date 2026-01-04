@@ -13,6 +13,7 @@ import { useHotkey } from '../../hooks';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
+import type { ThemePalette } from '../../theme/types';
 import {
   analyzeRNAStructure,
   type RNAStructureAnalysis,
@@ -72,7 +73,7 @@ interface StressHeatStripProps {
   width: number;
   height: number;
   onHover?: (codon: CodonStress | null) => void;
-  colors: Record<string, string>;
+  colors: ThemePalette;
 }
 
 function StressHeatStrip({
@@ -133,7 +134,7 @@ interface MFEPlotProps {
   windows: RNAStructureAnalysis['windows'];
   width: number;
   height: number;
-  colors: Record<string, string>;
+  colors: ThemePalette;
 }
 
 function MFEPlot({ windows, width, height, colors }: MFEPlotProps): React.ReactElement {
@@ -216,7 +217,7 @@ function MFEPlot({ windows, width, height, colors }: MFEPlotProps): React.ReactE
 
 interface RegulatoryCardProps {
   hypothesis: RegulatoryHypothesis;
-  colors: Record<string, string>;
+  colors: ThemePalette;
 }
 
 function RegulatoryCard({ hypothesis, colors }: RegulatoryCardProps): React.ReactElement {
@@ -273,7 +274,7 @@ function RegulatoryCard({ hypothesis, colors }: RegulatoryCardProps): React.Reac
 
 interface CodonDetailProps {
   codon: CodonStress;
-  colors: Record<string, string>;
+  colors: ThemePalette;
 }
 
 function CodonDetail({ codon, colors }: CodonDetailProps): React.ReactElement {
@@ -512,9 +513,10 @@ export function RNAStructureOverlay({
             <label style={{ color: colors.textMuted, fontSize: '0.8rem' }}>
               Gene:
               <select
-                value={selectedGene?.locusTag ?? ''}
-                onChange={e => {
-                  const gene = genes.find(g => g.locusTag === e.target.value);
+                value={selectedGene ? (selectedGene.locusTag ?? String(selectedGene.id)) : ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const gene = genes.find((g) => (g.locusTag ?? String(g.id)) === value);
                   setSelectedGene(gene ?? null);
                 }}
                 style={{
@@ -528,8 +530,8 @@ export function RNAStructureOverlay({
                 }}
               >
                 <option value="">Select a gene...</option>
-                {genes.map(g => (
-                  <option key={g.locusTag} value={g.locusTag}>
+                {genes.map((g) => (
+                  <option key={g.id} value={g.locusTag ?? String(g.id)}>
                     {g.name || g.locusTag} ({g.startPos.toLocaleString()}-{g.endPos.toLocaleString()})
                   </option>
                 ))}

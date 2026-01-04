@@ -76,12 +76,11 @@ export async function preloadWorkers(): Promise<void> {
   preloadPromise = (async () => {
     try {
       // Initialize search worker
-      const url = new URL('./search.worker.ts', import.meta.url);
       try {
-        searchWorker = new Worker(url, { type: 'module' });
+        searchWorker = new Worker(new URL('./search.worker.ts', import.meta.url), { type: 'module' });
       } catch {
         // Fallback for older browsers that support Workers but not module workers.
-        searchWorker = new Worker(url);
+        searchWorker = new Worker(new URL('./search.worker.ts', import.meta.url));
       }
       searchWorkerAPI = Comlink.wrap<SearchWorkerAPI>(searchWorker);
 

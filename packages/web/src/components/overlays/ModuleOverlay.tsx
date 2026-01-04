@@ -13,6 +13,7 @@ import { useHotkey } from '../../hooks';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
+import type { ThemePalette } from '../../theme/types';
 import {
   computeModuleCoherence,
   type ModuleReport,
@@ -92,7 +93,7 @@ function QualityBadge({ grade }: QualityBadgeProps): React.ReactElement {
 
 interface ModuleCardProps {
   status: ModuleStatus;
-  colors: Record<string, string>;
+  colors: ThemePalette;
 }
 
 function ModuleCard({ status, colors }: ModuleCardProps): React.ReactElement {
@@ -183,7 +184,7 @@ function ModuleCard({ status, colors }: ModuleCardProps): React.ReactElement {
 
 interface StoichiometryChartProps {
   results: StoichiometryResult[];
-  colors: Record<string, string>;
+  colors: ThemePalette;
 }
 
 function StoichiometryChart({ results, colors }: StoichiometryChartProps): React.ReactElement {
@@ -245,7 +246,7 @@ function StoichiometryChart({ results, colors }: StoichiometryChartProps): React
 
 interface SuggestionsListProps {
   suggestions: Suggestion[];
-  colors: Record<string, string>;
+  colors: ThemePalette;
 }
 
 function SuggestionsList({ suggestions, colors }: SuggestionsListProps): React.ReactElement {

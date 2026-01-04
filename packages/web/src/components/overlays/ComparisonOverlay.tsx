@@ -54,6 +54,13 @@ interface ComparisonOverlayProps {
   repository: PhageRepository | null;
 }
 
+type ComparisonWorkerPayload = {
+  result: GenomeComparisonResult;
+  diffMask?: Uint8Array;
+  diffPositions?: number[];
+  diffStats?: DiffStatsType | null;
+};
+
 export const ComparisonOverlay: React.FC<ComparisonOverlayProps> = ({ repository }) => {
   const { isOpen, close } = useOverlay();
   const { theme } = useTheme();
@@ -86,12 +93,11 @@ export const ComparisonOverlay: React.FC<ComparisonOverlayProps> = ({ repository
 
   // Create worker once
   useEffect(() => {
-    const workerUrl = new URL('../../workers/comparison.worker.ts', import.meta.url);
     let worker: Worker;
     try {
-      worker = new Worker(workerUrl, { type: 'module' });
+      worker = new Worker(new URL('../../workers/comparison.worker.ts', import.meta.url), { type: 'module' });
     } catch {
-      worker = new Worker(workerUrl);
+      worker = new Worker(new URL('../../workers/comparison.worker.ts', import.meta.url));
     }
     workerRef.current = worker;
     return () => {
@@ -153,16 +159,9 @@ export const ComparisonOverlay: React.FC<ComparisonOverlayProps> = ({ repository
       };
 
       const worker = workerRef.current;
-      let payload:
-        | {
-            result: GenomeComparisonResult;
-            diffMask?: Uint8Array;
-            diffPositions?: number[];
-            diffStats?: DiffStatsType | null;
-          }
-        | null = null;
+      let payload: ComparisonWorkerPayload | null = null;
       if (worker) {
-        payload = await new Promise<typeof payload>((resolve, reject) => {
+        payload = await new Promise<ComparisonWorkerPayload>((resolve, reject) => {
           const handleMessage = (event: MessageEvent<ComparisonWorkerMessage>) => {
             if (event.data.jobId && event.data.jobId !== jobId) return;
             worker.removeEventListener('message', handleMessage);

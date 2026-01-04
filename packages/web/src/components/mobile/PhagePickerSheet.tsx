@@ -122,13 +122,12 @@ export function PhagePickerSheet({
     }
 
     usingPreloadedRef.current = false;
-    const workerUrl = new URL('../../workers/search.worker.ts', import.meta.url);
     let worker: Worker;
     try {
-      worker = new Worker(workerUrl, { type: 'module' });
+      worker = new Worker(new URL('../../workers/search.worker.ts', import.meta.url), { type: 'module' });
     } catch {
       // Fallback for older browsers that support Workers but not module workers.
-      worker = new Worker(workerUrl);
+      worker = new Worker(new URL('../../workers/search.worker.ts', import.meta.url));
     }
     workerInstanceRef.current = worker;
     const wrapped = Comlink.wrap<SearchWorkerAPI>(worker);
@@ -230,6 +229,18 @@ export function PhagePickerSheet({
   // Focus search input when sheet opens
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
+      // On touch devices, auto-focus triggers the on-screen keyboard and can cause
+      // disruptive viewport shifts. Let users tap to search instead.
+      const hasTouch =
+        typeof window !== 'undefined' &&
+        ('ontouchstart' in window ||
+          (typeof navigator !== 'undefined' && (navigator.maxTouchPoints ?? 0) > 0));
+      const canMatchMedia = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+      const pointerCoarse = canMatchMedia && window.matchMedia('(pointer: coarse)').matches;
+      const hoverNone = canMatchMedia && window.matchMedia('(hover: none)').matches;
+      const narrowViewport = typeof window !== 'undefined' && window.innerWidth <= 768;
+      if (hasTouch && (pointerCoarse || hoverNone || narrowViewport)) return;
+
       // Small delay to let animation start
       const timer = setTimeout(() => {
         searchInputRef.current?.focus();

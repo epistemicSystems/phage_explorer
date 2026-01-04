@@ -569,7 +569,7 @@ export function EpistasisOverlay({
 
   // Hotkey to toggle overlay
   useHotkey(
-    { key: 'e', alt: true },
+    { key: 'e', modifiers: { alt: true } },
     'Epistasis Explorer',
     () => toggle('epistasis'),
     { modes: ['NORMAL'], category: 'Analysis' }
@@ -701,7 +701,7 @@ export function EpistasisOverlay({
     width: '680px',
     maxWidth: '95vw',
     maxHeight: '85vh',
-    background: colors.bg,
+    background: colors.background,
     border: `1px solid ${colors.border}`,
     borderRadius: '8px',
     padding: '20px',

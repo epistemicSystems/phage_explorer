@@ -126,12 +126,11 @@ export function SyntenyOverlay({
 
   // Initialize worker
   useEffect(() => {
-    const workerUrl = new URL('../../workers/synteny-worker.ts', import.meta.url);
     let worker: Worker;
     try {
-      worker = new Worker(workerUrl, { type: 'module' });
+      worker = new Worker(new URL('../../workers/synteny-worker.ts', import.meta.url), { type: 'module' });
     } catch {
-      worker = new Worker(workerUrl);
+      worker = new Worker(new URL('../../workers/synteny-worker.ts', import.meta.url));
     }
     workerRef.current = worker;
     return () => {

@@ -140,13 +140,12 @@ export function CGROverlay({ repository, currentPhage }: CGROverlayProps): React
   useEffect(() => {
     if (workerRef.current) return () => undefined;
 
-    const workerUrl = new URL('../../workers/hilbert.worker.ts', import.meta.url);
     let worker: Worker;
     try {
-      worker = new Worker(workerUrl, { type: 'module' });
+      worker = new Worker(new URL('../../workers/hilbert.worker.ts', import.meta.url), { type: 'module' });
     } catch {
       try {
-        worker = new Worker(workerUrl);
+        worker = new Worker(new URL('../../workers/hilbert.worker.ts', import.meta.url));
       } catch {
         workerRef.current = null;
         workerApiRef.current = null;

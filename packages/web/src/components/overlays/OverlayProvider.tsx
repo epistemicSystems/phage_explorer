@@ -106,6 +106,7 @@ export type OverlayId =
   | 'resistanceEvolution'
   | 'nicheNetwork'
   | 'phylodynamics'
+  | 'epistasis'
   | 'environmentalProvenance';
 
 export interface OverlayConfig {

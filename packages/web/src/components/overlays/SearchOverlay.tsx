@@ -109,12 +109,11 @@ export function SearchOverlay({ repository, currentPhage }: SearchOverlayProps):
 
     // No preloaded worker - create new one (fallback)
     usingPreloadedRef.current = false;
-    const workerUrl = new URL('../../workers/search.worker.ts', import.meta.url);
     let worker: Worker;
     try {
-      worker = new Worker(workerUrl, { type: 'module' });
+      worker = new Worker(new URL('../../workers/search.worker.ts', import.meta.url), { type: 'module' });
     } catch {
-      worker = new Worker(workerUrl);
+      worker = new Worker(new URL('../../workers/search.worker.ts', import.meta.url));
     }
     workerInstanceRef.current = worker;
     const wrappedWorker = Comlink.wrap<SearchWorkerAPI>(worker);

@@ -446,14 +446,13 @@ export class DatabaseLoader {
       throw new Error('Worker not available');
     }
 
-    const workerUrl = new URL('./gzip-decompress.worker.ts', import.meta.url);
     let worker: Worker;
     try {
       // Prefer module workers (fastest path in modern browsers).
-      worker = new Worker(workerUrl, { type: 'module' });
+      worker = new Worker(new URL('./gzip-decompress.worker.ts', import.meta.url), { type: 'module' });
     } catch {
       // Fallback for older browsers that support Workers but not module workers.
-      worker = new Worker(workerUrl);
+      worker = new Worker(new URL('./gzip-decompress.worker.ts', import.meta.url));
     }
 
     worker.onmessage = (event: MessageEvent) => {

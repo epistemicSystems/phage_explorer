@@ -350,8 +350,12 @@ export function HGTOverlay({
 
   // Handle track click
   const handleClick = useCallback((info: GenomeTrackInteraction) => {
-    if (info.segment?.data?.stamp) {
-      setSelectedStamp(info.segment.data.stamp as PassportStamp);
+    const data = info.segment?.data;
+    if (!data || typeof data !== 'object') return;
+    if (!('stamp' in data)) return;
+    const stamp = (data as { stamp?: PassportStamp }).stamp;
+    if (stamp) {
+      setSelectedStamp(stamp);
     }
   }, []);
 

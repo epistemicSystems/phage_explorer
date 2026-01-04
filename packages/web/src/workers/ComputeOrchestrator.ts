@@ -123,21 +123,21 @@ export class ComputeOrchestrator {
     let api: SharedAnalysisWorkerAPI | SimulationWorkerAPI;
 
     try {
-      const create = (url: URL): Worker => {
+      if (type === 'analysis') {
         try {
           // Prefer module workers in modern browsers.
-          return new Worker(url, { type: 'module' });
+          worker = new Worker(new URL('./analysis.worker.ts', import.meta.url), { type: 'module' });
         } catch {
           // Fallback for older browsers that support Workers but not module workers.
-          return new Worker(url);
+          worker = new Worker(new URL('./analysis.worker.ts', import.meta.url));
         }
-      };
-
-      if (type === 'analysis') {
-        worker = create(new URL('./analysis.worker.ts', import.meta.url));
         api = Comlink.wrap<SharedAnalysisWorkerAPI>(worker);
       } else {
-        worker = create(new URL('./simulation.worker.ts', import.meta.url));
+        try {
+          worker = new Worker(new URL('./simulation.worker.ts', import.meta.url), { type: 'module' });
+        } catch {
+          worker = new Worker(new URL('./simulation.worker.ts', import.meta.url));
+        }
         api = Comlink.wrap<SimulationWorkerAPI>(worker);
       }
     } catch (error) {
@@ -525,14 +525,14 @@ export class ComputeOrchestrator {
         return null;
       }
 
-      const dim = vectors[0]!.frequencies.length;
+      const dim = vectors[0].frequencies.length;
       if (dim <= 0) {
         finish(false);
         return null;
       }
 
       for (let i = 1; i < vectors.length; i++) {
-        if (vectors[i]!.frequencies.length !== dim) {
+        if (vectors[i].frequencies.length !== dim) {
           throw new Error('All PCA vectors must have the same dimensionality');
         }
       }

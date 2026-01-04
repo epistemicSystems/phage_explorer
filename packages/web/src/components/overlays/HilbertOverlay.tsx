@@ -142,13 +142,12 @@ export function HilbertOverlay({ repository, currentPhage }: HilbertOverlayProps
   useEffect(() => {
     if (workerRef.current) return () => undefined;
 
-    const workerUrl = new URL('../../workers/hilbert.worker.ts', import.meta.url);
     let worker: Worker;
     try {
-      worker = new Worker(workerUrl, { type: 'module' });
+      worker = new Worker(new URL('../../workers/hilbert.worker.ts', import.meta.url), { type: 'module' });
     } catch {
       try {
-        worker = new Worker(workerUrl);
+        worker = new Worker(new URL('../../workers/hilbert.worker.ts', import.meta.url));
       } catch {
         // Older browsers may not support module workers; fall back to main-thread rendering.
         workerRef.current = null;
@@ -250,7 +249,7 @@ export function HilbertOverlay({ repository, currentPhage }: HilbertOverlayProps
         // Some TS libdefs (and some browser APIs) don't accept SharedArrayBuffer-backed views for ImageData,
         // so we gate the zero-copy path on the buffer being a real ArrayBuffer.
         const image = result.buffer.buffer instanceof ArrayBuffer
-          ? new ImageData(result.buffer as unknown as Uint8ClampedArray, result.size, result.size)
+          ? new ImageData(result.buffer as unknown as Uint8ClampedArray<ArrayBuffer>, result.size, result.size)
           : (() => {
               const img = new ImageData(result.size, result.size);
               img.data.set(result.buffer);
