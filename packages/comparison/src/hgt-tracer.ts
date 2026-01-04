@@ -1,7 +1,7 @@
 import { jaccardIndex, extractKmerSet } from './kmer-analysis';
 import type { GeneInfo } from '@phage-explorer/core';
 import type { HGTAnalysis, GenomicIsland, DonorCandidate, PassportStamp } from './types';
-import { getMinHashCache, makeCacheKeyFromId, type CacheStats } from './minhash-cache';
+import { getMinHashCache, makeCacheKeyFromId } from './minhash-cache';
 
 const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
@@ -65,7 +65,8 @@ function computeMinHashSignature(
   numHashes: number,
   canonical = true
 ): Uint32Array | null {
-  if (!wasmMinHashAvailable || !textEncoder) return null;
+  const encoder = textEncoder;
+  if (!wasmMinHashAvailable || !encoder) return null;
 
   const fn = canonical ? wasmMinHashSignatureCanonical : wasmMinHashSignature;
   if (!fn) return null;
@@ -79,8 +80,8 @@ function computeMinHashSignature(
   const cache = getMinHashCache();
   return cache.getOrCompute(normalizedSeq, k, numHashes, canonical, () => {
     try {
-      const bytes = textEncoder!.encode(normalizedSeq);
-      const sig = fn!(bytes, k, numHashes);
+      const bytes = encoder.encode(normalizedSeq);
+      const sig = fn(bytes, k, numHashes);
       const result = new Uint32Array(sig.signature); // Copy before free
       sig.free();
       return result;

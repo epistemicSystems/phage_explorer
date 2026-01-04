@@ -384,6 +384,33 @@ export function minHashJaccard(
   k: number,
   numHashes: number = 128
 ): number {
+  // Fast path for degenerate inputs: if both sequences have no valid k-mers,
+  // treat them as identical (Jaccard(∅, ∅) = 1). If only one is empty, similarity is 0.
+  //
+  // This also normalizes behavior between the JS and WASM implementations.
+  if (k < 1 || numHashes < 1) return 0;
+
+  const hasValidKmer = (seq: string): boolean => {
+    if (seq.length < k) return false;
+    let run = 0;
+    for (let i = 0; i < seq.length; i++) {
+      const ch = seq.charCodeAt(i);
+      // Only treat N/n as ambiguous, matching extractKmerSet/minhash JS behavior.
+      if (ch === 78 || ch === 110) {
+        run = 0;
+      } else {
+        run++;
+        if (run >= k) return true;
+      }
+    }
+    return false;
+  };
+
+  const hasA = hasValidKmer(sequenceA);
+  const hasB = hasValidKmer(sequenceB);
+  if (!hasA && !hasB) return 1;
+  if (!hasA || !hasB) return 0;
+
   // Use WASM implementation when available (3-5x faster)
   if (wasmAvailable && wasmMinHashJaccard) {
     try {
