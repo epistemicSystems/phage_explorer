@@ -18,6 +18,7 @@ export class PostProcessPipeline {
   private texture: WebGLTexture | null = null;
   private positionBuffer: WebGLBuffer | null = null;
   private vao: WebGLVertexArrayObject | null = null;
+  private textureUniform: WebGLUniformLocation | null = null;
   private uTime = 0;
   private disabled = false;
 
@@ -121,6 +122,13 @@ export class PostProcessPipeline {
       this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
       this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
 
+      // Bind texture sampler explicitly to unit 0 (some drivers are picky about defaults).
+      this.gl.useProgram(this.program);
+      this.textureUniform = this.gl.getUniformLocation(this.program, 'u_texture');
+      if (this.textureUniform) {
+        this.gl.uniform1i(this.textureUniform, 0);
+      }
+
     } catch (e) {
       console.error('Failed to init PostProcessPipeline:', e);
       this.gl = null;
@@ -157,7 +165,12 @@ export class PostProcessPipeline {
     }
 
     this.initWebGL();
-    if (!this.gl || !this.program || !this.glCanvas) return false;
+    const gl = this.gl;
+    if (!gl || !this.program || !this.glCanvas || !this.texture || !this.vao) return false;
+    if (typeof gl.isContextLost === 'function' && gl.isContextLost()) {
+      this.disabled = true;
+      return false;
+    }
 
     const width = destination.width;
     const height = destination.height;
@@ -166,33 +179,63 @@ export class PostProcessPipeline {
     if (this.glCanvas.width !== width || this.glCanvas.height !== height) {
       this.glCanvas.width = width;
       this.glCanvas.height = height;
-      this.gl.viewport(0, 0, width, height);
+      gl.viewport(0, 0, width, height);
     }
 
     // Upload texture
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, source);
+    try {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    } catch {
+      // Texture uploads can fail for unsupported TexImageSource types on some browsers/GPU combos.
+      this.disabled = true;
+      return false;
+    }
 
     // Draw
-    this.gl.useProgram(this.program);
-    this.gl.bindVertexArray(this.vao);
+    gl.useProgram(this.program);
+    gl.bindVertexArray(this.vao);
 
     // Uniforms
-    this.gl.uniform2f(this.gl.getUniformLocation(this.program, 'u_resolution'), width, height);
-    this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_time'), this.uTime);
-    this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_scanlineIntensity'), this.opts.enableScanlines ? (this.opts.scanlineIntensity ?? 0.15) : 0.0);
-    this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_aberrationOffset'), this.opts.enableChromaticAberration ? (this.opts.aberrationOffset ?? 1.5) : 0.0);
-    this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_bloomIntensity'), this.opts.enableBloom ? (this.opts.bloomIntensity ?? 0.4) : 0.0);
+    gl.uniform2f(gl.getUniformLocation(this.program, 'u_resolution'), width, height);
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_time'), this.uTime);
+    gl.uniform1f(
+      gl.getUniformLocation(this.program, 'u_scanlineIntensity'),
+      this.opts.enableScanlines ? (this.opts.scanlineIntensity ?? 0.15) : 0.0
+    );
+    gl.uniform1f(
+      gl.getUniformLocation(this.program, 'u_aberrationOffset'),
+      this.opts.enableChromaticAberration ? (this.opts.aberrationOffset ?? 1.5) : 0.0
+    );
+    gl.uniform1f(
+      gl.getUniformLocation(this.program, 'u_bloomIntensity'),
+      this.opts.enableBloom ? (this.opts.bloomIntensity ?? 0.4) : 0.0
+    );
 
-    this.gl.drawArrays(this.gl.TRIANGLES, 0, 6);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    const glError = gl.getError();
+    if (glError !== gl.NO_ERROR) {
+      this.disabled = true;
+      return false;
+    }
 
     // Copy back to destination 2D canvas
     const ctx = destination.getContext('2d');
-    if (ctx) {
+    if (!ctx) {
+      this.disabled = true;
+      return false;
+    }
+
+    try {
       ctx.globalCompositeOperation = 'copy';
       // Cast to CanvasImageSource because OffscreenCanvas types can be tricky
       ctx.drawImage(this.glCanvas as unknown as CanvasImageSource, 0, 0);
       ctx.globalCompositeOperation = 'source-over';
+    } catch {
+      this.disabled = true;
+      return false;
     }
 
     this.uTime += 0.01;
@@ -210,6 +253,7 @@ export class PostProcessPipeline {
       this.texture = null;
       this.positionBuffer = null;
       this.vao = null;
+      this.textureUniform = null;
       return;
     }
 
@@ -227,6 +271,7 @@ export class PostProcessPipeline {
       this.texture = null;
       this.positionBuffer = null;
       this.vao = null;
+      this.textureUniform = null;
     }
   }
 }

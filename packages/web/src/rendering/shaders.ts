@@ -62,7 +62,10 @@ void main() {
 
   // Vignette
   float d = length(distFromCenter);
-  float vignette = smoothstep(0.8, 0.4, d); // 0.8 at corner, 0.4 at center
+  // NOTE: smoothstep(edge0, edge1, x) requires edge0 < edge1; reversed edges are undefined
+  // on some GPUs and can yield NaNs (which then turn the whole frame black).
+  // We want a subtle corner darkening, so compute a valid smoothstep and invert it.
+  float vignette = 1.0 - smoothstep(0.4, 0.8, d); // 1.0 at center, 0.0 at edges
   color *= mix(1.0, vignette, 0.3); // 30% vignette strength
 
   // Noise / Film Grain (subtle)

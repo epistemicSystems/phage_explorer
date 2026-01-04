@@ -258,6 +258,7 @@ export class VirtualScroller {
   private lastTouchX = 0;
   private lastTouchY = 0;
   private lastTouchTime = 0;
+  private touchAxisLock: 'none' | 'x' | 'y' = 'none';
 
   /**
    * Handle wheel event
@@ -329,6 +330,7 @@ export class VirtualScroller {
     this.lastTouchX = touch.clientX;
     this.lastTouchY = touch.clientY;
     this.lastTouchTime = performance.now();
+    this.touchAxisLock = 'none';
 
     // Stop any ongoing momentum
     this.stopMomentum();
@@ -345,6 +347,7 @@ export class VirtualScroller {
     this.lastTouchX = x;
     this.lastTouchY = y;
     this.lastTouchTime = performance.now();
+    this.touchAxisLock = 'none';
     this.stopMomentum();
   }
 
@@ -359,9 +362,48 @@ export class VirtualScroller {
     const now = performance.now();
     const dt = Math.max(1, now - this.lastTouchTime);
 
+    const totalDeltaX = this.touchStartX - touch.clientX;
+    const totalDeltaY = this.touchStartY - touch.clientY;
+
+    // Axis lock: avoid accidental horizontal drift when intending to scroll vertically.
+    if (this.touchAxisLock === 'none') {
+      const absDx = Math.abs(totalDeltaX);
+      const absDy = Math.abs(totalDeltaY);
+      const threshold = 8; // px
+      if (absDx < threshold && absDy < threshold) {
+        this.lastTouchX = touch.clientX;
+        this.lastTouchY = touch.clientY;
+        this.lastTouchTime = now;
+        return;
+      }
+
+      const dominance = 1.2;
+      if (absDx >= absDy * dominance) {
+        this.touchAxisLock = 'x';
+      } else if (absDy >= absDx * dominance) {
+        this.touchAxisLock = 'y';
+      } else {
+        this.touchAxisLock = absDx > absDy ? 'x' : 'y';
+      }
+
+      // Rebase to avoid a jump when the lock is chosen.
+      this.touchStartX = touch.clientX;
+      this.touchStartY = touch.clientY;
+      this.touchStartScrollX = this.state.scrollX;
+      this.touchStartScrollY = this.state.scrollY;
+      this.lastTouchX = touch.clientX;
+      this.lastTouchY = touch.clientY;
+      this.lastTouchTime = now;
+      this.state.velocityX = 0;
+      this.state.velocityY = 0;
+      return;
+    }
+
     // Calculate instantaneous velocity (scale to ~60fps frame time)
-    const instantVx = (this.lastTouchX - touch.clientX) / dt * 16.67;
-    const instantVy = (this.lastTouchY - touch.clientY) / dt * 16.67;
+    let instantVx = (this.lastTouchX - touch.clientX) / dt * 16.67;
+    let instantVy = (this.lastTouchY - touch.clientY) / dt * 16.67;
+    if (this.touchAxisLock === 'x') instantVy = 0;
+    if (this.touchAxisLock === 'y') instantVx = 0;
 
     // Smooth velocity with exponential moving average for better feel
     const smoothing = 0.4;
@@ -369,12 +411,9 @@ export class VirtualScroller {
     const vy = this.state.velocityY * (1 - smoothing) + instantVy * smoothing;
 
     // Apply scroll (inverted - drag down = scroll up)
-    const deltaX = this.touchStartX - touch.clientX;
-    const deltaY = this.touchStartY - touch.clientY;
-    this.scrollTo(
-      this.touchStartScrollX + deltaX,
-      this.touchStartScrollY + deltaY
-    );
+    const deltaX = this.touchAxisLock === 'x' ? this.touchStartX - touch.clientX : 0;
+    const deltaY = this.touchAxisLock === 'y' ? this.touchStartY - touch.clientY : 0;
+    this.scrollTo(this.touchStartScrollX + deltaX, this.touchStartScrollY + deltaY);
 
     // Update tracking
     this.state.velocityX = vx;
@@ -391,19 +430,53 @@ export class VirtualScroller {
     const now = performance.now();
     const dt = Math.max(1, now - this.lastTouchTime);
 
-    const instantVx = (this.lastTouchX - x) / dt * 16.67;
-    const instantVy = (this.lastTouchY - y) / dt * 16.67;
+    const totalDeltaX = this.touchStartX - x;
+    const totalDeltaY = this.touchStartY - y;
+
+    if (this.touchAxisLock === 'none') {
+      const absDx = Math.abs(totalDeltaX);
+      const absDy = Math.abs(totalDeltaY);
+      const threshold = 8;
+      if (absDx < threshold && absDy < threshold) {
+        this.lastTouchX = x;
+        this.lastTouchY = y;
+        this.lastTouchTime = now;
+        return;
+      }
+
+      const dominance = 1.2;
+      if (absDx >= absDy * dominance) {
+        this.touchAxisLock = 'x';
+      } else if (absDy >= absDx * dominance) {
+        this.touchAxisLock = 'y';
+      } else {
+        this.touchAxisLock = absDx > absDy ? 'x' : 'y';
+      }
+
+      this.touchStartX = x;
+      this.touchStartY = y;
+      this.touchStartScrollX = this.state.scrollX;
+      this.touchStartScrollY = this.state.scrollY;
+      this.lastTouchX = x;
+      this.lastTouchY = y;
+      this.lastTouchTime = now;
+      this.state.velocityX = 0;
+      this.state.velocityY = 0;
+      return;
+    }
+
+    let instantVx = (this.lastTouchX - x) / dt * 16.67;
+    let instantVy = (this.lastTouchY - y) / dt * 16.67;
+    if (this.touchAxisLock === 'x') instantVy = 0;
+    if (this.touchAxisLock === 'y') instantVx = 0;
 
     const smoothing = 0.4;
     const vx = this.state.velocityX * (1 - smoothing) + instantVx * smoothing;
     const vy = this.state.velocityY * (1 - smoothing) + instantVy * smoothing;
 
-    const deltaX = this.touchStartX - x;
-    const deltaY = this.touchStartY - y;
-    this.scrollTo(
-      this.touchStartScrollX + deltaX,
-      this.touchStartScrollY + deltaY
-    );
+    const deltaX = this.touchAxisLock === 'x' ? this.touchStartX - x : 0;
+    const deltaY = this.touchAxisLock === 'y' ? this.touchStartY - y : 0;
+    this.scrollTo(this.touchStartScrollX + deltaX, this.touchStartScrollY + deltaY);
 
     this.state.velocityX = vx;
     this.state.velocityY = vy;
@@ -423,6 +496,7 @@ export class VirtualScroller {
     } else if (this.options.snapToMultiple) {
       this.snapToMultipleBoundary(this.options.snapToMultiple);
     }
+    this.touchAxisLock = 'none';
   }
 
   /**
