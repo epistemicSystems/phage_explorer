@@ -34,10 +34,10 @@ import { HilbertOverlay } from './HilbertOverlay';
 import { GelOverlay } from './GelOverlay';
 import { CRISPROverlay } from './CRISPROverlay';
 import { SelectionPressureOverlay } from './SelectionPressureOverlay';
-	import { SyntenyOverlay } from './SyntenyOverlay';
-	import { TropismOverlay } from './TropismOverlay';
-	import { StructureConstraintOverlay } from './StructureConstraintOverlay';
-	import { MosaicRadarView } from './MosaicRadarView';
+import { SyntenyOverlay } from './SyntenyOverlay';
+import { TropismOverlay } from './TropismOverlay';
+import { StructureConstraintOverlay } from './StructureConstraintOverlay';
+import { MosaicRadarView } from './MosaicRadarView';
 import {
   computeGCskew,
   computeComplexity,

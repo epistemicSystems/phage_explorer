@@ -6,6 +6,8 @@ const DEFAULT_DATABASE_URL = '/phage.db';
 
 export interface UseDatabaseQueryOptions {
   databaseUrl?: string;
+  /** When false, the query will not auto-run; call `load()` manually. */
+  enabled?: boolean;
 }
 
 export interface UseDatabaseQueryResult {
@@ -15,13 +17,15 @@ export interface UseDatabaseQueryResult {
   error: string | null;
   progress: DatabaseLoadProgress | null;
   isCached: boolean;
+  /** Trigger initial load when `enabled` is false. */
+  load: () => Promise<void>;
   reload: () => Promise<void>;
 }
 
 export function useDatabaseQuery(
   options: UseDatabaseQueryOptions = {}
 ): UseDatabaseQueryResult {
-  const { databaseUrl = DEFAULT_DATABASE_URL } = options;
+  const { databaseUrl = DEFAULT_DATABASE_URL, enabled = true } = options;
   const [progress, setProgress] = useState<DatabaseLoadProgress | null>(null);
   const [isCached, setIsCached] = useState(false);
   const loaderRef = useRef<ReturnType<typeof createDatabaseLoader> | null>(null);
@@ -42,6 +46,7 @@ export function useDatabaseQuery(
     staleTime: Infinity,
     gcTime: Infinity,
     retry: 1,
+    enabled,
   });
 
   useEffect(() => {
@@ -51,13 +56,17 @@ export function useDatabaseQuery(
     };
   }, [databaseUrl]);
 
+  const load = useCallback(async () => {
+    await query.refetch();
+  }, [query.refetch]);
+
   const reload = useCallback(async () => {
     if (loaderRef.current) {
       await loaderRef.current.clearCache();
     }
     await queryClient.invalidateQueries({ queryKey: ['database', databaseUrl] });
-    await queryClient.refetchQueries({ queryKey: ['database', databaseUrl], type: 'active' });
-  }, [databaseUrl, queryClient]);
+    await query.refetch();
+  }, [databaseUrl, query.refetch, queryClient]);
 
   return {
     repository: query.data ?? null,
@@ -66,6 +75,7 @@ export function useDatabaseQuery(
     error: query.error instanceof Error ? query.error.message : query.error ? String(query.error) : null,
     progress,
     isCached,
+    load,
     reload,
   };
 }

@@ -4,7 +4,7 @@
  * React hook for loading and accessing the phage database.
  */
 
-import { useMemo } from 'react';
+import { useCallback } from 'react';
 import type { PhageRepository, DatabaseLoadProgress } from '../db';
 import { useDatabaseQuery } from './useDatabaseQuery';
 
@@ -53,15 +53,11 @@ export interface UseDatabaseResult {
  */
 export function useDatabase(options: UseDatabaseOptions = {}): UseDatabaseResult {
   const { databaseUrl = '/phage.db', autoLoad = true } = options;
-  const query = useDatabaseQuery({ databaseUrl });
+  const query = useDatabaseQuery({ databaseUrl, enabled: autoLoad });
 
-  const load = useMemo(
-    () => async () => {
-      if (autoLoad) return;
-      await query.reload();
-    },
-    [autoLoad, query]
-  );
+  const load = useCallback(async () => {
+    await query.load();
+  }, [query.load]);
 
   return {
     repository: query.repository,
