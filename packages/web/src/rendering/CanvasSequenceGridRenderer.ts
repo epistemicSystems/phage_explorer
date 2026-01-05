@@ -236,6 +236,7 @@ export class CanvasSequenceGridRenderer {
   private paused = false;
   private isScrolling = false;
   private scrollEndTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastFrameHadPostProcess = false; // Track if last frame had post-processing
   private lastRenderRange: VisibleRange | null = null;
   private lastRenderLayout: { cols: number; rows: number } | null = null;
   private lastScrollY: number | null = null;
@@ -1312,6 +1313,8 @@ export class CanvasSequenceGridRenderer {
     this.lastScrollX = this.getScrollX(range, layout.cols, this.cellWidth);
     this.lastViewport = { width: clientWidth, height: clientHeight };
     this.lastRowHeight = rowHeight;
+    // Track if this frame had post-processing so next scroll frame knows to skip blit
+    this.lastFrameHadPostProcess = shouldPostProcess;
     this.isRendering = false;
   }
 
@@ -1827,6 +1830,9 @@ export class CanvasSequenceGridRenderer {
     diffMask: Uint8Array | null
   ): boolean {
     if (this.needsFullRedraw || !this.isScrolling) return false;
+    // Skip blit if last frame had post-processing; the canvas contains effects that would
+    // create visual inconsistency when blitted alongside non-post-processed new rows.
+    if (this.lastFrameHadPostProcess) return false;
     if (!this.lastRenderRange || !this.lastRenderLayout || !this.lastViewport) return false;
     const { width: clientWidth, height: clientHeight } = this.getViewportSize();
     if (clientWidth === 0 || clientHeight === 0) return false;

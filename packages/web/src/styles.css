@@ -25,12 +25,20 @@
 
 .app-shell {
   display: grid;
-  grid-template-rows: var(--header-height) 1fr var(--footer-height);
+  /* CRITICAL: Use a *definite* height so the middle `1fr` track can actually
+     constrain `.app-body` and make it the scroll container (instead of the page).
+     Without this, iOS/WebKit ends up scrolling the document, which triggers
+     viewport reflows + canvas resizes → janky/flickery rendering. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100vh;
+  height: 100dvh;
+  height: var(--app-height, 100vh);
   min-height: 100vh;
   min-height: 100dvh;
   min-height: var(--app-height, 100vh);
   background: var(--color-background);
   position: relative;
+  overflow: hidden;
 }
 
 /* =============================================================================
@@ -176,6 +184,8 @@
 
 .app-body {
   flex: 1;
+  /* Allow the grid `minmax(0, 1fr)` track to actually constrain height. */
+  min-height: 0;
   overflow: auto;
   overflow-x: hidden;
   padding: var(--space-6);
