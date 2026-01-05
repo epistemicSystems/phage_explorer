@@ -255,16 +255,22 @@ export default function App(): React.ReactElement {
   const hasSelection = currentPhage !== null || isLoadingPhage;
   const showList = !isMobile || !hasSelection || mobileListOpen;
   const showDetail = !isMobile || hasSelection;
-  const shouldLockScroll = hasBlockingOverlay || (isMobile && mobileListOpen);
+  const shouldLockScroll = isMobile && mobileListOpen;
 
-  // Prevent background scroll on mobile when a blocking overlay or the list drawer is open.
+  // Prevent background scroll on mobile when the list drawer is open.
   useEffect(() => {
     if (!shouldLockScroll) return;
     const body = document.body;
-    // If another component already fixed the body (e.g. BottomSheet), avoid double-locking.
-    if (body.style.position === 'fixed') {
-      return;
+    const appBody = document.querySelector<HTMLElement>('.app-body');
+    const prevAppBodyOverflow = appBody?.style.overflow ?? null;
+    const prevAppBodyOverscroll = appBody?.style.overscrollBehaviorY ?? null;
+    if (appBody) {
+      appBody.style.overflow = 'hidden';
+      appBody.style.overscrollBehaviorY = 'none';
     }
+
+    // If another component already fixed the body (e.g. BottomSheet), avoid double-locking.
+    const bodyAlreadyFixed = body.style.position === 'fixed';
 
     const prevOverflow = body.style.overflow;
     const prevOverscroll = body.style.overscrollBehavior;
@@ -275,52 +281,68 @@ export default function App(): React.ReactElement {
     const prevWidth = body.style.width;
     const scrollY = window.scrollY;
 
-    body.style.overflow = 'hidden';
-    body.style.overscrollBehavior = 'none';
-    // iOS: prevent background scroll by fixing the body.
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollY}px`;
-    body.style.left = '0';
-    body.style.right = '0';
-    body.style.width = '100%';
+    if (!bodyAlreadyFixed) {
+      body.style.overflow = 'hidden';
+      body.style.overscrollBehavior = 'none';
+      // iOS: prevent background scroll by fixing the body.
+      body.style.position = 'fixed';
+      body.style.top = `-${scrollY}px`;
+      body.style.left = '0';
+      body.style.right = '0';
+      body.style.width = '100%';
+    }
 
     return () => {
-      if (prevOverflow) {
-        body.style.overflow = prevOverflow;
-      } else {
-        body.style.removeProperty('overflow');
+      if (appBody) {
+        if (prevAppBodyOverflow === null) {
+          appBody.style.removeProperty('overflow');
+        } else {
+          appBody.style.overflow = prevAppBodyOverflow;
+        }
+        if (prevAppBodyOverscroll === null) {
+          appBody.style.removeProperty('overscroll-behavior-y');
+        } else {
+          appBody.style.overscrollBehaviorY = prevAppBodyOverscroll;
+        }
       }
-      if (prevOverscroll) {
-        body.style.overscrollBehavior = prevOverscroll;
-      } else {
-        body.style.removeProperty('overscroll-behavior');
+      if (!bodyAlreadyFixed) {
+        if (prevOverflow) {
+          body.style.overflow = prevOverflow;
+        } else {
+          body.style.removeProperty('overflow');
+        }
+        if (prevOverscroll) {
+          body.style.overscrollBehavior = prevOverscroll;
+        } else {
+          body.style.removeProperty('overscroll-behavior');
+        }
+        if (prevPosition) {
+          body.style.position = prevPosition;
+        } else {
+          body.style.removeProperty('position');
+        }
+        if (prevTop) {
+          body.style.top = prevTop;
+        } else {
+          body.style.removeProperty('top');
+        }
+        if (prevLeft) {
+          body.style.left = prevLeft;
+        } else {
+          body.style.removeProperty('left');
+        }
+        if (prevRight) {
+          body.style.right = prevRight;
+        } else {
+          body.style.removeProperty('right');
+        }
+        if (prevWidth) {
+          body.style.width = prevWidth;
+        } else {
+          body.style.removeProperty('width');
+        }
+        window.scrollTo(0, scrollY);
       }
-      if (prevPosition) {
-        body.style.position = prevPosition;
-      } else {
-        body.style.removeProperty('position');
-      }
-      if (prevTop) {
-        body.style.top = prevTop;
-      } else {
-        body.style.removeProperty('top');
-      }
-      if (prevLeft) {
-        body.style.left = prevLeft;
-      } else {
-        body.style.removeProperty('left');
-      }
-      if (prevRight) {
-        body.style.right = prevRight;
-      } else {
-        body.style.removeProperty('right');
-      }
-      if (prevWidth) {
-        body.style.width = prevWidth;
-      } else {
-        body.style.removeProperty('width');
-      }
-      window.scrollTo(0, scrollY);
     };
   }, [shouldLockScroll]);
 

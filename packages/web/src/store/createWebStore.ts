@@ -21,13 +21,18 @@ export { usePhageStore } from '@phage-explorer/state';
 export type { PhageExplorerStore, PhageExplorerState, PhageExplorerActions } from '@phage-explorer/state';
 
 // Version for migration logic
-const STORE_VERSION = 6;
+const STORE_VERSION = 8;
 
 function getDefaultBackgroundEffects(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
-  const coarseTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-  // Default to off on touch devices to avoid scroll jank/flicker; users can re-enable in Settings.
-  return !coarseTouch;
+  // Default off: background FX compete with the sequence canvas for GPU time and can cause visible jank.
+  // Users can opt-in in Settings if they want the aesthetic over raw smoothness.
+  return false;
+}
+
+function getDefaultGlow(): boolean {
+  // Default off: bloom/post-processing can be expensive and can flicker on some GPU/browser combos.
+  // Users can opt-in in Settings if they want it.
+  return false;
 }
 
 /**
@@ -89,7 +94,7 @@ const defaultWebPreferences: WebPreferencesState = {
   hasLearnedMobileSwipe: false,
   scanlines: false,
   scanlineIntensity: 0.06,
-  glow: true,
+  glow: getDefaultGlow(),
   tuiMode: false,
   highContrast: false,
   backgroundEffects: getDefaultBackgroundEffects(),
@@ -106,6 +111,9 @@ function migrateWebPrefs(
   version: number
 ): WebPreferencesState {
   const state = persistedState as Partial<WebPreferencesState>;
+  // v8 flips the default to performance mode. We also force these defaults during migration so
+  // existing users get a stable experience without hunting for settings toggles.
+  const performanceDefaults = { glow: false, backgroundEffects: false } as const;
 
   if (version < 2) {
     // Version 1 -> 2: Separated web prefs from main store prefs, added scanlineIntensity
@@ -114,9 +122,9 @@ function migrateWebPrefs(
       hasSeenWelcome: state.hasSeenWelcome ?? false,
       scanlines: state.scanlines ?? false,
       scanlineIntensity: Math.min(state.scanlineIntensity ?? 0.06, 0.08),
-      glow: state.glow ?? true,
       tuiMode: state.tuiMode ?? false,
       highContrast: state.highContrast ?? false,
+      ...performanceDefaults,
     };
   }
 
@@ -126,6 +134,7 @@ function migrateWebPrefs(
       ...defaultWebPreferences,
       ...state,
       highContrast: state.highContrast ?? false,
+      ...performanceDefaults,
     };
   }
 
@@ -135,8 +144,8 @@ function migrateWebPrefs(
       ...defaultWebPreferences,
       ...state,
       scanlineIntensity: Math.min(state.scanlineIntensity ?? 0.06, 0.08),
-      backgroundEffects: state.backgroundEffects ?? defaultWebPreferences.backgroundEffects,
       _hasHydrated: false,
+      ...performanceDefaults,
     };
   }
 
@@ -146,9 +155,9 @@ function migrateWebPrefs(
       ...defaultWebPreferences,
       ...state,
       scanlineIntensity: Math.min(state.scanlineIntensity ?? 0.06, 0.08),
-      backgroundEffects: state.backgroundEffects ?? defaultWebPreferences.backgroundEffects,
       hasLearnedMobileSwipe: false, // New users haven't learned yet
       _hasHydrated: false,
+      ...performanceDefaults,
     };
   }
 
@@ -158,9 +167,33 @@ function migrateWebPrefs(
       ...state,
       scanlines: false,
       scanlineIntensity: Math.min(state.scanlineIntensity ?? 0.06, 0.08),
-      backgroundEffects: state.backgroundEffects ?? defaultWebPreferences.backgroundEffects,
       hasLearnedMobileSwipe: state.hasLearnedMobileSwipe ?? false,
       _hasHydrated: false,
+      ...performanceDefaults,
+    };
+  }
+
+  if (version < 7) {
+    // Version 6 -> 7: Default glow off on touch devices to prevent GPU jank/flicker.
+    return {
+      ...defaultWebPreferences,
+      ...state,
+      scanlineIntensity: Math.min(state.scanlineIntensity ?? 0.06, 0.08),
+      hasLearnedMobileSwipe: state.hasLearnedMobileSwipe ?? false,
+      _hasHydrated: false,
+      ...performanceDefaults,
+    };
+  }
+
+  if (version < 8) {
+    // Version 7 -> 8: Flip defaults to performance mode (FX off by default).
+    return {
+      ...defaultWebPreferences,
+      ...state,
+      scanlineIntensity: Math.min(state.scanlineIntensity ?? 0.06, 0.08),
+      hasLearnedMobileSwipe: state.hasLearnedMobileSwipe ?? false,
+      _hasHydrated: false,
+      ...performanceDefaults,
     };
   }
 
@@ -170,6 +203,7 @@ function migrateWebPrefs(
     scanlineIntensity: Math.min(state.scanlineIntensity ?? 0.06, 0.08),
     backgroundEffects: state.backgroundEffects ?? defaultWebPreferences.backgroundEffects,
     hasLearnedMobileSwipe: state.hasLearnedMobileSwipe ?? false,
+    glow: state.glow ?? defaultWebPreferences.glow,
     _hasHydrated: false, // Always reset hydration on load
   };
 }

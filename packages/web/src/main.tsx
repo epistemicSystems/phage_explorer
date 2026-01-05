@@ -12,11 +12,26 @@ function installViewportVariables(): void {
   if (typeof window === 'undefined') return;
   const root = document.documentElement;
   let rafId: number | null = null;
+  let lastHeight: number | null = null;
+  let lastWidth: number | null = null;
 
   const update = () => {
     const vv = window.visualViewport;
     const height = vv?.height ?? window.innerHeight;
     const width = vv?.width ?? window.innerWidth;
+
+    // Avoid style recalculation churn during scroll: on iOS, `visualViewport.scroll`
+    // can fire continuously even when the viewport size is unchanged.
+    if (
+      lastHeight !== null &&
+      lastWidth !== null &&
+      Math.abs(height - lastHeight) < 0.5 &&
+      Math.abs(width - lastWidth) < 0.5
+    ) {
+      return;
+    }
+    lastHeight = height;
+    lastWidth = width;
     root.style.setProperty('--visual-viewport-height', `${height}px`);
     root.style.setProperty('--visual-viewport-width', `${width}px`);
     root.style.setProperty('--vvh', `${height * 0.01}px`);
@@ -37,7 +52,6 @@ function installViewportVariables(): void {
   const vv = window.visualViewport;
   if (vv) {
     vv.addEventListener('resize', schedule);
-    vv.addEventListener('scroll', schedule);
   }
 }
 
@@ -63,6 +77,20 @@ if (container) {
 // Register service worker in production builds (disabled for automation via navigator.webdriver).
 if (import.meta.env.PROD && typeof window !== 'undefined' && 'serviceWorker' in navigator && !navigator.webdriver) {
   window.addEventListener('load', () => {
-    void import('./registerSW').then(({ registerServiceWorker }) => registerServiceWorker());
+    void import('./registerSW').then(({ registerServiceWorker, updateServiceWorker }) => {
+      const reloadKey = 'phage-explorer-sw-updated';
+      void registerServiceWorker({
+        onUpdate: () => {
+          // Avoid reload loops (e.g., on flaky networks or repeated SW install attempts).
+          try {
+            if (sessionStorage.getItem(reloadKey)) return;
+            sessionStorage.setItem(reloadKey, '1');
+          } catch {
+            // Ignore storage errors (private mode, quota).
+          }
+          void updateServiceWorker();
+        },
+      });
+    });
   });
 }

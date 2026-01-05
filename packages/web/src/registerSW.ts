@@ -79,6 +79,21 @@ export async function updateServiceWorker(): Promise<void> {
   const registration = await navigator.serviceWorker.getRegistration();
   if (registration?.waiting) {
     registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+
+    // Wait until the new service worker takes control to avoid reloading back into old caches.
+    await new Promise<void>((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+
+      navigator.serviceWorker.addEventListener('controllerchange', finish, { once: true });
+      // Fallback: if controllerchange never fires, still allow reload after a short delay.
+      window.setTimeout(finish, 1500);
+    });
+
     window.location.reload();
   }
 }
