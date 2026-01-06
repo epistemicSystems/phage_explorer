@@ -60,4 +60,14 @@ describe('Synteny Aligner', () => {
     expect(result.blocks.length).toBe(1);
     expect(result.blocks[0].score).toBe(0.5);
   });
+
+  it('ignores uninformative genes (hypothetical protein) due to stopwords', () => {
+    const genesA = [gene('hypothetical protein')];
+    const genesB = [gene('hypothetical protein')];
+    
+    const result = alignSynteny(genesA, genesB);
+    
+    // Should NOT match because both terms are stopwords
+    expect(result.blocks.length).toBe(0);
+  });
 });

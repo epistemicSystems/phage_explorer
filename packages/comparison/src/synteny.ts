@@ -19,27 +19,53 @@ export interface SyntenyAnalysis {
 interface GeneTokens {
   name: string;
   terms: string[];
+  informativeTerms: string[];
+  informativeSet: Set<string>;
 }
+
+const STOPWORDS = new Set([
+  'protein',
+  'putative',
+  'hypothetical',
+  'phage',
+  'viral',
+  'probable',
+  'predicted',
+  'conserved',
+  'domain',
+  'family',
+  'uncharacterized',
+  'gp',
+  'orf',
+]);
 
 function preprocessGene(g: GeneInfo): GeneTokens {
   const n = (g.product || g.name || '').toLowerCase();
   // Split on whitespace, commas, semicolons, dots, hyphens
-  // Keep terms of length 2+ to capture short phage names (CI, Cro, Int, gp3)
-  const terms = n.split(/[\s,;.-]+/).filter(t => t.length >= 2);
-  return { name: n, terms };
+  // Keep all terms (length >= 1) to support single-letter genes like Lambda A, B, C
+  const terms = n.split(/[\s,;.-]+/).filter(t => t.length > 0);
+  const informativeTerms = terms.filter(t => !STOPWORDS.has(t));
+  return {
+    name: n,
+    terms,
+    informativeTerms,
+    informativeSet: new Set(informativeTerms),
+  };
 }
 
 // Optimized gene distance using pre-processed tokens
 function geneDistanceOptimized(t1: GeneTokens, t2: GeneTokens): number {
   if (!t1.name || !t2.name) return 1.0;
-  if (t1.name === t2.name) return 0.0;
-  
-  if (t1.terms.length === 0 || t2.terms.length === 0) return 1.0;
 
-  // Check common terms using Set for O(N+M)
-  const set1 = new Set(t1.terms);
-  for (const term of t2.terms) {
-    if (set1.has(term)) return 0.5;
+  // If filtering removed all terms (e.g. "hypothetical protein"), no match
+  // This takes precedence over exact name match to avoid aligning junk
+  if (t1.informativeSet.size === 0 || t2.informativeTerms.length === 0) return 1.0;
+
+  // Exact match on informative names
+  if (t1.name === t2.name) return 0.0;
+
+  for (const term of t2.informativeTerms) {
+    if (t1.informativeSet.has(term)) return 0.5;
   }
   
   return 1.0;

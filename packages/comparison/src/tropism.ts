@@ -103,11 +103,11 @@ function motifHits(aa: string): string[] {
     { id: 'pilus-binding (VQGDT)', re: /VQGDT/i },
     { id: 'porin-tip (SYG/ALG)', re: /(SYG|ALG)/i },
     { id: 'polysaccharide lyase (HXH)', re: /H.H/i },
-    { id: 'carbohydrate-binding', re: /(W.{4,8}W)|(QXW)/i },
+    { id: 'carbohydrate-binding', re: /(W.{4,8}W)|(Q.W)/i },
     { id: 'lectin domain', re: /[DN].{20,40}[DN].{20,40}W/i },
     // Enzymatic motifs
     { id: 'endosialidase', re: /[DE].{40,80}H.{40,80}[DE]/i },
-    { id: 'depolymerase', re: /(GXSXG)|(D.{50,100}E)/i },
+    { id: 'depolymerase', re: /(G.S.G)|(D.{50,100}E)/i },
     { id: 'lysozyme-like', re: /E.{5,15}D/i },
     // Repeat structures
     { id: 'tandem repeat', re: /(.{6,12})\1{2,}/i },
@@ -234,6 +234,11 @@ function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
 }
 
+function isHypothetical(gene: GeneInfo): boolean {
+  const text = `${gene.name ?? ''} ${gene.product ?? ''}`.toLowerCase();
+  return text.includes('hypothetical') || text.includes('uncharacterized') || text.includes('putative protein') || !gene.product;
+}
+
 export function analyzeTailFiberTropism(
   phage: PhageFull,
   genomeSequence = '',
@@ -286,18 +291,31 @@ export function analyzeTailFiberTropism(
   }
 
   for (const gene of phage.genes ?? []) {
-    if (!isTailFiberGene(gene)) continue;
+    const isFiber = isTailFiberGene(gene);
+    const isHypo = !isFiber && isHypothetical(gene);
+
+    // Skip genes that are definitely NOT tail fibers (e.g. polymerase, capsid)
+    if (!isFiber && !isHypo) continue;
+
     const text = `${gene.name ?? ''} ${gene.product ?? ''}`.toLowerCase();
     const aaSeq = genomeSequence ? translateGeneSequence(genomeSequence, gene) : '';
+    
     const annotationReceptors = annotationDrivenReceptors(text);
     const sequenceReceptors = aaSeq ? sequenceDrivenReceptors(aaSeq) : [];
+    
+    // For hypothetical proteins, only include if we found strong structural evidence
+    if (isHypo && sequenceReceptors.length === 0) continue;
+
     const merged = dedupeReceptors([...annotationReceptors, ...sequenceReceptors]);
-    hits.push({
-      gene,
-      aaLength: aaSeq.length || undefined,
-      motifs: aaSeq ? motifHits(aaSeq) : undefined,
-      receptorCandidates: merged,
-    });
+    
+    if (merged.length > 0 || isFiber) {
+      hits.push({
+        gene,
+        aaLength: aaSeq.length || undefined,
+        motifs: aaSeq ? motifHits(aaSeq) : undefined,
+        receptorCandidates: merged,
+      });
+    }
   }
 
   const receptors = new Set<string>();
