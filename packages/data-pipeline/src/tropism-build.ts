@@ -111,6 +111,12 @@ function cosine(a: number[], b: number[]): number {
   return dot / ((Math.sqrt(na) || 1) * (Math.sqrt(nb) || 1));
 }
 
+// Helper to identify uncharacterized proteins
+function isHypothetical(name: string | null, product: string | null): boolean {
+  const text = `${name ?? ''} ${product ?? ''}`.toLowerCase();
+  return text.includes('hypothetical') || text.includes('uncharacterized') || text.includes('putative protein') || !product;
+}
+
 async function main() {
   const opts = parseArgs();
   const sqlite = new Database(opts.db, { readonly: true });
@@ -140,7 +146,11 @@ async function main() {
     for (const g of phageGenes) {
       const text = `${g.name ?? ''} ${g.product ?? ''}`.toLowerCase();
       const isFiber = fiberKeywords.some(k => text.includes(k));
-      if (!isFiber) continue;
+      const isHypo = !isFiber && isHypothetical(g.name, g.product);
+
+      // Skip genes that are definitely NOT tail fibers
+      if (!isFiber && !isHypo) continue;
+
       const aa = translateGene(genome, g.startPos, g.endPos, g.strand);
       const embed = trigramEmbedding(aa);
       let bestReceptor = 'Unknown tail receptor';
@@ -154,9 +164,15 @@ async function main() {
           bestEvidence = [`cosine=${score.toFixed(2)}`];
         }
       }
+      
       // Motif bumps
-      if (/GG.GD/i.test(aa)) { bestReceptor = 'LPS / tailspike'; bestScore = Math.max(bestScore, 0.55); bestEvidence.push('motif:GGXGD'); }
-      if (/VQGDT/i.test(aa)) { bestReceptor = 'Type IV pilus'; bestScore = Math.max(bestScore, 0.6); bestEvidence.push('motif:VQGDT'); }
+      let hasMotif = false;
+      if (/GG.GD/i.test(aa)) { bestReceptor = 'LPS / tailspike'; bestScore = Math.max(bestScore, 0.55); bestEvidence.push('motif:GGXGD'); hasMotif = true; }
+      if (/VQGDT/i.test(aa)) { bestReceptor = 'Type IV pilus'; bestScore = Math.max(bestScore, 0.6); bestEvidence.push('motif:VQGDT'); hasMotif = true; }
+
+      // For hypothetical proteins, only keep if we found strong evidence
+      if (isHypo && !hasMotif && bestScore < 0.4) continue;
+
       predictions.push({
         accession: phage.accession,
         phageSlug: phage.slug,

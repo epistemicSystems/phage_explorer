@@ -73,7 +73,7 @@ export function parseFasta(fasta: string): { header: string; sequence: string } 
 export function parseGenBank(genbank: string): NCBISequenceResult {
   const lines = genbank.split('\n');
   let accession = '';
-  let sequence = '';
+  const sequenceParts: string[] = []; // Use array for O(N) concatenation
   const features: NCBIFeature[] = [];
   const metadata: Record<string, string> = {};
 
@@ -148,9 +148,9 @@ export function parseGenBank(genbank: string): NCBISequenceResult {
           const nextLine = lines[nextLineIdx];
           // Check if it's a continuation line (starts with spaces, no '/')
           // It must NOT be a qualifier (start with /) and must NOT be a new feature (start at col 5)
-          // Location continuations are usually indented to col 21
+          // Location continuations are usually indented to col 21, but we relax to 20+
           if (
-            nextLine.match(/^\s{21}/) &&
+            nextLine.match(/^\s{20,}/) &&
             !nextLine.trim().startsWith('/') &&
             !nextLine.substring(5, 21).trim()
           ) {
@@ -197,8 +197,8 @@ export function parseGenBank(genbank: string): NCBISequenceResult {
           }
         }
       }
-      // Continuation of qualifier value
-      else if (line.match(/^\s{21}/) && currentQualifierKey) {
+      // Continuation of qualifier value (relaxed indentation check)
+      else if (line.match(/^\s{20,}/) && currentQualifierKey) {
         const part = line.trim();
         const needsSpace = ['product', 'note', 'function', 'inference', 'standard_name', 'organism'].includes(currentQualifierKey);
         
@@ -212,9 +212,11 @@ export function parseGenBank(genbank: string): NCBISequenceResult {
 
     // Parse sequence
     if (inSequence && line.match(/^\s*\d+/)) {
-      sequence += line.replace(/[\d\s\/]/g, '').toUpperCase();
+      sequenceParts.push(line.replace(/[\d\s\/]/g, '').toUpperCase());
     }
   }
+
+  const sequence = sequenceParts.join('');
 
   // Calculate GC content
   let gc = 0;
@@ -230,7 +232,9 @@ export function parseGenBank(genbank: string): NCBISequenceResult {
     sequence,
     length: sequence.length,
     gcContent,
-    features: features.filter(f => f.type === 'CDS' || f.type === 'gene'),
+    features: features.filter(f => 
+      ['CDS', 'gene', 'tRNA', 'rRNA', 'tmRNA', 'ncRNA', 'mobile_element', 'repeat_region', 'misc_feature', 'regulatory'].includes(f.type)
+    ),
     metadata,
   };
 }
@@ -238,7 +242,8 @@ export function parseGenBank(genbank: string): NCBISequenceResult {
 // Parse feature location string to find total extent (min start, max end)
 function parseLocation(location: string, feature: Partial<NCBIFeature>): void {
   // Remove accession references (e.g., "NC_001234.1:")
-  let localLocation = location.replace(/[a-zA-Z][a-zA-Z0-9_.]*:/g, '');
+  // Strict regex to avoid matching 'complement:' or 'join:'
+  let localLocation = location.replace(/[A-Z][A-Z0-9_]*\.[0-9]+:/g, '');
 
   // Check for complement strand
   if (location.includes('complement(')) {

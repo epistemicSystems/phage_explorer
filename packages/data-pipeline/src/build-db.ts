@@ -344,9 +344,14 @@ async function main() {
       }> = [];
 
       for (const feature of sequenceData.features) {
+        const qualObj = feature.qualifiers || {};
+        
+        // If segments exist, store them in qualifiers so we don't lose the structure
         if (feature.segments && feature.segments.length > 1) {
+          qualObj['_segments'] = JSON.stringify(feature.segments);
+          
           // Multi-segment feature (e.g. wrap-around or join)
-          // Insert a row for each segment
+          // Insert a row for each segment to avoid implying coverage of the gap/intron
           for (const segment of feature.segments) {
             geneValues.push({
               phageId,
@@ -357,7 +362,7 @@ async function main() {
               strand: feature.strand,
               product: feature.product || null,
               type: feature.type,
-              qualifiers: JSON.stringify(feature.qualifiers),
+              qualifiers: JSON.stringify(qualObj),
             });
           }
         } else {
@@ -371,7 +376,7 @@ async function main() {
             strand: feature.strand,
             product: feature.product || null,
             type: feature.type,
-            qualifiers: JSON.stringify(feature.qualifiers),
+            qualifiers: JSON.stringify(qualObj),
           });
         }
       }
