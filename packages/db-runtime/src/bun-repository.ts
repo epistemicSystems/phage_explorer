@@ -15,7 +15,7 @@ import { decodeFloat32VectorLE, type PhageSummary, type PhageFull, type GeneInfo
 import type { PhageRepository, CacheEntry, TropismPrediction } from './types';
 import { CHUNK_SIZE } from './types';
 import { LRUCache } from './lru-cache';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 
 /**
  * Safely parse JSON with fallback default value
@@ -41,6 +41,7 @@ export class BunSqliteRepository implements PhageRepository {
   private cachePath: string;
   private biasCache: Map<number, number[]> = new Map();
   private codonCache: Map<number, number[]> = new Map();
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(dbPath: string) {
     let opened: Database | null = null;
@@ -80,16 +81,35 @@ export class BunSqliteRepository implements PhageRepository {
     }
   }
 
-  private saveVectorCache(): void {
+  private async saveVectorCache(): Promise<void> {
     try {
       const bias: Record<string, number[]> = {};
       const codon: Record<string, number[]> = {};
       for (const [k, v] of this.biasCache.entries()) bias[k.toString()] = v;
       for (const [k, v] of this.codonCache.entries()) codon[k.toString()] = v;
-      writeFileSync(this.cachePath, JSON.stringify({ bias, codon }));
+      
+      const data = JSON.stringify({ bias, codon });
+      
+      // Use Bun.write for performance if available
+      if (typeof Bun !== 'undefined') {
+        await Bun.write(this.cachePath, data);
+      } else {
+        const { writeFile } = await import('fs/promises');
+        await writeFile(this.cachePath, data);
+      }
     } catch {
-      // best effort; ignore write failures (read-only FS)
+      // best effort; ignore write failures
     }
+  }
+
+  private scheduleSave(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+    }
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      void this.saveVectorCache();
+    }, 1000);
   }
 
   async listPhages(): Promise<PhageSummary[]> {
@@ -291,19 +311,36 @@ export class BunSqliteRepository implements PhageRepository {
       return cached.data;
     }
 
-    const rows = await this.db
-      .select({
-        phageId: tropismPredictions.phageId,
-        geneId: tropismPredictions.geneId,
-        locusTag: tropismPredictions.locusTag,
-        receptor: tropismPredictions.receptor,
-        confidence: tropismPredictions.confidence,
-        evidence: tropismPredictions.evidence,
-        source: tropismPredictions.source,
-      })
-      .from(tropismPredictions)
-      .where(eq(tropismPredictions.phageId, phageId))
-      .orderBy(desc(tropismPredictions.confidence));
+    let rows: Array<{
+      phageId: number;
+      geneId: number | null;
+      locusTag: string | null;
+      receptor: string;
+      confidence: number;
+      evidence: string | null;
+      source: string;
+    }> = [];
+
+    try {
+      rows = await this.db
+        .select({
+          phageId: tropismPredictions.phageId,
+          geneId: tropismPredictions.geneId,
+          locusTag: tropismPredictions.locusTag,
+          receptor: tropismPredictions.receptor,
+          confidence: tropismPredictions.confidence,
+          evidence: tropismPredictions.evidence,
+          source: tropismPredictions.source,
+        })
+        .from(tropismPredictions)
+        .where(eq(tropismPredictions.phageId, phageId))
+        .orderBy(desc(tropismPredictions.confidence));
+    } catch {
+      // Optional table: older phage.db builds may not include tropism_predictions.
+      const empty: TropismPrediction[] = [];
+      this.cache.set(cacheKey, { data: empty, timestamp: Date.now() });
+      return empty;
+    }
 
     const parsed = rows.map(r => ({
       ...r,
@@ -470,6 +507,11 @@ export class BunSqliteRepository implements PhageRepository {
   }
 
   async close(): Promise<void> {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+      await this.saveVectorCache();
+    }
     this.sqlite.close();
     this.cache.clear();
     this.phageList = null;
@@ -482,7 +524,7 @@ export class BunSqliteRepository implements PhageRepository {
 
   async setBiasVector(phageId: number, vector: number[]): Promise<void> {
     this.biasCache.set(phageId, vector);
-    this.saveVectorCache();
+    this.scheduleSave();
   }
 
   async getCodonVector(phageId: number): Promise<number[] | null> {
@@ -491,6 +533,6 @@ export class BunSqliteRepository implements PhageRepository {
 
   async setCodonVector(phageId: number, vector: number[]): Promise<void> {
     this.codonCache.set(phageId, vector);
-    this.saveVectorCache();
+    this.scheduleSave();
   }
 }

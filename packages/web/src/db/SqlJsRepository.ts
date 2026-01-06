@@ -7,6 +7,7 @@
 
 import type { Database, Statement } from 'sql.js';
 import { decodeFloat32VectorLE, type PhageSummary, type PhageFull, type GeneInfo, type CodonUsageData, type FoldEmbedding } from '@phage-explorer/core';
+import type { TropismPrediction } from '@phage-explorer/db-runtime';
 import type {
   PhageRepository,
   CacheEntry,
@@ -50,6 +51,7 @@ interface PreparedStatements {
   searchPhages: Statement;
   getPreference: Statement;
   getFullGenomeLength: Statement;
+  getTropismPredictions?: Statement;
   // Optional statements - may not exist if tables are missing
   getProteinDomains?: Statement;
   getAmgAnnotations?: Statement;
@@ -225,6 +227,14 @@ export class SqlJsRepository implements PhageRepository {
       WHERE fe.phage_id = ? AND fe.model = ?
       ORDER BY fe.gene_id ASC
     `);
+
+    this.statements.getTropismPredictions = this.safelyPrepare(`
+      SELECT phage_id as phageId, gene_id as geneId, locus_tag as locusTag,
+             receptor, confidence, evidence, source
+      FROM tropism_predictions
+      WHERE phage_id = ?
+      ORDER BY confidence DESC
+    `);
   }
 
   /**
@@ -345,6 +355,7 @@ export class SqlJsRepository implements PhageRepository {
     const geneList = await this.getGenes(id);
     const usage = await this.getCodonUsage(id);
     const hasModelFlag = await this.hasModel(id);
+    const tropism = await this.getTropismPredictions(id);
 
     const fullPhage: PhageFull = {
       id: phage.id,
@@ -364,6 +375,7 @@ export class SqlJsRepository implements PhageRepository {
       genes: geneList,
       codonUsage: usage,
       hasModel: hasModelFlag,
+      tropismPredictions: tropism,
     };
 
     this.cache.set(cacheKey, { data: fullPhage, timestamp: Date.now() });
@@ -707,6 +719,40 @@ export class SqlJsRepository implements PhageRepository {
 
     this.cache.set(cacheKey, { data: results, timestamp: Date.now() });
     return results;
+  }
+
+  async getTropismPredictions(phageId: number): Promise<TropismPrediction[]> {
+    const cacheKey = `tropism:${phageId}`;
+    const cached = this.cache.get(cacheKey) as CacheEntry<TropismPrediction[]> | undefined;
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data;
+    }
+
+    if (!this.statements) {
+      throw new Error('Database not initialized');
+    }
+
+    if (!this.statements.getTropismPredictions) {
+      return [];
+    }
+
+    const rows = this.execStatement<{
+      phageId: number;
+      geneId: number | null;
+      locusTag: string | null;
+      receptor: string;
+      confidence: number;
+      evidence: string | null;
+      source: string;
+    }>(this.statements.getTropismPredictions, [phageId]);
+
+    const parsed = rows.map(r => ({
+      ...r,
+      evidence: safeJsonParse<string[]>(r.evidence, []),
+    }));
+
+    this.cache.set(cacheKey, { data: parsed, timestamp: Date.now() });
+    return parsed;
   }
 
   async close(): Promise<void> {
