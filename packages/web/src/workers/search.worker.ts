@@ -6,6 +6,7 @@
  */
 
 import * as Comlink from 'comlink';
+import { reverseComplement } from '@phage-explorer/core';
 import type {
   SearchWorkerAPI,
   SearchRequest,
@@ -51,20 +52,15 @@ type FuzzyIndex<TMeta = unknown> = {
 
 const fuzzyIndices = new Map<string, FuzzyIndex>();
 
-function reverseComplement(seq: string): string {
-  const map: Record<string, string> = { A: 'T', T: 'A', C: 'G', G: 'C', a: 't', t: 'a', c: 'g', g: 'c' };
-  return seq
-    .split('')
-    .reverse()
-    .map((c) => map[c] ?? c)
-    .join('');
+function escapeRegexLiteral(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function toRegexFromIupac(pattern: string): RegExp {
   const normalized = pattern
     .toUpperCase()
     .split('')
-    .map((c) => IUPAC_MAP[c] ?? c)
+    .map((c) => IUPAC_MAP[c] ?? escapeRegexLiteral(c))
     .join('');
   return new RegExp(normalized, 'g');
 }

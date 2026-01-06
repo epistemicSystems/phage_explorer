@@ -41,6 +41,10 @@ export const RESTRICTION_ENZYMES: RestrictionEnzyme[] = [
   { name: 'AvaII', site: 'GGWCC', cutOffset: 1, overhang: '5' }, // W = A or T
 ];
 
+function escapeRegexLiteral(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Helper to expand IUPAC ambiguity codes in sites
 // R=A/G, Y=C/T, M=A/C, K=G/T, S=G/C, W=A/T, H=A/C/T, B=G/C/T, V=G/A/C, D=G/A/T, N=A/C/G/T
 export function expandSiteRegex(site: string): RegExp {
@@ -50,6 +54,6 @@ export function expandSiteRegex(site: string): RegExp {
     H: '[ACT]', B: '[GCT]', V: '[GAC]', D: '[GAT]', N: '.'
   };
   
-  const regexStr = site.toUpperCase().split('').map(c => map[c] || c).join('');
+  const regexStr = site.toUpperCase().split('').map(c => map[c] ?? escapeRegexLiteral(c)).join('');
   return new RegExp(regexStr, 'g');
 }
