@@ -10,6 +10,7 @@ import type { PhageFull, GeneInfo, PhageSummary } from '@phage-explorer/core';
 import type { PhageRepository, ProteinDomain } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
@@ -238,10 +239,9 @@ export function ProteinDomainOverlay({
 
   // Hotkey (Alt+D for Domains)
   useHotkey(
-    { key: 'd', modifiers: { alt: true } },
-    'Protein Domains',
+    ActionIds.OverlayProteinDomains,
     () => toggle('proteinDomains'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch domains when overlay opens

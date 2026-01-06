@@ -20,9 +20,9 @@ const SEQUENCE_TIMEOUT = 1000; // 1 second to complete a sequence
 const ALL_MODES: KeyboardMode[] = ['NORMAL', 'SEARCH', 'COMMAND', 'VISUAL', 'INSERT'];
 
 /**
- * Check if an element is an input element
+ * Check if an element is editable (user typing context).
  */
-function isInputElement(element: Element | null): boolean {
+function isEditableElement(element: Element | null): boolean {
   if (!element) return false;
   const tagName = element.tagName.toLowerCase();
   return (
@@ -31,6 +31,30 @@ function isInputElement(element: Element | null): boolean {
     tagName === 'select' ||
     (element as HTMLElement).isContentEditable
   );
+}
+
+/**
+ * Detect if the user is typing in an input/textarea/select/contenteditable element.
+ * Uses composedPath when available to support shadow DOM.
+ */
+export function isUserTyping(event: globalThis.KeyboardEvent): boolean {
+  if (typeof document === 'undefined') return false;
+
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  for (const entry of path) {
+    if (entry instanceof Element && isEditableElement(entry)) return true;
+  }
+
+  const target = event.target instanceof Element ? event.target : null;
+  if (isEditableElement(target)) return true;
+
+  const active = document.activeElement;
+  if (isEditableElement(active)) return true;
+
+  const shadowActive = (active && 'shadowRoot' in active) ? active.shadowRoot?.activeElement ?? null : null;
+  if (isEditableElement(shadowActive)) return true;
+
+  return false;
 }
 
 /**
@@ -43,6 +67,14 @@ function getModifiers(event: globalThis.KeyboardEvent): ModifierState {
     shift: event.shiftKey,
     meta: event.metaKey,
   };
+}
+
+function shouldIncludeShiftInKey(key: string): boolean {
+  // Shift is meaningful for single-letter hotkeys because we lowercase keys
+  // for case-insensitive matching and need shift to distinguish e.g. Alt+P vs Alt+Shift+P.
+  // For punctuation/symbol keys, the shifted character is already represented by `event.key`
+  // (e.g. '?' vs '/', '+' vs '=') so including shift would double-count it.
+  return key.length === 1 && /[a-z]/i.test(key);
 }
 
 /**
@@ -243,27 +275,23 @@ export class KeyboardManager {
   private handleKeyDown(event: globalThis.KeyboardEvent): void {
     if (!this.state.isActive) return;
 
-    // Skip if in input element unless explicitly allowed
-    if (isInputElement(event.target as Element)) {
-      // Only process Escape in input elements
-      if (event.key !== 'Escape') return;
-    }
-
+    const typing = isUserTyping(event);
+    const typingBlocks = typing;
     const modifiers = getModifiers(event);
     const key = event.key;
 
     // Check for sequence match first
-    if (this.trySequence(key, modifiers, event)) {
+    if (this.trySequence(key, modifiers, event, typingBlocks)) {
       return;
     }
 
     // Check for direct hotkey match
-    if (this.tryHotkey(key, modifiers, event)) {
+    if (this.tryHotkey(key, modifiers, event, typingBlocks)) {
       return;
     }
 
     // Start a new sequence if this key could be the start of one
-    this.startSequenceIfPossible(key, modifiers, event);
+    this.startSequenceIfPossible(key, modifiers, event, typingBlocks);
   }
 
   /**
@@ -272,7 +300,8 @@ export class KeyboardManager {
   private trySequence(
     key: string,
     modifiers: ModifierState,
-    event: globalThis.KeyboardEvent
+    event: globalThis.KeyboardEvent,
+    typingBlocks: boolean
   ): boolean {
     // Skip if any modifiers are pressed (sequences are modifier-free)
     if (modifiers.ctrl || modifiers.alt || modifiers.meta) {
@@ -297,6 +326,7 @@ export class KeyboardManager {
       for (const def of definitions) {
         if (!isSequenceCombo(def.combo)) continue;
         if (!this.isModeAllowed(def)) continue;
+        if (typingBlocks && !def.allowInInput) continue;
 
         const targetSequence = def.combo.sequence.join('');
 
@@ -360,7 +390,8 @@ export class KeyboardManager {
   private tryHotkey(
     key: string,
     modifiers: ModifierState,
-    event: globalThis.KeyboardEvent
+    event: globalThis.KeyboardEvent,
+    typingBlocks: boolean
   ): boolean {
     // Build lookup key for non-sequence hotkeys
     const lookupKey = this.buildLookupKey(key, modifiers);
@@ -372,6 +403,7 @@ export class KeyboardManager {
       if (isSequenceCombo(def.combo)) continue; // Skip sequences
       if (!this.isModeAllowed(def)) continue;
       if (!modifiersMatch(modifiers, def.combo.modifiers)) continue;
+      if (typingBlocks && !def.allowInInput) continue;
 
       // Match found! Check experience level
       if (!meetsExperienceLevel(this.experienceLevel, def.minLevel)) {
@@ -407,7 +439,8 @@ export class KeyboardManager {
   private startSequenceIfPossible(
     key: string,
     modifiers: ModifierState,
-    event: globalThis.KeyboardEvent
+    event: globalThis.KeyboardEvent,
+    typingBlocks: boolean
   ): void {
     // Skip if any modifiers are pressed
     if (modifiers.ctrl || modifiers.alt || modifiers.meta) return;
@@ -417,6 +450,7 @@ export class KeyboardManager {
       for (const def of definitions) {
         if (!isSequenceCombo(def.combo)) continue;
         if (!this.isModeAllowed(def)) continue;
+        if (typingBlocks && !def.allowInInput) continue;
         if (def.combo.sequence[0] === key) {
           // This key could start a sequence
           this.state.sequenceBuffer = { keys: [key], timestamp: Date.now() };
@@ -459,7 +493,7 @@ export class KeyboardManager {
     return def.modes.includes(this.state.mode);
   }
 
-  private getAllowedModesForDefinition(def: HotkeyDefinition): KeyboardMode[] {
+  private getAllowedModesForDefinition(def: HotkeyDefinition): ReadonlyArray<KeyboardMode> {
     if (!def.modes || def.modes.length === 0) return ALL_MODES;
     return def.modes;
   }
@@ -618,7 +652,7 @@ export class KeyboardManager {
     if (modifiers.meta) parts.push('meta');
     if (modifiers.ctrl) parts.push('ctrl');
     if (modifiers.alt) parts.push('alt');
-    if (modifiers.shift) parts.push('shift');
+    if (modifiers.shift && shouldIncludeShiftInKey(key)) parts.push('shift');
     parts.push(key.toLowerCase());
     return parts.join('+');
   }
@@ -634,7 +668,7 @@ export class KeyboardManager {
     if (combo.modifiers?.meta) parts.push('meta');
     if (combo.modifiers?.ctrl) parts.push('ctrl');
     if (combo.modifiers?.alt) parts.push('alt');
-    if (combo.modifiers?.shift) parts.push('shift');
+    if (combo.modifiers?.shift && shouldIncludeShiftInKey(combo.key)) parts.push('shift');
     parts.push(combo.key.toLowerCase());
     return parts.join('+');
   }

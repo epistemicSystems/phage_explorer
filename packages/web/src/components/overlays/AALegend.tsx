@@ -5,9 +5,11 @@
  * embedding or quick reference; smaller than AAKeyOverlay.
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { AMINO_ACIDS, type AminoAcid } from '@phage-explorer/core';
 import { useTheme } from '../../hooks/useTheme';
+import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 
@@ -24,17 +26,12 @@ export function AALegend(): React.ReactElement | null {
   const colors = theme.colors;
   const { isOpen, toggle } = useOverlay();
 
-  // Hotkey toggle: Shift+K (uppercase L alternative)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.key === 'L' || e.key === 'l') && e.shiftKey === false && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        toggle('aaLegend');
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [toggle]);
+  // Hotkey toggle: Shift+L
+  useHotkey(
+    ActionIds.OverlayAALegend,
+    () => toggle('aaLegend'),
+    { modes: ['NORMAL'] }
+  );
 
   if (!isOpen('aaLegend')) {
     return null;
@@ -44,7 +41,7 @@ export function AALegend(): React.ReactElement | null {
     <Overlay
       id="aaLegend"
       title="AMINO ACID LEGEND"
-      hotkey="l"
+      hotkey="Shift+L"
       size="md"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

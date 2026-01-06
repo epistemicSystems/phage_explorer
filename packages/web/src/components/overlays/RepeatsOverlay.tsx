@@ -9,6 +9,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -37,10 +38,9 @@ export function RepeatsOverlay({
 
   // Hotkey to toggle overlay
   useHotkey(
-    { key: 'r' },
-    'Repeats & Palindromes',
+    ActionIds.OverlayRepeats,
     () => toggle('repeats'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence when overlay opens

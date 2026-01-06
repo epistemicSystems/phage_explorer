@@ -20,6 +20,7 @@ import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemePalette } from '../../theme/types';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -59,10 +60,9 @@ export function ProphageExcisionOverlay({
 
   // Hotkey (Alt+X for eXcision) - avoid conflict with Defense Arms Race
   useHotkey(
-    { key: 'x', modifiers: { alt: true } },
-    'Prophage Excision',
+    ActionIds.OverlayProphageExcision,
     () => toggle('prophageExcision'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence when overlay opens

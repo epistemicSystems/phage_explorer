@@ -14,6 +14,7 @@ import type { PhageFull, GeneInfo } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
@@ -258,10 +259,9 @@ export function HGTOverlay({
 
   // Hotkey to toggle overlay (Alt+H)
   useHotkey(
-    { key: 'h', modifiers: { alt: true } },
-    'HGT Provenance Tracer',
+    ActionIds.OverlayHGT,
     () => toggle('hgt'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch full genome and genes when overlay opens or phage changes

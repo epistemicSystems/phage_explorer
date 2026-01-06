@@ -166,6 +166,13 @@ export function GlossaryPanel({ onSelect }: GlossaryPanelProps): React.ReactElem
               aria-label="Search glossary"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Escape') return;
+                if (!query) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setQuery('');
+              }}
               placeholder="Search terms..."
               className="input glossary-panel__search"
             />

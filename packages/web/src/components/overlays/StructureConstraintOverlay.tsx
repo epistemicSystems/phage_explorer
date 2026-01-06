@@ -11,13 +11,17 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   analyzeStructuralConstraints,
+  analyzeRNAStructure,
   predictMutationEffect,
+  reverseComplement,
   type AminoAcid,
   type PhageFull,
+  type RegulatoryHypothesis,
 } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -38,21 +42,6 @@ interface RNAElement {
   details: string;
 }
 
-// Shine-Dalgarno (SD) consensus sequences for RBS detection
-const SD_PATTERNS = [
-  { pattern: 'AGGAGG', score: 100 },
-  { pattern: 'AGGAG', score: 90 },
-  { pattern: 'AGGA', score: 80 },
-  { pattern: 'GGAGG', score: 80 },
-  { pattern: 'GAGG', score: 70 },
-  { pattern: 'AGAG', score: 60 },
-  { pattern: 'AGG', score: 50 },
-  { pattern: 'GGA', score: 50 },
-];
-
-// Start codons
-const START_CODONS = ['ATG', 'GTG', 'TTG'];
-
 const FRAGILITY_BLOCKS = ['░', '▒', '▓', '█'] as const;
 
 function fragilityBlock(score: number): string {
@@ -68,209 +57,6 @@ const AMINO_ACIDS: ReadonlyArray<AminoAcid> = [
   'L', 'K', 'M', 'F', 'P',
   'S', 'T', 'W', 'Y', 'V',
 ];
-
-// Find RBS candidates (Shine-Dalgarno sequences upstream of start codons)
-function findRBS(sequence: string): RNAElement[] {
-  const results: RNAElement[] = [];
-  const upper = sequence.toUpperCase();
-
-  // Find all potential start codons
-  for (const startCodon of START_CODONS) {
-    let pos = 0;
-    while ((pos = upper.indexOf(startCodon, pos)) !== -1) {
-      if (pos < 4) {
-        pos++;
-        continue;
-      }
-
-      // Scan -20 to -4 upstream for SD sequence
-      const upstreamStart = Math.max(0, pos - 20);
-      const upstreamEnd = pos - 4;
-      const upstream = upper.slice(upstreamStart, upstreamEnd);
-
-      // Check each SD pattern
-      for (const sd of SD_PATTERNS) {
-        const sdPos = upstream.indexOf(sd.pattern);
-        if (sdPos !== -1) {
-          const rbsStart = upstreamStart + sdPos;
-          const rbsEnd = rbsStart + sd.pattern.length;
-          const spacing = pos - rbsEnd;
-
-          // Optimal spacing is 5-9 nt
-          const spacingScore = spacing >= 5 && spacing <= 9 ? 20 : spacing >= 3 && spacing <= 12 ? 10 : 0;
-          const totalScore = sd.score + spacingScore;
-
-          if (totalScore >= 60) {
-            results.push({
-              type: 'rbs',
-              start: rbsStart,
-              end: pos + 3,
-              score: Math.min(100, totalScore),
-              sequence: upper.slice(rbsStart, pos + 3),
-              details: `SD: ${sd.pattern}, spacing: ${spacing} nt to ${startCodon}`,
-            });
-            break; // Found best SD for this start codon
-          }
-        }
-      }
-      pos++;
-    }
-  }
-
-  // Remove overlaps (keep highest scoring)
-  return deduplicateElements(results);
-}
-
-// Find rho-independent transcription terminators
-function findTerminators(sequence: string): RNAElement[] {
-  const results: RNAElement[] = [];
-  const upper = sequence.toUpperCase();
-
-  // Look for stem-loop structures followed by U-tract
-  for (let i = 0; i < upper.length - 50; i++) {
-    // Search for inverted repeat (potential stem)
-    const potentialStem = findBestStem(upper.slice(i, i + 40));
-
-    if (potentialStem && potentialStem.score >= 30) {
-      const stemEnd = i + potentialStem.end;
-
-      // Check for poly-U tract (at least 4 U's within 10 nt)
-      const downstream = upper.slice(stemEnd, stemEnd + 15);
-      const uCount = (downstream.match(/T/g) || []).length; // T in DNA = U in RNA
-
-      if (uCount >= 4) {
-        const totalScore = potentialStem.score + (uCount * 5);
-
-        results.push({
-          type: 'terminator',
-          start: i,
-          end: stemEnd + 10,
-          score: Math.min(100, totalScore),
-          sequence: upper.slice(i, stemEnd + 10),
-          details: `Stem: ${potentialStem.stemLength}bp, loop: ${potentialStem.loopLength}nt, U-tract: ${uCount}`,
-        });
-      }
-    }
-  }
-
-  return deduplicateElements(results);
-}
-
-// Find best stem-loop in a window
-function findBestStem(window: string): { stemLength: number; loopLength: number; end: number; score: number } | null {
-  const complement: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G' };
-  let best: { stemLength: number; loopLength: number; end: number; score: number } | null = null;
-
-  for (let stemLen = 6; stemLen <= 15 && stemLen * 2 + 4 <= window.length; stemLen++) {
-    for (let loopLen = 3; loopLen <= 8 && stemLen * 2 + loopLen <= window.length; loopLen++) {
-      const leftStem = window.slice(0, stemLen);
-      const rightStart = stemLen + loopLen;
-      const rightStem = window.slice(rightStart, rightStart + stemLen);
-
-      // Count base pairs
-      let pairs = 0;
-      let gcPairs = 0;
-      for (let j = 0; j < stemLen; j++) {
-        if (complement[leftStem[j]] === rightStem[stemLen - 1 - j]) {
-          pairs++;
-          if (leftStem[j] === 'G' || leftStem[j] === 'C') gcPairs++;
-        }
-      }
-
-      // Score based on pairs, GC content, and stem length
-      if (pairs >= stemLen * 0.7) {
-        const score = (pairs * 5) + (gcPairs * 3) + (stemLen - loopLen);
-        if (!best || score > best.score) {
-          best = { stemLength: stemLen, loopLength: loopLen, end: rightStart + stemLen, score };
-        }
-      }
-    }
-  }
-
-  return best;
-}
-
-// Compute local RNA folding potential (simplified energy landscape)
-function computeEnergyLandscape(
-  sequence: string,
-  windowSize: number = 100,
-  stepSize: number = 50
-): { position: number; energy: number }[] {
-  const results: { position: number; energy: number }[] = [];
-  const upper = sequence.toUpperCase();
-
-  for (let i = 0; i <= upper.length - windowSize; i += stepSize) {
-    const window = upper.slice(i, i + windowSize);
-
-    // Estimate folding energy based on GC content and dinucleotide composition
-    // Higher GC = more stable structures (more negative ΔG)
-    const gc = (window.match(/[GC]/g) || []).length / window.length;
-
-    // Count potential base-pair forming dinucleotides
-    let pairPotential = 0;
-    for (let j = 0; j < window.length - 1; j++) {
-      const di = window.slice(j, j + 2);
-      // These dinucleotides tend to form stable pairs
-      if (['GC', 'CG', 'GG', 'CC', 'AU', 'UA', 'AT', 'TA'].includes(di)) {
-        pairPotential++;
-      }
-    }
-
-    // Energy estimate (more negative = more structured)
-    const energy = -(gc * 30) - (pairPotential / window.length * 20);
-
-    results.push({
-      position: i + windowSize / 2,
-      energy,
-    });
-  }
-
-  return results;
-}
-
-// Find potential stem-loops (hairpins) throughout sequence
-function findStemLoops(sequence: string): RNAElement[] {
-  const results: RNAElement[] = [];
-  const upper = sequence.toUpperCase();
-
-  // Scan with overlapping windows
-  for (let i = 0; i < upper.length - 30; i += 20) {
-    const window = upper.slice(i, Math.min(i + 50, upper.length));
-    const stem = findBestStem(window);
-
-    if (stem && stem.score >= 40) {
-      results.push({
-        type: 'stemloop',
-        start: i,
-        end: i + stem.end,
-        score: stem.score,
-        sequence: window.slice(0, stem.end),
-        details: `Stem: ${stem.stemLength}bp, loop: ${stem.loopLength}nt`,
-      });
-    }
-  }
-
-  return deduplicateElements(results);
-}
-
-// Remove overlapping elements, keeping highest scoring
-function deduplicateElements(elements: RNAElement[]): RNAElement[] {
-  const sorted = [...elements].sort((a, b) => b.score - a.score);
-  const filtered: RNAElement[] = [];
-
-  for (const elem of sorted) {
-    const overlaps = filtered.some(
-      e => (elem.start >= e.start && elem.start < e.end) ||
-           (elem.end > e.start && elem.end <= e.end) ||
-           (elem.start <= e.start && elem.end >= e.end)
-    );
-    if (!overlaps) {
-      filtered.push(elem);
-    }
-  }
-
-  return filtered.sort((a, b) => a.start - b.start);
-}
 
 // Convert elements to track segments
 function elementsToSegments(
@@ -341,6 +127,7 @@ export function StructureConstraintOverlay({
   const [sequence, setSequence] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('rna');
+  const [strand, setStrand] = useState<'+' | '-'>('+');
 
   // Toggle states for element types
   const [showRBS, setShowRBS] = useState(true);
@@ -351,12 +138,11 @@ export function StructureConstraintOverlay({
   // Hover state
   const [hoverInfo, setHoverInfo] = useState<GenomeTrackInteraction | null>(null);
 
-  // Hotkey to toggle overlay (Alt+R)
+  // Hotkey to toggle overlay (Alt+Shift+R)
   useHotkey(
-    { key: 'r', modifiers: { alt: true } },
-    'Structure Constraints (RNA + capsid/tail proteins)',
+    ActionIds.OverlayStructureConstraint,
     () => toggle('structureConstraint'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch full genome when overlay opens or phage changes
@@ -389,15 +175,62 @@ export function StructureConstraintOverlay({
       .finally(() => setLoading(false));
   }, [isOpen, repository, currentPhage]);
 
-  // Detect RNA structural elements
+  // Detect RNA structural elements using shared core logic
   const analysis = useMemo(() => {
     if (viewMode !== 'rna') return null;
     if (!sequence || sequence.length < 100) return null;
 
-    const rbs = findRBS(sequence);
-    const terminators = findTerminators(sequence);
-    const stemloops = findStemLoops(sequence);
-    const energyLandscape = computeEnergyLandscape(sequence);
+    const len = sequence.length;
+    // Map strand coordinates for analysis if needed (core handles analysis on provided string)
+    // If strand is '-', we pass RC sequence to core.
+    const targetSeq = strand === '+' ? sequence : reverseComplement(sequence);
+
+    // Use core analysis which includes RBS, Terminators, and Stem-loops
+    const result = analyzeRNAStructure(targetSeq);
+
+    const mapHypothesis = (h: RegulatoryHypothesis): RNAElement => {
+      // Map core types to UI types
+      let type: ElementType = 'stemloop';
+      if (h.type === 'rbs') type = 'rbs';
+      if (h.type === 'terminator') type = 'terminator';
+      
+      // Map coordinates back to forward strand if needed
+      let start = h.start;
+      let end = h.end;
+      
+      if (strand === '-') {
+        // [s, e) in RC -> [len - e, len - s) in FWD
+        const origStart = start;
+        start = len - end;
+        end = len - origStart;
+      }
+
+      return {
+        type,
+        start,
+        end,
+        score: h.confidence * 100,
+        sequence: h.sequence,
+        details: h.description,
+      };
+    };
+
+    const rbs = result.regulatoryHypotheses
+      .filter(h => h.type === 'rbs')
+      .map(mapHypothesis);
+
+    const terminators = result.regulatoryHypotheses
+      .filter(h => h.type === 'terminator')
+      .map(mapHypothesis);
+
+    const stemloops = result.regulatoryHypotheses
+      .filter(h => h.type === 'stem-loop')
+      .map(mapHypothesis);
+
+    const energyLandscape = result.windows.map(w => ({
+      position: strand === '+' ? (w.start + w.end) / 2 : len - (w.start + w.end) / 2,
+      energy: w.mfe,
+    }));
 
     return {
       rbs,
@@ -406,7 +239,7 @@ export function StructureConstraintOverlay({
       energyLandscape,
       total: rbs.length + terminators.length + stemloops.length,
     };
-  }, [sequence, viewMode]);
+  }, [sequence, viewMode, strand]);
 
   const proteinReport = useMemo(() => {
     if (viewMode !== 'protein') return null;
@@ -502,49 +335,79 @@ export function StructureConstraintOverlay({
   if (!isOpen('structureConstraint')) return null;
 
   return (
-    <Overlay id="structureConstraint" title="STRUCTURE CONSTRAINTS" hotkey="Alt+R" size="lg">
+    <Overlay id="structureConstraint" title="STRUCTURE CONSTRAINTS" hotkey="Alt+Shift+R" size="lg">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* View switcher */}
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => setViewMode('rna')}
-            style={{
-              padding: '0.35rem 0.6rem',
-              borderRadius: '6px',
-              border: `1px solid ${viewMode === 'rna' ? colors.accent : colors.borderLight}`,
-              background: viewMode === 'rna' ? colors.backgroundAlt : colors.background,
-              color: viewMode === 'rna' ? colors.accent : colors.text,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-            }}
-            aria-pressed={viewMode === 'rna'}
-          >
-            RNA signals
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('protein')}
-            style={{
-              padding: '0.35rem 0.6rem',
-              borderRadius: '6px',
-              border: `1px solid ${viewMode === 'protein' ? colors.accent : colors.borderLight}`,
-              background: viewMode === 'protein' ? colors.backgroundAlt : colors.background,
-              color: viewMode === 'protein' ? colors.accent : colors.text,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-            }}
-            aria-pressed={viewMode === 'protein'}
-          >
-            Capsid/tail constraints
-          </button>
-          {viewMode === 'protein' ? (
-            <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>
-              {proteinReport?.proteins.length ?? 0} structural proteins
-            </div>
-          ) : (
-            <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>
-              {analysis?.total ?? 0} RNA elements
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => setViewMode('rna')}
+              style={{
+                padding: '0.35rem 0.6rem',
+                borderRadius: '6px',
+                border: `1px solid ${viewMode === 'rna' ? colors.accent : colors.borderLight}`,
+                background: viewMode === 'rna' ? colors.backgroundAlt : colors.background,
+                color: viewMode === 'rna' ? colors.accent : colors.text,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+              }}
+              aria-pressed={viewMode === 'rna'}
+            >
+              RNA signals
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('protein')}
+              style={{
+                padding: '0.35rem 0.6rem',
+                borderRadius: '6px',
+                border: `1px solid ${viewMode === 'protein' ? colors.accent : colors.borderLight}`,
+                background: viewMode === 'protein' ? colors.backgroundAlt : colors.background,
+                color: viewMode === 'protein' ? colors.accent : colors.text,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+              }}
+              aria-pressed={viewMode === 'protein'}
+            >
+              Capsid/tail constraints
+            </button>
+          </div>
+
+          {viewMode === 'rna' && (
+            <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', background: colors.background, padding: '0.2rem', borderRadius: '4px', border: `1px solid ${colors.borderLight}` }}>
+              <button
+                type="button"
+                onClick={() => setStrand('+')}
+                style={{
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '3px',
+                  background: strand === '+' ? colors.accent : 'transparent',
+                  color: strand === '+' ? colors.background : colors.textMuted,
+                  border: 'none',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                }}
+              >
+                + Strand
+              </button>
+              <button
+                type="button"
+                onClick={() => setStrand('-')}
+                style={{
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '3px',
+                  background: strand === '-' ? colors.accent : 'transparent',
+                  color: strand === '-' ? colors.background : colors.textMuted,
+                  border: 'none',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                }}
+              >
+                - Strand
+              </button>
             </div>
           )}
         </div>

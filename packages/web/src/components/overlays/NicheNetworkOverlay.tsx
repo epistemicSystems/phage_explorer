@@ -8,6 +8,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -172,10 +173,9 @@ export function NicheNetworkOverlay(): React.ReactElement | null {
 
   // Hotkey to toggle overlay
   useHotkey(
-    { key: 'N', modifiers: { shift: true, ctrl: true } },
-    'Niche Co-Occurrence Network',
+    ActionIds.OverlayNicheNetwork,
     () => toggle('nicheNetwork'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Track overlay open state
@@ -234,16 +234,16 @@ export function NicheNetworkOverlay(): React.ReactElement | null {
       };
     });
 
-    const layoutEdges: LayoutEdge[] = [];
-    for (const edge of network.edges) {
-      const source = nodeIndexMap.get(edge.source);
-      const target = nodeIndexMap.get(edge.target);
-      if (source == null || target == null) continue;
-      if (source === target) continue;
-      layoutEdges.push({
-        source,
-        target,
-        weight: edge.correlation,
+	    const layoutEdges: LayoutEdge[] = [];
+	    for (const edge of network.edges) {
+	      const source = nodeIndexMap.get(edge.source);
+	      const target = nodeIndexMap.get(edge.target);
+	      if (source === undefined || target === undefined) continue;
+	      if (source === target) continue;
+	      layoutEdges.push({
+	        source,
+	        target,
+	        weight: edge.correlation,
         type: edge.type,
       });
     }

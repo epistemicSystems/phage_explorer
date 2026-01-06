@@ -4,8 +4,9 @@
  * React hook for registering keyboard shortcuts.
  */
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { getKeyboardManager } from '../keyboard/KeyboardManager';
+import { ActionRegistry, type ActionId } from '../keyboard/actionRegistry';
 import type {
   KeyCombo,
   HotkeyDefinition,
@@ -14,40 +15,102 @@ import type {
   ExperienceLevel,
 } from '../keyboard/types';
 
+function serializeModifiers(modifiers?: KeyCombo['modifiers']): string {
+  if (!modifiers) return '';
+  const parts: string[] = [];
+  if (modifiers.meta) parts.push('meta');
+  if (modifiers.ctrl) parts.push('ctrl');
+  if (modifiers.alt) parts.push('alt');
+  if (modifiers.shift) parts.push('shift');
+  return parts.join('+');
+}
+
+function serializeKeyCombo(combo: KeyCombo): string {
+  const mods = serializeModifiers(combo.modifiers);
+  const prefix = mods ? `${mods}+` : '';
+  if ('sequence' in combo) {
+    return `${prefix}seq:${combo.sequence.join('')}`;
+  }
+  return `${prefix}${combo.key}`;
+}
+
+function serializeCombos(combos: KeyCombo | KeyCombo[]): string {
+  const list = Array.isArray(combos) ? combos : [combos];
+  return list.map(serializeKeyCombo).join('|');
+}
+
+function serializeModes(modes?: ReadonlyArray<KeyboardMode>): string {
+  return modes ? modes.join('|') : '';
+}
+
 /**
  * Register a single hotkey
  *
  * @example
- * useHotkey({ key: 't' }, 'Cycle theme', nextTheme);
- * useHotkey({ key: '?', modifiers: { shift: true } }, 'Show help', showHelp);
- * useHotkey({ sequence: ['g', 'g'] }, 'Go to top', goToTop);
- * useHotkey({ key: 'a', modifiers: { alt: true } }, 'Advanced feature', doAdvanced, { minLevel: 'power' });
+ * useHotkey(ActionIds.ViewCycleTheme, nextTheme);
+ * useHotkey(ActionIds.OverlayHelp, () => openOverlay('help'));
+ * useHotkey(ActionIds.NavScrollStart, goToTop, { combo: { sequence: ['g', 'g'] } });
+ * useHotkey(ActionIds.AnalysisAdvancedFeature, doAdvanced, { minLevel: 'power' });
  */
 export function useHotkey(
-  combo: KeyCombo,
-  description: string,
+  actionId: ActionId,
   action: () => void | Promise<void>,
   options?: {
-    modes?: KeyboardMode[];
+    combo?: KeyCombo | KeyCombo[];
+    description?: string;
     category?: string;
+    modes?: ReadonlyArray<KeyboardMode>;
     priority?: number;
     minLevel?: ExperienceLevel;  // Minimum experience level to activate (default: novice)
+    allowInInput?: boolean;      // Allow triggering while typing in inputs/contenteditable
+    enabled?: boolean;           // Opt-out of registration when false
   }
 ): void {
+  const actionRef = useRef(action);
+  const actionMeta = ActionRegistry[actionId];
+  const combos = options?.combo ?? actionMeta.defaultShortcut;
+  const description = options?.description ?? actionMeta.title;
+  const category = options?.category ?? actionMeta.category;
+  const minLevel = options?.minLevel ?? actionMeta.minLevel;
+  const registrationKey = [
+    actionId,
+    serializeCombos(combos),
+    description,
+    category,
+    serializeModes(options?.modes),
+    options?.priority ?? '',
+    minLevel ?? '',
+    options?.allowInInput ?? '',
+  ].join('::');
+
   useEffect(() => {
+    actionRef.current = action;
+  }, [action]);
+
+  const stableAction = useCallback(() => {
+    return actionRef.current();
+  }, []);
+
+  useEffect(() => {
+    if (options?.enabled === false) {
+      return;
+    }
     const manager = getKeyboardManager();
-    const unregister = manager.register({
-      combo,
+    const registrations = buildHotkeyDefinitions({
+      actionId,
+      action: stableAction,
+      combo: combos,
       description,
-      action,
+      category,
       modes: options?.modes,
-      category: options?.category,
       priority: options?.priority,
-      minLevel: options?.minLevel,
+      minLevel,
+      allowInInput: options?.allowInInput,
     });
+    const unregister = manager.registerMany(registrations);
 
     return unregister;
-  }, [combo, description, action, options?.modes, options?.category, options?.priority, options?.minLevel]);
+  }, [stableAction, registrationKey, options?.enabled]);
 }
 
 /**
@@ -55,16 +118,55 @@ export function useHotkey(
  *
  * @example
  * useHotkeys([
- *   { combo: { key: 'j' }, description: 'Move down', action: moveDown },
- *   { combo: { key: 'k' }, description: 'Move up', action: moveUp },
+ *   { actionId: ActionIds.NavNextPhage, action: moveDown },
+ *   { actionId: ActionIds.NavPrevPhage, action: moveUp },
  * ]);
  */
-export function useHotkeys(definitions: HotkeyDefinition[]): void {
+export function useHotkeys(definitions: HotkeyRegistration[]): void {
   useEffect(() => {
     const manager = getKeyboardManager();
-    const unregister = manager.registerMany(definitions);
+    const activeDefinitions = definitions.filter((definition) => definition.enabled !== false);
+    if (activeDefinitions.length === 0) {
+      return;
+    }
+    const registrations = activeDefinitions.flatMap((definition) => buildHotkeyDefinitions(definition));
+    const unregister = manager.registerMany(registrations);
     return unregister;
   }, [definitions]);
+}
+
+interface HotkeyRegistration {
+  actionId: ActionId;
+  action: () => void | Promise<void>;
+  combo?: KeyCombo | KeyCombo[];
+  description?: string;
+  category?: string;
+  modes?: ReadonlyArray<KeyboardMode>;
+  priority?: number;
+  minLevel?: ExperienceLevel;
+  allowInInput?: boolean;
+  enabled?: boolean;
+}
+
+function buildHotkeyDefinitions(definition: HotkeyRegistration): HotkeyDefinition[] {
+  const actionMeta = ActionRegistry[definition.actionId];
+  const combos = definition.combo ?? actionMeta.defaultShortcut;
+  const comboList = Array.isArray(combos) ? combos : [combos];
+  const description = definition.description ?? actionMeta.title;
+  const category = definition.category ?? actionMeta.category;
+  const minLevel = definition.minLevel ?? actionMeta.minLevel;
+
+  return comboList.map((combo): HotkeyDefinition => ({
+    actionId: definition.actionId,
+    combo,
+    description,
+    action: definition.action,
+    modes: definition.modes,
+    category,
+    priority: definition.priority,
+    minLevel,
+    allowInInput: definition.allowInInput,
+  }));
 }
 
 /**

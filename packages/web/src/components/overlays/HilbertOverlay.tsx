@@ -14,6 +14,7 @@ import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemePalette } from '../../theme/types';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -132,10 +133,9 @@ export function HilbertOverlay({ repository, currentPhage }: HilbertOverlayProps
   const [colorMode, setColorMode] = useState<ColorMode>('nucleotide');
 
   useHotkey(
-    { key: 'h', modifiers: { alt: true, shift: true } },
-    'Hilbert Curve',
+    ActionIds.OverlayHilbert,
     () => toggle('hilbert'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Initialize web worker on mount

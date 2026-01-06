@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import type { PhageSummary } from '@phage-explorer/core';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { PhageListItemSkeleton } from './ui/Skeleton';
 
 interface PhageListProps {
   phages: PhageSummary[];
@@ -10,6 +11,7 @@ interface PhageListProps {
   mobileListOpen?: boolean;
   hasSelection?: boolean;
   isMobile?: boolean;
+  loading?: boolean;
 }
 
 export function PhageList({
@@ -20,6 +22,7 @@ export function PhageList({
   mobileListOpen,
   hasSelection,
   isMobile,
+  loading = false,
 }: PhageListProps): React.ReactElement {
   const activeItemRef = useRef<HTMLButtonElement>(null);
   const reducedMotion = useReducedMotion();
@@ -31,6 +34,19 @@ export function PhageList({
     // Don't auto-scroll if user is interacting with list, but here we just do it on index change
     node.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
   }, [currentIndex, reducedMotion]);
+
+  if (loading) {
+    return (
+      <div className={`column column--list ${isMobile && hasSelection && mobileListOpen ? 'mobile-drawer' : ''}`}>
+        <div className="panel-header">
+          <h3>Phages</h3>
+        </div>
+        <div className="list">
+          <PhageListItemSkeleton count={8} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`column column--list ${isMobile && hasSelection && mobileListOpen ? 'mobile-drawer' : ''}`}>
@@ -50,42 +66,51 @@ export function PhageList({
           )}
         </div>
       </div>
-      <div className="list">
+      <ul className="list" role="list">
         {phages.map((phage, idx) => {
           const isActive = idx === currentIndex;
+          const isLytic = phage.lifecycle === 'lytic';
+          
           return (
-            <button
-              key={phage.id}
-              ref={isActive ? activeItemRef : undefined}
-              className={`list-item ${isActive ? 'active' : ''}`}
-              onClick={() => onSelect(idx)}
-              type="button"
-            >
-              <div className="list-item-main">
-                <div className="list-title">{phage.name}</div>
-                <div className="list-subtitle text-dim">
-                  {phage.host ?? 'Unknown host'} · {(phage.genomeLength ?? 0).toLocaleString()} bp
+            <li key={phage.id} role="listitem">
+              <button
+                ref={isActive ? activeItemRef : undefined}
+                className={`list-item ${isActive ? 'active' : ''}`}
+                onClick={() => onSelect(idx)}
+                type="button"
+                aria-current={isActive ? 'true' : undefined}
+              >
+                <div className="list-item-main">
+                  <div className="list-title">{phage.name}</div>
+                  <div className="list-subtitle text-dim">
+                    {phage.host ?? 'Unknown host'} · {(phage.genomeLength ?? 0).toLocaleString()} bp
+                  </div>
                 </div>
-              </div>
-              <div className="list-item-meta">
-                {phage.lifecycle && (
-                  <span className={`badge badge-tiny ${phage.lifecycle === 'lytic' ? 'badge-warning' : 'badge-info'}`}>
-                    {phage.lifecycle}
-                  </span>
-                )}
-                {phage.gcContent != null && (
-                  <span className="meta-gc text-dim">{phage.gcContent.toFixed(1)}%</span>
-                )}
-              </div>
-            </button>
+                <div className="list-item-meta">
+                  {phage.lifecycle && (
+                    <span 
+                      className={`badge badge-tiny ${isLytic ? 'badge-warning' : 'badge-info'}`}
+                      title={isLytic ? 'Lytic lifecycle' : 'Lysogenic lifecycle'}
+                    >
+                      {isLytic ? '⚡' : '∞'} {phage.lifecycle}
+                    </span>
+                  )}
+                  {phage.gcContent !== null && (
+                    <span className="meta-gc text-dim" title="GC Content">
+                      {phage.gcContent.toFixed(1)}% GC
+                    </span>
+                  )}
+                </div>
+              </button>
+            </li>
           );
         })}
         {phages.length === 0 && (
-          <div className="text-dim" style={{ padding: '1rem' }}>
-            Phage list will appear once the database loads.
+          <div className="text-dim" style={{ padding: '2rem', textAlign: 'center' }}>
+            No phages found.
           </div>
         )}
-      </div>
+      </ul>
     </div>
   );
 }

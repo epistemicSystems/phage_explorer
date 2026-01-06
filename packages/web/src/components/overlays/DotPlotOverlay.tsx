@@ -16,6 +16,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
@@ -84,10 +85,9 @@ export function DotPlotOverlay({
 
   // Hotkey to toggle overlay (Alt+O for dOt plot - Alt+D used by ProteinDomainOverlay)
   useHotkey(
-    { key: 'o', modifiers: { alt: true } },
-    'Dot Plot Analysis',
+    ActionIds.OverlayDotPlot,
     () => toggle('dotPlot'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Initialize worker

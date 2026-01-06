@@ -121,7 +121,8 @@ export function TourEngine(): React.ReactElement | null {
     }
 
     const step = tour.steps[stepIndex];
-    const targetRect = resolveTargetRect(step, reducedMotion ? 'auto' : 'smooth');
+    // Use 'auto' scroll to ensure immediate alignment; smooth scroll causes highlighter drift
+    const targetRect = resolveTargetRect(step, 'auto');
     if (targetRect) {
       setRect(targetRect);
       return;
@@ -216,10 +217,10 @@ export function TourEngine(): React.ReactElement | null {
   }
 
   // Clamp to viewport
-  if (popoverStyle.left != null && Number(popoverStyle.left) < 10) popoverStyle.left = 10;
-  if (popoverStyle.right != null && Number(popoverStyle.right) < 10) popoverStyle.right = 10;
-  if (popoverStyle.top != null && Number(popoverStyle.top) < 10) popoverStyle.top = 10;
-  if (popoverStyle.bottom != null && Number(popoverStyle.bottom) < 10) popoverStyle.bottom = 10;
+  if (popoverStyle.left !== undefined && Number(popoverStyle.left) < 10) popoverStyle.left = 10;
+  if (popoverStyle.right !== undefined && Number(popoverStyle.right) < 10) popoverStyle.right = 10;
+  if (popoverStyle.top !== undefined && Number(popoverStyle.top) < 10) popoverStyle.top = 10;
+  if (popoverStyle.bottom !== undefined && Number(popoverStyle.bottom) < 10) popoverStyle.bottom = 10;
 
   return (
     <>
@@ -250,8 +251,9 @@ export function TourEngine(): React.ReactElement | null {
             borderRadius: '6px',
             border: `2px solid ${colors.accent}`,
             transition: 'all 0.3s ease',
-            pointerEvents: 'none',
+            pointerEvents: 'auto', // Capture clicks
           }}
+          onClick={(e) => e.stopPropagation()} // Prevent skipping
         />
       </div>
 

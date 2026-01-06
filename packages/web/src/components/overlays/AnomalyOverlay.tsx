@@ -11,6 +11,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import {
@@ -74,10 +75,9 @@ export function AnomalyOverlay({
 
   // Hotkey Alt+Y for anomalY (Alt+A used by AMGPathwayOverlay)
   useHotkey(
-    { key: 'y', modifiers: { alt: true } },
-    'Anomaly overlay',
+    ActionIds.OverlayAnomaly,
     () => toggle('anomaly'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Spin up worker once

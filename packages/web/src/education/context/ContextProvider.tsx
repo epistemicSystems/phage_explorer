@@ -16,6 +16,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -144,6 +145,14 @@ export function ContextProvider({
   const [isOpen, setIsOpen] = useState(false);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [content, setContent] = useState<ContextHelpContent | null>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearHideTimer = useCallback(() => {
+    if (hideTimerRef.current !== null) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
 
   // Show context for a topic
   const showContext = useCallback(
@@ -151,6 +160,7 @@ export function ContextProvider({
       // Only show context if beginner mode is enabled
       if (!isBeginnerMode) return;
 
+      clearHideTimer();
       const resolved = resolveTopicContent(topicId);
       if (resolved) {
         setActiveTopic(topicId);
@@ -158,18 +168,20 @@ export function ContextProvider({
         setIsOpen(true);
       }
     },
-    [isBeginnerMode]
+    [isBeginnerMode, clearHideTimer]
   );
 
   // Hide context panel
   const hideContext = useCallback(() => {
     setIsOpen(false);
     // Keep topic/content briefly for fade-out animation
-    setTimeout(() => {
+    clearHideTimer();
+    hideTimerRef.current = setTimeout(() => {
       setActiveTopic(null);
       setContent(null);
+      hideTimerRef.current = null;
     }, 300);
-  }, []);
+  }, [clearHideTimer]);
 
   // Toggle context (show if different topic, hide if same)
   const toggleContext = useCallback(
@@ -197,6 +209,12 @@ export function ContextProvider({
       hideContext();
     }
   }, [isBeginnerMode, isOpen, hideContext]);
+
+  useEffect(() => {
+    return () => {
+      clearHideTimer();
+    };
+  }, [clearHideTimer]);
 
   const value = useMemo<ContextHelpState>(
     () => ({

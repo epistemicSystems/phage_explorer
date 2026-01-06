@@ -15,7 +15,6 @@ import {
   useActiveTourId,
   useCompletedModules,
   useCompletedTours,
-  initializeBeginnerModeFromStorage,
 } from '@phage-explorer/state';
 
 export interface BeginnerModeContext {
@@ -216,17 +215,11 @@ export function useBeginnerMode(): BeginnerModeContext {
  * Call this once at the app root level
  */
 export function useBeginnerModeInit(): void {
-  const setBeginnerModeEnabled = usePhageStore((s) => s.setBeginnerModeEnabled);
-  const completeTour = usePhageStore((s) => s.completeTour);
-  const completeModule = usePhageStore((s) => s.completeModule);
+  const restoreBeginnerProgress = usePhageStore((s) => s.restoreBeginnerProgress);
 
   useEffect(() => {
-    initializeBeginnerModeFromStorage(
-      setBeginnerModeEnabled,
-      completeTour,
-      completeModule
-    );
-  }, [setBeginnerModeEnabled, completeTour, completeModule]);
+    restoreBeginnerProgress();
+  }, [restoreBeginnerProgress]);
 }
 
 export default useBeginnerMode;

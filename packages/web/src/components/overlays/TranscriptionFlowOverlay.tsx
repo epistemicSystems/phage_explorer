@@ -7,10 +7,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { getOrchestrator } from '../../workers/ComputeOrchestrator';
 import type { TranscriptionFlowResult } from '../../workers/types';
+import { AnalysisPanelSkeleton } from '../ui/Skeleton';
 
 interface TranscriptionFlowOverlayProps {
   sequence?: string;
@@ -23,12 +26,21 @@ export function TranscriptionFlowOverlay({ sequence = '', genomeLength = 0 }: Tr
   const { isOpen, toggle } = useOverlay();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<{ values: number[]; peaks: Array<{ start: number; end: number; flux: number }> }>({ values: [], peaks: [] });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Calculate transcription flow data via worker
   useEffect(() => {
-    if (!sequence) return;
-    
+    if (!isOpen('transcriptionFlow') || !sequence) {
+      setData({ values: [], peaks: [] });
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     
     const runAnalysis = async () => {
       try {
@@ -41,7 +53,11 @@ export function TranscriptionFlowOverlay({ sequence = '', genomeLength = 0 }: Tr
           setData({ values: result.values, peaks: result.peaks });
         }
       } catch (err) {
-        console.error('Transcription flow analysis failed:', err);
+        if (cancelled) return;
+        setData({ values: [], peaks: [] });
+        setError(err instanceof Error ? err.message : 'Transcription flow analysis failed');
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -50,22 +66,16 @@ export function TranscriptionFlowOverlay({ sequence = '', genomeLength = 0 }: Tr
     return () => {
       cancelled = true;
     };
-  }, [sequence]);
+  }, [isOpen, sequence]);
 
   const { values, peaks } = data;
 
   // Register hotkey
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === 'y' || e.key === 'Y') && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-        e.preventDefault();
-        toggle('transcriptionFlow');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggle]);
+  useHotkey(
+    ActionIds.OverlayTranscriptionFlow,
+    () => toggle('transcriptionFlow'),
+    { modes: ['NORMAL'] }
+  );
 
   // Draw the flux profile
   useEffect(() => {
@@ -158,22 +168,30 @@ export function TranscriptionFlowOverlay({ sequence = '', genomeLength = 0 }: Tr
         </div>
 
         {/* Canvas for graph */}
-        <div style={{
-          border: `1px solid ${colors.borderLight}`,
-          borderRadius: '4px',
-          overflow: 'hidden',
-          height: '200px', 
-          position: 'relative'
-        }}>
-          <canvas
-            ref={canvasRef}
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'block',
-            }}
-          />
-        </div>
+        {loading ? (
+          <AnalysisPanelSkeleton message="Computing transcription flow..." rows={3} />
+        ) : error ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: colors.error }}>
+            Error: {error}
+          </div>
+        ) : (
+          <div style={{
+            border: `1px solid ${colors.borderLight}`,
+            borderRadius: '4px',
+            overflow: 'hidden',
+            height: '200px', 
+            position: 'relative'
+          }}>
+            <canvas
+              ref={canvasRef}
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'block',
+              }}
+            />
+          </div>
+        )}
 
         {/* Top Peaks */}
         <div>

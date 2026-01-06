@@ -271,6 +271,7 @@ export interface PhageExplorerActions {
   completeTour: (tourId: string) => void;
   completeModule: (moduleId: string) => void;
   resetBeginnerProgress: () => void;
+  restoreBeginnerProgress: () => void;
 }
 
 // Layout constants
@@ -557,6 +558,8 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
   // Comparison
   openComparison: () => {
     const { currentPhageIndex, phages } = get();
+    if (phages.length === 0) return; // Guard against empty state
+
     // Default: compare current phage with Lambda or first phage
     const lambdaIndex = phages.findIndex(p =>
       p.slug === 'lambda' || p.name.toLowerCase().includes('lambda')
@@ -809,6 +812,66 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
       localStorage.removeItem('phage-explorer-completed-modules');
     }
   },
+
+  restoreBeginnerProgress: () => {
+    if (typeof localStorage === 'undefined') return;
+
+    let beginnerModeEnabled = get().beginnerModeEnabled;
+    let completedTours = get().completedTours;
+    let completedModules = get().completedModules;
+    let hasChanges = false;
+
+    // Restore beginner mode preference
+    const storedBeginnerMode = localStorage.getItem('phage-explorer-beginner-mode');
+    if (storedBeginnerMode !== null) {
+      try {
+        const val = JSON.parse(storedBeginnerMode);
+        if (val !== beginnerModeEnabled) {
+          beginnerModeEnabled = val;
+          hasChanges = true;
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Restore completed tours
+    const storedTours = localStorage.getItem('phage-explorer-completed-tours');
+    if (storedTours !== null) {
+      try {
+        const val = JSON.parse(storedTours);
+        if (Array.isArray(val)) {
+          // Merge unique
+          const next = Array.from(new Set([...completedTours, ...val]));
+          if (next.length !== completedTours.length) {
+            completedTours = next;
+            hasChanges = true;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Restore completed modules
+    const storedModules = localStorage.getItem('phage-explorer-completed-modules');
+    if (storedModules !== null) {
+      try {
+        const val = JSON.parse(storedModules);
+        if (Array.isArray(val)) {
+          const next = Array.from(new Set([...completedModules, ...val]));
+          if (next.length !== completedModules.length) {
+            completedModules = next;
+            hasChanges = true;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    if (hasChanges) {
+      set({
+        beginnerModeEnabled,
+        completedTours,
+        completedModules,
+      });
+    }
+  },
 }));
 
 // Selector hooks for common derived state
@@ -852,42 +915,3 @@ export const useCompletedModules = () => usePhageStore((s) => s.completedModules
 export const useCompletedTours = () => usePhageStore((s) => s.completedTours);
 export const useHasCompletedTour = (tourId: string) => usePhageStore((s) => s.completedTours.includes(tourId));
 export const useHasCompletedModule = (moduleId: string) => usePhageStore((s) => s.completedModules.includes(moduleId));
-
-// Helper to initialize beginner mode state from localStorage on app start
-export function initializeBeginnerModeFromStorage(
-  setBeginnerModeEnabled: (enabled: boolean) => void,
-  completeTour: (tourId: string) => void,
-  completeModule: (moduleId: string) => void
-): void {
-  if (typeof localStorage === 'undefined') return;
-
-  // Restore beginner mode preference
-  const storedBeginnerMode = localStorage.getItem('phage-explorer-beginner-mode');
-  if (storedBeginnerMode !== null) {
-    try {
-      setBeginnerModeEnabled(JSON.parse(storedBeginnerMode));
-    } catch { /* ignore parse errors */ }
-  }
-
-  // Restore completed tours
-  const storedTours = localStorage.getItem('phage-explorer-completed-tours');
-  if (storedTours !== null) {
-    try {
-      const tours = JSON.parse(storedTours);
-      if (Array.isArray(tours)) {
-        tours.forEach((tourId: string) => completeTour(tourId));
-      }
-    } catch { /* ignore parse errors */ }
-  }
-
-  // Restore completed modules
-  const storedModules = localStorage.getItem('phage-explorer-completed-modules');
-  if (storedModules !== null) {
-    try {
-      const modules = JSON.parse(storedModules);
-      if (Array.isArray(modules)) {
-        modules.forEach((moduleId: string) => completeModule(moduleId));
-      }
-    } catch { /* ignore parse errors */ }
-  }
-}

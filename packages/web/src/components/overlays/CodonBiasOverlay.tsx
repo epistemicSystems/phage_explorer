@@ -10,6 +10,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -157,10 +158,9 @@ export function CodonBiasOverlay({
 
   // Hotkey to toggle overlay (Alt+U for Usage)
   useHotkey(
-    { key: 'u', modifiers: { alt: true } },
-    'Codon Usage Bias',
+    ActionIds.OverlayCodonBias,
     () => toggle('codonBias'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence when overlay opens

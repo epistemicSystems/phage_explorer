@@ -9,6 +9,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
@@ -41,10 +42,9 @@ export function ComplexityOverlay({
 
   // Hotkey to toggle overlay
   useHotkey(
-    { key: 'x' },
-    'Sequence Complexity',
+    ActionIds.OverlayComplexity,
     () => toggle('complexity'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence when overlay opens

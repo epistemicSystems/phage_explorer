@@ -7,6 +7,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay, type OverlayId } from './OverlayProvider';
 import {
@@ -212,7 +214,7 @@ const ANALYSIS_ITEMS: AnalysisItem[] = [
     label: 'K-mer Anomaly',
     description: 'Unusual k-mer composition detection',
     icon: <IconSearch size={ITEM_ICON_SIZE} />,
-    shortcut: 'j',
+    shortcut: 'Alt+J',
     category: 'Evolutionary',
     requiresLevel: 'power',
   },
@@ -372,17 +374,11 @@ export function AnalysisMenu(): React.ReactElement | null {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   // Register hotkey
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === 'a' || e.key === 'A') && !e.ctrlKey && !e.metaKey && !isOpen('analysisMenu')) {
-        e.preventDefault();
-        toggle('analysisMenu');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggle, isOpen]);
+  useHotkey(
+    ActionIds.OverlayAnalysisMenu,
+    () => toggle('analysisMenu'),
+    { modes: ['NORMAL'] }
+  );
 
   // Handle keyboard navigation
   useEffect(() => {

@@ -9,6 +9,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -30,9 +31,11 @@ const BENDABILITY: Record<string, number> = {
 function calculateBendability(sequence: string, windowSize = 50): number[] {
   const values: number[] = [];
   const seq = sequence.toUpperCase();
+  const windowSizeInt = Math.max(1, Math.floor(windowSize));
+  const stepSize = Math.max(1, Math.floor(windowSizeInt / 4));
 
-  for (let i = 0; i < seq.length - windowSize; i += windowSize / 4) {
-    const window = seq.slice(i, i + windowSize);
+  for (let i = 0; i <= seq.length - windowSizeInt; i += stepSize) {
+    const window = seq.slice(i, i + windowSizeInt);
     let sum = 0;
     let count = 0;
 
@@ -64,10 +67,9 @@ export function BendabilityOverlay({
 
   // Hotkey to toggle overlay
   useHotkey(
-    { key: 'b' },
-    'DNA Bendability',
+    ActionIds.OverlayBendability,
     () => toggle('bendability'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence when overlay opens

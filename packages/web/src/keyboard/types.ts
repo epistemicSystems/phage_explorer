@@ -4,6 +4,8 @@
  * Vim-inspired modal keyboard system for Phage Explorer Web.
  */
 
+import type { ActionId } from './actionRegistry';
+
 /**
  * Experience levels for progressive disclosure of hotkeys
  */
@@ -49,13 +51,15 @@ export type KeyCombo = SingleKeyCombo | SequenceKeyCombo;
  * Hotkey definition
  */
 export interface HotkeyDefinition {
+  actionId?: ActionId;
   combo: KeyCombo;
   description: string;
-  modes?: KeyboardMode[];  // Which modes this hotkey is active in (default: all)
+  modes?: ReadonlyArray<KeyboardMode>;  // Which modes this hotkey is active in (default: all)
   action: () => void | Promise<void>;
   category?: string;       // For grouping in help overlay
   priority?: number;       // Higher priority wins on conflict (default: 0)
   minLevel?: ExperienceLevel;  // Minimum experience level to activate (default: novice)
+  allowInInput?: boolean;  // Allow triggering while typing in inputs/contenteditable
 }
 
 /**

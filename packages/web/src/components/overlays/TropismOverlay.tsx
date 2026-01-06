@@ -17,6 +17,8 @@ import {
   type TropismPredictionInput,
 } from '@phage-explorer/comparison';
 import { useTheme } from '../../hooks/useTheme';
+import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import type { PhageRepository } from '../../db';
@@ -175,16 +177,11 @@ export function TropismOverlay({ repository, phage }: TropismOverlayProps): Reac
     return { text: 'UNKNOWN', color: colors.textMuted };
   }, [data, colors]);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.key === '0' || e.key === 't' || e.key === 'T') && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        toggle('tropism');
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [toggle]);
+  useHotkey(
+    ActionIds.OverlayTropism,
+    () => toggle('tropism'),
+    { modes: ['NORMAL'] }
+  );
 
   useEffect(() => {
     if (!isOpen('tropism') || !phage) return;
@@ -240,7 +237,7 @@ export function TropismOverlay({ repository, phage }: TropismOverlayProps): Reac
     <Overlay
       id="tropism"
       title="TROPISM & RECEPTOR PREDICTIONS"
-      hotkey="0 / T"
+      hotkey="0"
       size="xl"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

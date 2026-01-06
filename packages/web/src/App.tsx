@@ -13,6 +13,7 @@ import type { GeneInfo } from '@phage-explorer/core';
 import { AppShell } from './components/layout/AppShell';
 import OverlayManager from './components/overlays/OverlayManager';
 import { useOverlay } from './components/overlays/OverlayProvider';
+import type { OverlayId } from './components/overlays/OverlayProvider';
 import { DataLoadingOverlay } from './components/DataLoadingOverlay';
 import { useDatabase } from './hooks/useDatabase';
 import {
@@ -22,6 +23,7 @@ import {
   useExperienceLevelSync,
   useBlockedHotkeyNotification,
 } from './hooks';
+import { ActionIds, getOverlayHotkeyActions } from './keyboard';
 import { useTheme } from './hooks/useTheme';
 import { useReducedMotion } from './hooks';
 import { BlockedHotkeyToast } from './components/BlockedHotkeyToast';
@@ -51,7 +53,11 @@ import {
 } from './components/mobile';
 import { FloatingActionButton, ActionDrawer } from './components/controls';
 import { DataFreshnessIndicator } from './components/ui/DataFreshnessIndicator';
-import { IconSettings } from './components/ui/icons';
+import {
+  IconSettings,
+  IconCommand,
+} from './components/ui/icons';
+import { Model3DSkeleton, SequenceViewSkeleton } from './components/ui/Skeleton';
 
 // Desktop UI components for surfacing hidden functionality
 import { ActionToolbar } from './components/ActionToolbar';
@@ -59,8 +65,6 @@ import { AnalysisSidebar } from './components/AnalysisSidebar';
 import { QuickStats } from './components/QuickStats';
 import { haptics } from './utils/haptics';
 
-/** Number of bases to show in the sequence preview */
-const SEQUENCE_PREVIEW_LENGTH = 500;
 const BREAKPOINT_PHONE_PX = 640;
 const BREAKPOINT_NARROW_PX = 1100;
 const BREAKPOINT_WIDE_PX = 1400; // Show analysis sidebar on wide screens
@@ -127,17 +131,16 @@ export default function App(): React.ReactElement {
   const setLoadingPhage = usePhageStore((s) => s.setLoadingPhage);
   const setError = usePhageStore((s) => s.setError);
   const storeSetTheme = usePhageStore((s) => s.setTheme);
-  const storeCloseAllOverlays = usePhageStore((s) => s.closeAllOverlays);
+  const storeCloseOverlay = usePhageStore((s) => s.closeOverlay);
   const show3DModel = usePhageStore((s) => s.show3DModel);
   const toggle3DModel = usePhageStore((s) => s.toggle3DModel);
-  const { open: openOverlayCtx, closeAll: closeAllOverlaysCtx, hasBlockingOverlay } = useOverlay();
+  const { open: openOverlayCtx, close: closeOverlayCtx, toggle: toggleOverlayCtx, hasBlockingOverlay } = useOverlay();
   const { mode } = useKeyboardMode();
   const pendingSequence = usePendingSequence();
 
   // Sync experience level to keyboard manager and handle blocked hotkey notifications
   useExperienceLevelSync();
   const { blockedHotkey, dismiss: dismissBlockedHotkey } = useBlockedHotkeyNotification();
-  const [sequencePreview, setSequencePreview] = useState<string>('');
   const [fullSequence, setFullSequence] = useState<string>('');
   const [selectedGene, setSelectedGene] = useState<GeneInfo | null>(null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
@@ -422,7 +425,6 @@ export default function App(): React.ReactElement {
       setLoadingPhage(true);
       try {
         setCurrentPhageIndex(index);
-        setSequencePreview('');
         setFullSequence('');
         const phage = await repo.getPhageByIndex(index);
         if (!phage) return;
@@ -431,7 +433,6 @@ export default function App(): React.ReactElement {
         if (genomeLength > 0) {
           const seq = await repo.getSequenceWindow(phage.id, 0, genomeLength);
           setFullSequence(seq);
-          setSequencePreview(seq.slice(0, SEQUENCE_PREVIEW_LENGTH));
         }
         // Prefetch adjacent phages for instant navigation feel
         void repo.prefetchAround(index, 2);
@@ -749,35 +750,59 @@ export default function App(): React.ReactElement {
   const loadingOverlayNeeded = isLoading || (!repository && progress);
   const showErrorOverlay = !!error && !repository;
 
-  useHotkeys([
-    { combo: { key: 'j' }, description: 'Next phage', action: handleNextPhage, modes: ['NORMAL'] },
-    { combo: { key: 'k' }, description: 'Previous phage', action: handlePrevPhage, modes: ['NORMAL'] },
-    { combo: { key: 't' }, description: 'Cycle theme', action: nextTheme, modes: ['NORMAL'] },
-    { combo: { key: '?' }, description: 'Help overlay', action: () => openOverlayCtx('help'), modes: ['NORMAL'] },
-    { combo: { key: '/' }, description: 'Search', action: () => openOverlayCtx('search'), modes: ['NORMAL'] },
-    { combo: { key: ':' }, description: 'Command palette', action: () => openOverlayCtx('commandPalette'), modes: ['NORMAL'] },
-    { combo: { key: ',', modifiers: { ctrl: true } }, description: 'Open settings', action: () => openOverlayCtx('settings'), modes: ['NORMAL'] },
+  const overlayHotkeyDefinitions = useMemo(() => {
+    return getOverlayHotkeyActions()
+      .map((action) => ({
+        actionId: action.actionId,
+        action: () => {
+          const overlayId = action.overlayId as OverlayId;
+          if (action.overlayAction === 'toggle') {
+            toggleOverlayCtx(overlayId);
+            return;
+          }
+          openOverlayCtx(overlayId);
+        },
+        modes: ['NORMAL'] as const,
+      }));
+  }, [openOverlayCtx, toggleOverlayCtx]);
+
+  useHotkeys(overlayHotkeyDefinitions);
+
+  const globalHotkeys = useMemo(() => ([
+    { actionId: ActionIds.NavNextPhage, action: handleNextPhage, modes: ['NORMAL'] as const, priority: 2 },
+    { actionId: ActionIds.NavPrevPhage, action: handlePrevPhage, modes: ['NORMAL'] as const, priority: 2 },
+    { actionId: ActionIds.ViewCycleTheme, action: nextTheme, modes: ['NORMAL'] as const, priority: 2 },
     {
-      combo: { key: 'b', modifiers: { ctrl: true } },
-      description: 'Toggle beginner mode',
+      actionId: ActionIds.EducationToggleBeginnerMode,
       action: handleToggleBeginnerMode,
-      modes: ['NORMAL'],
-      category: 'Education',
+      modes: ['NORMAL'] as const,
     },
     {
-      combo: { key: 'Escape' },
-      description: 'Close overlays or glossary',
+      actionId: ActionIds.OverlayCloseAll,
       action: () => {
         if (isGlossaryOpen && !hasBlockingOverlay) {
           closeGlossary();
           return;
         }
-        closeAllOverlaysCtx();
-        storeCloseAllOverlays();
+        closeOverlayCtx();
+        storeCloseOverlay();
       },
-      modes: ['NORMAL'],
+      modes: ['NORMAL'] as const,
+      priority: 1,
     },
+  ]), [
+    closeGlossary,
+    closeOverlayCtx,
+    handleNextPhage,
+    handlePrevPhage,
+    handleToggleBeginnerMode,
+    hasBlockingOverlay,
+    isGlossaryOpen,
+    nextTheme,
+    storeCloseOverlay,
   ]);
+
+  useHotkeys(globalHotkeys);
 
   const footerHints = useMemo(() => ([
     { key: 'j/k', label: 'navigate', description: 'Next/previous phage' },
@@ -844,6 +869,15 @@ export default function App(): React.ReactElement {
           pendingSequence: pendingSequence ?? undefined,
           children: (
             <>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => openOverlayCtx('commandPalette')}
+                aria-label="Open command palette"
+                title="Command Palette (Cmd+K)"
+              >
+                <IconCommand size={14} />
+              </button>
               <button
                 className="btn"
                 type="button"
@@ -920,6 +954,7 @@ export default function App(): React.ReactElement {
                 mobileListOpen={mobileListOpen}
                 hasSelection={hasSelection}
                 isMobile={isMobile}
+                loading={!repository || (phages.length === 0 && isLoading)}
               />
             )}
 
@@ -967,11 +1002,11 @@ export default function App(): React.ReactElement {
                       <div className="metric-value">{(currentPhage.genomeLength ?? 0).toLocaleString()} bp</div>
                     </div>
                     <div>
-                      <div className="metric-label">GC content</div>
-                      <div className="metric-value">
-                        {currentPhage.gcContent != null ? `${currentPhage.gcContent.toFixed(2)}%` : '—'}
-                      </div>
-                    </div>
+	                      <div className="metric-label">GC content</div>
+	                      <div className="metric-value">
+	                        {currentPhage.gcContent !== null ? `${currentPhage.gcContent.toFixed(2)}%` : '—'}
+	                      </div>
+	                    </div>
                     <div>
                       <div className="metric-label">Genes</div>
                       <div className="metric-value">{currentPhage.genes.length}</div>
@@ -1056,31 +1091,20 @@ export default function App(): React.ReactElement {
                           )}
                         </div>
                       )}
-                      <SequenceView
-                        sequence={fullSequence}
-                        height={sequenceHeight}
-                      />
-                      {!fullSequence && (
-                        <pre className="sequence-block" style={{ marginTop: '0.5rem' }}>
-                          {sequencePreview
-                            ? sequencePreview
-                            : 'Sequence preview will appear after phage load completes.'}
-                        </pre>
-                  )}
-                </div>
+                      {fullSequence ? (
+                        <SequenceView
+                          sequence={fullSequence}
+                          height={sequenceHeight}
+                        />
+                      ) : (
+                        <SequenceViewSkeleton rows={15} className="mt-2" />
+                      )}
+                    </div>
                     {show3DInLayout && (
                       <div className="viewer-panel">
                         {show3DModel ? (
                           <Suspense
-                            fallback={
-                              <div className="panel" aria-label="3D structure viewer loading">
-                                <div className="panel-header">
-                                  <h3>3D Structure</h3>
-                                  <span className="badge">Loading…</span>
-                                </div>
-                                <div className="panel-body text-dim">Loading 3D renderer…</div>
-                              </div>
-                            }
+                            fallback={<Model3DSkeleton />}
                           >
                             <LazyModel3DView phage={currentPhage} />
                           </Suspense>
@@ -1169,6 +1193,14 @@ export default function App(): React.ReactElement {
             aria-labelledby={glossaryTitleId}
             className={`glossary-shell is-open ${beginnerModeEnabled ? 'glossary-shell--beginner' : ''}`}
             tabIndex={-1}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              if (event.defaultPrevented) return;
+              if (hasBlockingOverlay) return;
+              event.preventDefault();
+              event.stopPropagation();
+              closeGlossary();
+            }}
           >
             <div className="glossary-shell__header">
               <div>

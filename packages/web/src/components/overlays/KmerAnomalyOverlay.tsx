@@ -10,6 +10,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { ColorLegend, createLinearColorScale } from './primitives';
@@ -52,7 +53,7 @@ function calculateKmerAnomalies(
   const globalCounts = getKmerCounts(seq, k);
   const totalGlobal = Array.from(globalCounts.values()).reduce((a, b) => a + b, 0);
 
-  for (let i = 0; i < seq.length - windowSize; i += stepSize) {
+  for (let i = 0; i <= seq.length - windowSize; i += stepSize) {
     const window = seq.slice(i, i + windowSize);
     const windowCounts = getKmerCounts(window, k);
     const totalWindow = Array.from(windowCounts.values()).reduce((a, b) => a + b, 0);
@@ -114,10 +115,9 @@ export function KmerAnomalyOverlay({
 
   // Hotkey to toggle overlay
   useHotkey(
-    { key: 'j' },
-    'K-mer Anomaly Cartography',
+    ActionIds.OverlayKmerAnomaly,
     () => toggle('kmerAnomaly'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence when overlay opens
@@ -232,7 +232,7 @@ export function KmerAnomalyOverlay({
     <Overlay
       id="kmerAnomaly"
       title="K-MER ANOMALY CARTOGRAPHY"
-      hotkey="j"
+      hotkey="Alt+J"
       size="lg"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

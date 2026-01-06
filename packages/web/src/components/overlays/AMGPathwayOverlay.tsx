@@ -10,6 +10,7 @@ import type { PhageFull, GeneInfo } from '@phage-explorer/core';
 import type { PhageRepository, AmgAnnotation } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
@@ -69,10 +70,9 @@ export function AMGPathwayOverlay({
 
   // Hotkey (Alt+A for AMG)
   useHotkey(
-    { key: 'a', modifiers: { alt: true } },
-    'AMG Pathways',
+    ActionIds.OverlayAMGPathway,
     () => toggle('amgPathway'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch AMGs when overlay opens

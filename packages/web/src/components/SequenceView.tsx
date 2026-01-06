@@ -10,6 +10,7 @@ import { usePhageStore } from '@phage-explorer/state';
 import { translateCodon, type ViewMode } from '@phage-explorer/core';
 import { useTheme } from '../hooks/useTheme';
 import { useSequenceGrid, useReducedMotion, useHotkeys } from '../hooks';
+import { ActionIds } from '../keyboard';
 import { useWebPreferences } from '../store/createWebStore';
 import { PostProcessPipeline } from '../rendering';
 import { AminoAcidHUD } from './AminoAcidHUD';
@@ -607,15 +608,16 @@ function SequenceViewBase({
   }, []);
 
   // Register hotkeys
-  useHotkeys([
-    { combo: { key: 'v' }, description: 'Cycle DNA / Amino Acid / Dual view', action: cycleViewMode, modes: ['NORMAL'] },
-    { combo: { key: 'f' }, description: 'Cycle reading frame', action: cycleReadingFrame, modes: ['NORMAL'] },
-    { combo: { key: 'Home' }, description: 'Go to start', action: scrollToStart, modes: ['NORMAL'] },
-    { combo: { key: 'End' }, description: 'Go to end', action: scrollToEnd, modes: ['NORMAL'] },
-    { combo: { key: '+' }, description: 'Zoom in', action: handleZoomIn, modes: ['NORMAL'] },
-    { combo: { key: '=' }, description: 'Zoom in', action: handleZoomIn, modes: ['NORMAL'] },
-    { combo: { key: '-' }, description: 'Zoom out', action: handleZoomOut, modes: ['NORMAL'] },
-  ]);
+  const hotkeys = useMemo(() => ([
+    { actionId: ActionIds.ViewCycleMode, action: cycleViewMode, modes: ['NORMAL'] as const, priority: 2 },
+    { actionId: ActionIds.ViewCycleReadingFrame, action: cycleReadingFrame, modes: ['NORMAL'] as const, priority: 2 },
+    { actionId: ActionIds.ViewScrollStart, action: scrollToStart, modes: ['NORMAL'] as const, priority: 2 },
+    { actionId: ActionIds.ViewScrollEnd, action: scrollToEnd, modes: ['NORMAL'] as const, priority: 2 },
+    { actionId: ActionIds.ViewZoomIn, action: handleZoomIn, modes: ['NORMAL'] as const, priority: 2 },
+    { actionId: ActionIds.ViewZoomOut, action: handleZoomOut, modes: ['NORMAL'] as const, priority: 2 },
+  ]), [cycleReadingFrame, cycleViewMode, handleZoomIn, handleZoomOut, scrollToEnd, scrollToStart]);
+
+  useHotkeys(hotkeys);
 
   const viewModeLabel = viewMode === 'dna' ? 'DNA' : viewMode === 'aa' ? 'Amino Acids' : 'Dual';
   const frameLabel = readingFrame === 0 ? '+1' : readingFrame > 0 ? `+${readingFrame + 1}` : `${readingFrame}`;

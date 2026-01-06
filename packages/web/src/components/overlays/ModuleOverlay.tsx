@@ -10,6 +10,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -323,10 +324,9 @@ export function ModuleOverlay({
 
   // Hotkey to toggle overlay
   useHotkey(
-    { key: 'l' },
-    'Module Coherence',
+    ActionIds.OverlayModules,
     () => toggle('modules'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence when overlay opens

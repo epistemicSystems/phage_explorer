@@ -12,6 +12,7 @@ import type { PhageFull, PhageSummary } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -123,20 +124,18 @@ export function GenomicSignaturePCAOverlay({
 
   // Hotkey to toggle overlay (Alt+P for PCA)
   useHotkey(
-    { key: 'p', modifiers: { alt: true } },
-    'Genomic Signature PCA',
+    ActionIds.OverlayGenomicSignaturePCA,
     () => toggle('genomicSignaturePCA'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'] }
   );
 
   useHotkey(
-    { key: 'l', modifiers: { alt: true } },
-    'Recenter PCA selection',
+    ActionIds.AnalysisGenomicSignatureRecenter,
     () => {
       if (!overlayOpen || !currentPhage) return;
       setSelectedPhageId(currentPhage.id);
     },
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'], enabled: overlayOpen }
   );
 
   // Load all phages and compute k-mer vectors when overlay opens

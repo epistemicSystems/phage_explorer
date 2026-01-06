@@ -10,6 +10,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -301,10 +302,9 @@ export function NonBDNAOverlay({
 
   // Hotkey to toggle overlay (Alt+N)
   useHotkey(
-    { key: 'n', modifiers: { alt: true } },
-    'Non-B-DNA Structures (G4, Z-DNA, Cruciform)',
+    ActionIds.OverlayNonBDNA,
     () => toggle('nonBDNA'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch full genome when overlay opens or phage changes

@@ -10,6 +10,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
@@ -58,8 +59,9 @@ function buildReferenceList(
       limited.map(async (p) => {
         try {
           const length = await repository.getFullGenomeLength(p.id);
-          // Get first 10kb as representative sample
-          const seq = await repository.getSequenceWindow(p.id, 0, Math.min(length, 10000));
+          // Get up to 150kb to cover most standard phage genomes fully
+          // (Prefix-only sampling misses downstream homology)
+          const seq = await repository.getSequenceWindow(p.id, 0, Math.min(length, 150000));
           return { label: p.name || `Phage #${p.id}`, sequence: seq };
         } catch {
           return null;
@@ -131,10 +133,9 @@ export function MosaicRadarOverlay({
 
   // Hotkey to toggle overlay (Alt+M to avoid conflict with StructureConstraint)
   useHotkey(
-    { key: 'm', modifiers: { alt: true } },
-    'Mosaic Radar',
+    ActionIds.OverlayMosaicRadar,
     () => toggle('mosaicRadar'),
-    { modes: ['NORMAL'], category: 'Comparison', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Keyboard controls

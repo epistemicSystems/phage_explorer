@@ -10,6 +10,7 @@ import type { PhageFull, GeneInfo } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -387,10 +388,9 @@ export function RNAStructureOverlay({
 
   // Hotkey to toggle overlay (Alt+R for RNA)
   useHotkey(
-    { key: 'r', modifiers: { alt: true } },
-    'RNA Structure Explorer',
+    ActionIds.OverlayRNAStructure,
     () => toggle('rnaStructure'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence and genes when overlay opens

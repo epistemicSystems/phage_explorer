@@ -16,6 +16,7 @@ import {
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -58,10 +59,9 @@ export function PromoterOverlay({
 
   // Hotkey to toggle overlay
   useHotkey(
-    { key: 'p' },
-    'Promoter & RBS Sites',
+    ActionIds.OverlayPromoter,
     () => toggle('promoter'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence when overlay opens

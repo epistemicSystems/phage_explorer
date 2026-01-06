@@ -10,6 +10,7 @@ import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository, CodonAdaptation, HostTrnaPool } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
@@ -57,10 +58,9 @@ export function CodonAdaptationOverlay({
 
   // Hotkey (Alt+T for tRNA/adaptation)
   useHotkey(
-    { key: 't', modifiers: { alt: true } },
-    'Codon Adaptation',
+    ActionIds.OverlayCodonAdaptation,
     () => toggle('codonAdaptation'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch data when overlay opens

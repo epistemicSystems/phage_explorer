@@ -222,6 +222,7 @@ export function Overlay({
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      if (e.defaultPrevented) return;
       if (!closeOnEscape) return;
       e.stopPropagation();
       handleClose();

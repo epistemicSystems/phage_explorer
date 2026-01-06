@@ -5,6 +5,7 @@ import { useOverlay } from './OverlayProvider';
 import { Overlay } from './Overlay';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { GenomeTrack } from './primitives/GenomeTrack';
 import type { GenomeTrackInteraction, GenomeTrackSegment } from './primitives/types';
 import { ComplexAnalysisSkeleton } from '../ui/Skeleton';
@@ -54,10 +55,9 @@ export function CRISPROverlay({ repository, phage }: CRISPROverlayProps): React.
   const sequenceCache = useRef<Map<number, string>>(new Map());
 
   useHotkey(
-    { key: 'c', modifiers: { alt: true } },
-    'CRISPR Pressure Map',
+    ActionIds.OverlayCRISPR,
     () => toggle('crispr'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'] }
   );
 
   // Create worker once

@@ -13,6 +13,7 @@ import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import type { ThemePalette } from '../../theme/types';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -130,10 +131,9 @@ export function CGROverlay({ repository, currentPhage }: CGROverlayProps): React
 
   // Hotkey to toggle overlay (Alt+Shift+C)
   useHotkey(
-    { key: 'c', modifiers: { alt: true, shift: true } },
-    'Chaos Game Representation',
+    ActionIds.OverlayCGR,
     () => toggle('cgr'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Initialize worker (module worker when available; fallback to main thread compute)

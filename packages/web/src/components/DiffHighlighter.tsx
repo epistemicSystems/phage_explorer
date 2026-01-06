@@ -1,6 +1,7 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { SequenceView } from './SequenceView';
 import { useHotkeys } from '../hooks';
+import { ActionIds } from '../keyboard';
 
 export interface DiffStats {
   insertions: number;
@@ -32,15 +33,17 @@ export function DiffHighlighter({
   const controlsRef = useRef<{ jumpToDiff: (direction: 'next' | 'prev') => number | null } | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
-  const goToDiff = (direction: 'next' | 'prev') => {
+  const goToDiff = useCallback((direction: 'next' | 'prev') => {
     const target = controlsRef.current?.jumpToDiff(direction) ?? null;
     if (target !== null) setActiveIndex(target);
-  };
+  }, []);
 
-  useHotkeys([
-    { combo: { key: ']' }, description: 'Next diff', action: () => goToDiff('next'), modes: ['NORMAL'] },
-    { combo: { key: '[' }, description: 'Previous diff', action: () => goToDiff('prev'), modes: ['NORMAL'] },
-  ]);
+  const hotkeys = useMemo(() => ([
+    { actionId: ActionIds.DiffNext, action: () => goToDiff('next'), modes: ['NORMAL'] as const },
+    { actionId: ActionIds.DiffPrev, action: () => goToDiff('prev'), modes: ['NORMAL'] as const },
+  ]), [goToDiff]);
+
+  useHotkeys(hotkeys);
 
   const summary = useMemo(() => {
     if (!stats) return null;
@@ -122,4 +125,3 @@ function Badge({ label, value, color }: { label: string; value: number; color: s
 }
 
 export default DiffHighlighter;
-

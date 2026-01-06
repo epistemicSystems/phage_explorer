@@ -154,6 +154,16 @@ export function WelcomeModal(): React.ReactElement | null {
           </button>
 
           <div className="welcome-footer__actions">
+            {step === 'intro' && (
+              <button
+                type="button"
+                onClick={handleTour}
+                className="welcome-btn--tour"
+                style={{ marginRight: '0.5rem' }}
+              >
+                Take Tour
+              </button>
+            )}
             {step !== 'intro' && (
               <button
                 type="button"

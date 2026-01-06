@@ -5,6 +5,7 @@ import { usePhageStore } from '../../store';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { useHotkey } from '../../hooks/useHotkey';
+import { ActionIds } from '../../keyboard';
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const clamp01 = (v: number) => clamp(v, 0, 1);
@@ -60,7 +61,7 @@ function phageSummary(phage: PhageFull | null): string {
   const parts = [
     phage.name,
     phage.genomeLength ? `${phage.genomeLength.toLocaleString()} bp` : null,
-    phage.gcContent != null ? `${phage.gcContent.toFixed(1)}% GC` : null,
+    phage.gcContent !== null ? `${phage.gcContent.toFixed(1)}% GC` : null,
     phage.morphology ?? null,
   ].filter(Boolean);
   return parts.join(' · ');
@@ -77,10 +78,9 @@ export function VirionStabilityOverlay(): React.ReactElement | null {
 
   // Hotkey: Alt+V (avoid conflict with packaging pressure 'v')
   useHotkey(
-    { key: 'v', modifiers: { alt: true } },
-    'Toggle Virion Stability overlay',
+    ActionIds.OverlayVirionStability,
     () => toggle('stability'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'] }
   );
 
   const estimate = useMemo(

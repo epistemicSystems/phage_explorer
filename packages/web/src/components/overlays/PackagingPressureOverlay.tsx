@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { usePhageStore } from '../../store';
@@ -41,17 +43,12 @@ export function PackagingPressureOverlay(): React.ReactElement | null {
   const scrollPosition = usePhageStore((s) => s.scrollPosition);
   const viewMode = usePhageStore((s) => s.viewMode);
 
-  // Hotkey: V (matches TUI)
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === 'v' || e.key === 'V') && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        toggle('pressure');
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [toggle]);
+  // Hotkey: Shift+V (matches TUI)
+  useHotkey(
+    ActionIds.OverlayPackagingPressure,
+    () => toggle('pressure'),
+    { modes: ['NORMAL'] }
+  );
 
   const metrics = useMemo(() => {
     const genomeLength = phage?.genomeLength ?? 0;
@@ -92,7 +89,7 @@ export function PackagingPressureOverlay(): React.ReactElement | null {
     <Overlay
       id="pressure"
       title="PACKAGING PRESSURE"
-      hotkey="v"
+      hotkey="Shift+V"
       size="md"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

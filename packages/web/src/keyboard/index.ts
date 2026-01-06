@@ -3,4 +3,5 @@
  */
 
 export * from './types';
-export { KeyboardManager, getKeyboardManager, resetKeyboardManager } from './KeyboardManager';
+export * from './actionRegistry';
+export { KeyboardManager, getKeyboardManager, resetKeyboardManager, isUserTyping } from './KeyboardManager';

@@ -13,6 +13,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as Comlink from 'comlink';
 import { useTheme } from '../../hooks/useTheme';
+import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { usePhageStore } from '@phage-explorer/state';
@@ -689,25 +691,11 @@ export function CommandPalette({ commands: customCommands, context: propContext 
   }, [paletteOpen]);
 
   // Register hotkey
-  useEffect(() => {
-    const isTypingTarget = (target: EventTarget | null): boolean => {
-      if (!(target instanceof HTMLElement)) return false;
-      if (target.isContentEditable) return true;
-      return Boolean(target.closest('input, textarea, select'));
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.repeat) return;
-      if (isTypingTarget(e.target)) return;
-      if (e.key === ':' && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        toggle('commandPalette');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggle]);
+  useHotkey(
+    ActionIds.OverlayCommandPalette,
+    () => toggle('commandPalette'),
+    { modes: ['NORMAL'] }
+  );
 
   // Total navigable items (recent commands + filtered commands)
   const showRecent = !query.trim() && recentCommands.length > 0;
@@ -727,6 +715,14 @@ export function CommandPalette({ commands: customCommands, context: propContext 
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     switch (e.key) {
+      case 'Escape':
+        if (query.trim()) {
+          e.preventDefault();
+          e.stopPropagation();
+          setQuery('');
+          setSelectedIndex(0);
+        }
+        break;
       case 'ArrowDown':
         e.preventDefault();
         setSelectedIndex(prev => Math.min(prev + 1, totalItems - 1));
@@ -751,7 +747,7 @@ export function CommandPalette({ commands: customCommands, context: propContext 
         }
         break;
     }
-  }, [executeCommand, getCommandAtIndex, selectedIndex, totalItems]);
+  }, [executeCommand, getCommandAtIndex, query, selectedIndex, totalItems]);
 
   // Scroll selected item into view
   useEffect(() => {

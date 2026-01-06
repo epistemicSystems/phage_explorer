@@ -469,6 +469,13 @@ export function SearchOverlay({ repository, currentPhage }: SearchOverlayProps):
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Escape') return;
+              if (!query) return;
+              e.preventDefault();
+              e.stopPropagation();
+              setQuery('');
+            }}
             placeholder={
               mode === 'sequence'
                 ? 'ATCG...'

@@ -14,12 +14,15 @@ import type { PhageFull, GeneInfo } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
 import {
   analyzeFitnessLandscape,
   classifyProteinType,
+  translateSequence,
+  reverseComplement,
   type FitnessLandscape,
   type EpistasisPair,
   type SingleMutantEffect,
@@ -567,12 +570,11 @@ export function EpistasisOverlay({
   const [viewMode, setViewMode] = useState<ViewMode>('heatmap');
   const [selectedProtein, setSelectedProtein] = useState(0);
 
-  // Hotkey to toggle overlay
+  // Hotkey to toggle overlay (Alt+Shift+E)
   useHotkey(
-    { key: 'e', modifiers: { alt: true } },
-    'Epistasis Explorer',
+    ActionIds.OverlayEpistasis,
     () => toggle('epistasis'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence when overlay opens
@@ -620,45 +622,9 @@ export function EpistasisOverlay({
       const end = gene.endPos;
       if (start < 0 || end > sequence.length) continue;
 
-      let cds = sequence.slice(start, end);
-      if (gene.strand === '-') {
-        // Reverse complement
-        cds = cds
-          .split('')
-          .reverse()
-          .map((b) =>
-            ({ A: 'T', T: 'A', C: 'G', G: 'C' })[b.toUpperCase()] || b
-          )
-          .join('');
-      }
-
-      // Simple translation (single letter codes)
-      const codonTable: Record<string, string> = {
-        TTT: 'F', TTC: 'F', TTA: 'L', TTG: 'L',
-        TCT: 'S', TCC: 'S', TCA: 'S', TCG: 'S',
-        TAT: 'Y', TAC: 'Y', TAA: '*', TAG: '*',
-        TGT: 'C', TGC: 'C', TGA: '*', TGG: 'W',
-        CTT: 'L', CTC: 'L', CTA: 'L', CTG: 'L',
-        CCT: 'P', CCC: 'P', CCA: 'P', CCG: 'P',
-        CAT: 'H', CAC: 'H', CAA: 'Q', CAG: 'Q',
-        CGT: 'R', CGC: 'R', CGA: 'R', CGG: 'R',
-        ATT: 'I', ATC: 'I', ATA: 'I', ATG: 'M',
-        ACT: 'T', ACC: 'T', ACA: 'T', ACG: 'T',
-        AAT: 'N', AAC: 'N', AAA: 'K', AAG: 'K',
-        AGT: 'S', AGC: 'S', AGA: 'R', AGG: 'R',
-        GTT: 'V', GTC: 'V', GTA: 'V', GTG: 'V',
-        GCT: 'A', GCC: 'A', GCA: 'A', GCG: 'A',
-        GAT: 'D', GAC: 'D', GAA: 'E', GAG: 'E',
-        GGT: 'G', GGC: 'G', GGA: 'G', GGG: 'G',
-      };
-
-      let protein = '';
-      for (let i = 0; i + 2 < cds.length; i += 3) {
-        const codon = cds.slice(i, i + 3).toUpperCase();
-        const aa = codonTable[codon] || 'X';
-        if (aa === '*') break;
-        protein += aa;
-      }
+      const rawCds = sequence.slice(start, end);
+      const cds = gene.strand === '-' ? reverseComplement(rawCds) : rawCds;
+      const protein = translateSequence(cds, 0).replace(/\*$/, ''); // Remove trailing stop
 
       if (protein.length >= 50) {
         candidates.push({ gene, type, sequence: protein });
@@ -712,7 +678,7 @@ export function EpistasisOverlay({
   };
 
   return (
-    <Overlay id="epistasis" title="Epistasis & Fitness Landscape">
+    <Overlay id="epistasis" title="Epistasis & Fitness Landscape" hotkey="Alt+Shift+E">
       <div style={panelStyle}>
         <div
           style={{

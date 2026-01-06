@@ -5,67 +5,23 @@
  * Uses canvas for the sparkline visualization.
  */
 
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { PhageFull } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
 import { InfoButton } from '../ui';
+import { getOrchestrator } from '../../workers/ComputeOrchestrator';
+import type { GCSkewResult } from '../../workers/types';
 
 interface GCSkewOverlayProps {
   repository: PhageRepository | null;
   currentPhage: PhageFull | null;
-}
-
-// Calculate GC skew values
-function calculateGCSkew(sequence: string, windowSize = 1000): { skew: number[]; cumulative: number[] } {
-  if (!sequence || sequence.length === 0) {
-    return { skew: [], cumulative: [] };
-  }
-
-  const skew: number[] = [];
-  const cumulative: number[] = [];
-  let cumSum = 0;
-
-  for (let i = 0; i < sequence.length - windowSize; i += windowSize) {
-    const window = sequence.slice(i, i + windowSize).toUpperCase();
-    let g = 0, c = 0;
-
-    for (const base of window) {
-      if (base === 'G') g++;
-      else if (base === 'C') c++;
-    }
-
-    const gcSkew = (g + c > 0) ? (g - c) / (g + c) : 0;
-    skew.push(gcSkew);
-    cumSum += gcSkew;
-    cumulative.push(cumSum);
-  }
-
-  return { skew, cumulative };
-}
-
-// Find min/max positions
-function findExtrema(values: number[]): { minIdx: number; maxIdx: number; min: number; max: number } {
-  let minIdx = 0, maxIdx = 0;
-  let min = Infinity, max = -Infinity;
-
-  for (let i = 0; i < values.length; i++) {
-    if (values[i] < min) {
-      min = values[i];
-      minIdx = i;
-    }
-    if (values[i] > max) {
-      max = values[i];
-      maxIdx = i;
-    }
-  }
-
-  return { minIdx, maxIdx, min, max };
 }
 
 export function GCSkewOverlay({
@@ -78,16 +34,17 @@ export function GCSkewOverlay({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sequenceCache = useRef<Map<number, string>>(new Map());
   const [sequence, setSequence] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const [sequenceLoading, setSequenceLoading] = useState(false);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [result, setResult] = useState<GCSkewResult | null>(null);
   const { isEnabled: beginnerModeEnabled, showContextFor } = useBeginnerMode();
   const overlayHelp = getOverlayContext('gcSkew');
 
   // Hotkey to toggle overlay
   useHotkey(
-    { key: 'g' },
-    'GC Skew Analysis',
+    ActionIds.OverlayGCSkew,
     () => toggle('gcSkew'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch sequence when overlay opens
@@ -95,7 +52,9 @@ export function GCSkewOverlay({
     if (!isOpen('gcSkew')) return;
     if (!repository || !currentPhage) {
       setSequence('');
-      setLoading(false);
+      setResult(null);
+      setSequenceLoading(false);
+      setAnalysisLoading(false);
       return;
     }
 
@@ -104,11 +63,11 @@ export function GCSkewOverlay({
     // Check cache
     if (sequenceCache.current.has(phageId)) {
       setSequence(sequenceCache.current.get(phageId) ?? '');
-      setLoading(false);
+      setSequenceLoading(false);
       return;
     }
 
-    setLoading(true);
+    setSequenceLoading(true);
     repository
       .getFullGenomeLength(phageId)
       .then((length: number) => repository.getSequenceWindow(phageId, 0, length))
@@ -117,22 +76,51 @@ export function GCSkewOverlay({
         setSequence(seq);
       })
       .catch(() => setSequence(''))
-      .finally(() => setLoading(false));
+      .finally(() => setSequenceLoading(false));
   }, [isOpen, repository, currentPhage]);
 
-  // Calculate GC skew data
-  const { cumulative } = useMemo(() => {
-    return calculateGCSkew(sequence, 500);
-  }, [sequence]);
+  // Compute GC skew in worker
+  useEffect(() => {
+    if (!isOpen('gcSkew')) return;
+    if (!currentPhage) return;
 
-  const extrema = useMemo(() => {
-    return cumulative.length > 0 ? findExtrema(cumulative) : null;
-  }, [cumulative]);
+    if (!sequence) {
+      setResult(null);
+      setAnalysisLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setAnalysisLoading(true);
+
+    (async () => {
+      try {
+        const data = await getOrchestrator().runAnalysisWithSharedBuffer(
+          currentPhage.id,
+          sequence,
+          'gc-skew',
+          { windowSize: 500 }
+        ) as GCSkewResult;
+
+        if (cancelled) return;
+        setResult(data);
+      } catch {
+        if (cancelled) return;
+        setResult(null);
+      } finally {
+        if (!cancelled) setAnalysisLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, currentPhage, sequence]);
 
   // Draw the sparkline
   useEffect(() => {
     // Need at least 2 data points to draw a line and avoid division by zero
-    if (!isOpen('gcSkew') || !canvasRef.current || cumulative.length < 2) return;
+    if (!isOpen('gcSkew') || !canvasRef.current || !result || result.cumulative.length < 2) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -161,7 +149,13 @@ export function GCSkewOverlay({
     ctx.stroke();
 
     // Find range for normalization
-    const { min, max } = extrema || { min: -1, max: 1 };
+    const vals = result.cumulative;
+    let min = Infinity;
+    let max = -Infinity;
+    for (const v of vals) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
     const range = Math.max(Math.abs(min), Math.abs(max)) || 1;
 
     // Draw cumulative skew
@@ -169,9 +163,9 @@ export function GCSkewOverlay({
     ctx.strokeStyle = colors.primary;
     ctx.lineWidth = 2;
 
-    for (let i = 0; i < cumulative.length; i++) {
-      const x = (i / (cumulative.length - 1)) * width;
-      const normalized = cumulative[i] / range;
+    for (let i = 0; i < vals.length; i++) {
+      const x = (i / (vals.length - 1)) * width;
+      const normalized = vals[i] / range;
       const y = height / 2 - normalized * (height / 2 - 10);
 
       if (i === 0) {
@@ -183,27 +177,51 @@ export function GCSkewOverlay({
     ctx.stroke();
 
     // Mark origin (minimum) and terminus (maximum)
-    if (extrema) {
-      const drawMarker = (idx: number, color: string, label: string) => {
-        const x = (idx / (cumulative.length - 1)) * width;
-        const normalized = cumulative[idx] / range;
-        const y = height / 2 - normalized * (height / 2 - 10);
+    // Worker returns originPosition/terminusPosition in base pairs
+    // We map BP to X coordinate: (bp / genomeLength) * width
+    const len = sequence.length || 1;
+    
+    if (result.originPosition !== undefined) {
+      const oriBp = result.originPosition;
+      const x = (oriBp / len) * width;
+      // Find y for marker - interpolate from cumulative array?
+      // Or just map cumulative value at that BP index?
+      // The cumulative array is sampled.
+      // Let's just find Y from the array index corresponding to BP.
+      // Array size is ~ len / stepSize.
+      // Simple approximation:
+      const idx = Math.floor((oriBp / len) * (vals.length - 1));
+      const val = vals[idx] ?? 0;
+      const normalized = val / range;
+      const y = height / 2 - normalized * (height / 2 - 10);
 
-        ctx.beginPath();
-        ctx.arc(x, y, 6, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
-
-        ctx.font = '12px monospace';
-        ctx.fillStyle = color;
-        ctx.textAlign = 'center';
-        ctx.fillText(label, x, y - 12);
-      };
-
-      drawMarker(extrema.minIdx, colors.error, 'ori');
-      drawMarker(extrema.maxIdx, colors.success, 'ter');
+      drawMarker(ctx, x, y, colors.error, 'ori');
     }
-  }, [isOpen, cumulative, extrema, colors]);
+
+    if (result.terminusPosition !== undefined) {
+      const terBp = result.terminusPosition;
+      const x = (terBp / len) * width;
+      const idx = Math.floor((terBp / len) * (vals.length - 1));
+      const val = vals[idx] ?? 0;
+      const normalized = val / range;
+      const y = height / 2 - normalized * (height / 2 - 10);
+
+      drawMarker(ctx, x, y, colors.success, 'ter');
+    }
+
+  }, [isOpen, result, sequence.length, colors]);
+
+  function drawMarker(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, label: string) {
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    ctx.font = '12px monospace';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x, y - 12);
+  }
 
   if (!isOpen('gcSkew')) {
     return null;
@@ -221,12 +239,12 @@ export function GCSkewOverlay({
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Loading State */}
-        {loading && (
-          <AnalysisPanelSkeleton message="Loading sequence data..." rows={3} />
+        {(sequenceLoading || analysisLoading) && (
+          <AnalysisPanelSkeleton message={sequenceLoading ? "Loading sequence data..." : "Computing GC skew..."} rows={3} />
         )}
 
         {/* Description */}
-        {!loading && (
+        {!sequenceLoading && !analysisLoading && (
           <div style={{
             padding: '0.75rem',
             backgroundColor: colors.backgroundAlt,
@@ -253,7 +271,7 @@ export function GCSkewOverlay({
         )}
 
         {/* Stats */}
-        {!loading && extrema && genomeLength > 0 && (
+        {!sequenceLoading && !analysisLoading && result && genomeLength > 0 && (
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(4, 1fr)',
@@ -269,17 +287,17 @@ export function GCSkewOverlay({
             </div>
             <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: colors.backgroundAlt, borderRadius: '4px' }}>
               <div style={{ color: colors.error, fontSize: '0.75rem' }}>Origin (ori)</div>
-              <div style={{ color: colors.text, fontFamily: 'monospace' }}>~{Math.round(extrema.minIdx * windowSize).toLocaleString()} bp</div>
+              <div style={{ color: colors.text, fontFamily: 'monospace' }}>~{Math.round(result.originPosition ?? 0).toLocaleString()} bp</div>
             </div>
             <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: colors.backgroundAlt, borderRadius: '4px' }}>
               <div style={{ color: colors.success, fontSize: '0.75rem' }}>Terminus (ter)</div>
-              <div style={{ color: colors.text, fontFamily: 'monospace' }}>~{Math.round(extrema.maxIdx * windowSize).toLocaleString()} bp</div>
+              <div style={{ color: colors.text, fontFamily: 'monospace' }}>~{Math.round(result.terminusPosition ?? 0).toLocaleString()} bp</div>
             </div>
           </div>
         )}
 
         {/* Canvas for sparkline */}
-        {!loading && cumulative.length >= 2 && (
+        {!sequenceLoading && !analysisLoading && result && result.cumulative.length >= 2 && (
           <div style={{
             border: `1px solid ${colors.borderLight}`,
             borderRadius: '4px',
@@ -297,7 +315,7 @@ export function GCSkewOverlay({
         )}
 
         {/* Legend */}
-        {!loading && cumulative.length >= 2 && (
+        {!sequenceLoading && !analysisLoading && result && result.cumulative.length >= 2 && (
           <div style={{
             display: 'flex',
             justifyContent: 'center',
@@ -337,7 +355,7 @@ export function GCSkewOverlay({
         )}
 
         {/* No data message */}
-        {!loading && (sequence.length === 0 || cumulative.length < 2) && (
+        {!sequenceLoading && !analysisLoading && (sequence.length === 0 || !result || result.cumulative.length < 2) && (
           <div style={{
             textAlign: 'center',
             padding: '2rem',

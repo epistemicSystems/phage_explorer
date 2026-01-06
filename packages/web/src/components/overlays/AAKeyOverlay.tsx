@@ -5,9 +5,11 @@
  * Keeps scope minimal: static grouping, uses theme colors, hotkey toggle.
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { AMINO_ACIDS, type AminoAcid } from '@phage-explorer/core';
 import { useTheme } from '../../hooks/useTheme';
+import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 
@@ -24,17 +26,12 @@ export function AAKeyOverlay(): React.ReactElement | null {
   const colors = theme.colors;
   const { isOpen, toggle } = useOverlay();
 
-  // Hotkey toggle: K
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.key === 'k' || e.key === 'K') && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        toggle('aaKey');
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [toggle]);
+  // Hotkey toggle: Shift+K
+  useHotkey(
+    ActionIds.OverlayAAKey,
+    () => toggle('aaKey'),
+    { modes: ['NORMAL'] }
+  );
 
   if (!isOpen('aaKey')) {
     return null;
@@ -44,7 +41,7 @@ export function AAKeyOverlay(): React.ReactElement | null {
     <Overlay
       id="aaKey"
       title="AMINO ACID KEY"
-      hotkey="k"
+      hotkey="Shift+K"
       size="lg"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

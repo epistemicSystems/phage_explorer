@@ -17,6 +17,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { useHotkey } from '../../hooks/useHotkey';
+import { ActionIds } from '../../keyboard';
 import {
   analyzeProvenance,
   generateDemoProvenanceData,
@@ -89,10 +90,9 @@ export function EnvironmentalProvenanceOverlay({
 
   // Hotkey: Ctrl+Shift+E
   useHotkey(
-    { key: 'e', modifiers: { ctrl: true, shift: true } },
-    'Environmental Provenance Map',
+    ActionIds.OverlayEnvironmentalProvenance,
     useCallback(() => toggle('environmentalProvenance'), [toggle]),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   const overlayIsOpen = isOpen('environmentalProvenance');

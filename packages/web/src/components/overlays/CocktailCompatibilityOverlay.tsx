@@ -18,6 +18,7 @@ import type { PhageFull, PhageSummary } from '@phage-explorer/core';
 import type { PhageRepository, ProteinDomain } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { AnalysisPanelSkeleton } from '../ui/Skeleton';
@@ -340,10 +341,9 @@ export function CocktailCompatibilityOverlay({
   const { isOpen, toggle } = useOverlay();
 
   useHotkey(
-    { key: 'k', modifiers: { alt: true } },
-    'Cocktail Compatibility Matrix',
+    ActionIds.OverlayCocktailCompatibility,
     () => toggle('cocktailCompatibility'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   const [loading, setLoading] = useState(false);

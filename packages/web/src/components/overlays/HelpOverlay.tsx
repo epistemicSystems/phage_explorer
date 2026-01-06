@@ -5,10 +5,12 @@
  * Matches the TUI HelpOverlay design.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { useHotkey } from '../../hooks';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
+import { ActionIds, ActionRegistryList, formatKeyCombo, type KeyCombo } from '../../keyboard';
 
 interface HotkeyInfo {
   key: string;
@@ -16,58 +18,10 @@ interface HotkeyInfo {
   category: string;
 }
 
-// All hotkeys organized by category
-const HOTKEYS: HotkeyInfo[] = [
-  // Navigation
-  { key: 'j / ↓', description: 'Next phage', category: 'Navigation' },
-  { key: 'k / ↑', description: 'Previous phage', category: 'Navigation' },
-  { key: 'h / ←', description: 'Scroll left', category: 'Navigation' },
-  { key: 'l / →', description: 'Scroll right', category: 'Navigation' },
-  { key: 'gg', description: 'Go to first phage', category: 'Navigation' },
-  { key: 'G', description: 'Go to last phage', category: 'Navigation' },
-  { key: 'Ctrl+g', description: 'Go to position', category: 'Navigation' },
-  { key: 'Home', description: 'Scroll to start', category: 'Navigation' },
-  { key: 'End', description: 'Scroll to end', category: 'Navigation' },
-  { key: 'PgUp/PgDn', description: 'Page scroll', category: 'Navigation' },
-
-  // View Modes
-  { key: 'Space', description: 'Toggle DNA/Amino Acid view', category: 'View' },
-  { key: '1 / 2 / 3', description: 'Set reading frame', category: 'View' },
-  { key: 'f', description: 'Cycle reading frame', category: 'View' },
-  { key: 't', description: 'Cycle theme', category: 'View' },
-  { key: 'T', description: 'Theme selector', category: 'View' },
-  { key: 'd', description: 'Toggle diff mode', category: 'View' },
-  { key: 'm', description: 'Toggle 3D model', category: 'View' },
-  { key: 'M', description: '3D model fullscreen', category: 'View' },
-  { key: 'z', description: 'Pause/play 3D model', category: 'View' },
-
-  // Overlays & Search
-  { key: 's / /', description: 'Open search', category: 'Search' },
-  { key: '?', description: 'Show help (this)', category: 'Overlays' },
-  { key: 'a / A', description: 'Analysis menu', category: 'Overlays' },
-  { key: 'S', description: 'Simulation hub', category: 'Overlays' },
-  { key: ':', description: 'Command palette', category: 'Overlays' },
-  { key: 'c', description: 'Genome comparison', category: 'Overlays' },
-  { key: 'ESC', description: 'Close overlay', category: 'Overlays' },
-
-  // Analysis Overlays
-  { key: 'g', description: 'GC skew analysis', category: 'Analysis' },
-  { key: 'x', description: 'Sequence complexity', category: 'Analysis' },
-  { key: 'b', description: 'DNA bendability', category: 'Analysis' },
-  { key: 'p', description: 'Promoter/RBS sites', category: 'Analysis' },
-  { key: 'r', description: 'Repeat/palindrome finder', category: 'Analysis' },
-  { key: 'J', description: 'Codon bias decomposition', category: 'Analysis' },
-  { key: 'L', description: 'Phase portrait', category: 'Analysis' },
-  { key: 'V', description: 'K-mer anomaly', category: 'Analysis' },
-  { key: 'Y', description: 'HGT analysis', category: 'Analysis' },
-  { key: '0', description: 'Tropism/receptor atlas', category: 'Analysis' },
-
-  // Comparison
-  { key: 'Tab', description: 'Next comparison tab', category: 'Comparison' },
-  { key: 'Shift+Tab', description: 'Previous comparison tab', category: 'Comparison' },
-  { key: 'A/B', description: 'Select phage A/B', category: 'Comparison' },
-  { key: 'X', description: 'Swap phages', category: 'Comparison' },
-];
+function formatShortcut(shortcut: KeyCombo | KeyCombo[]): string {
+  const combos = Array.isArray(shortcut) ? shortcut : [shortcut];
+  return combos.map(formatKeyCombo).join(' / ');
+}
 
 // Group hotkeys by category
 function groupByCategory(hotkeys: HotkeyInfo[]): Record<string, HotkeyInfo[]> {
@@ -86,39 +40,36 @@ export function HelpOverlay(): React.ReactElement | null {
   const { isOpen, toggle } = useOverlay();
   const [detailLevel, setDetailLevel] = useState<'essential' | 'detailed'>('essential');
 
-  // Register hotkey
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        toggle('help');
-      }
-    };
+  const overlayOpen = isOpen('help');
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggle]);
+  useHotkey(
+    ActionIds.OverlayHelp,
+    () => toggle('help'),
+    { modes: ['NORMAL'] }
+  );
 
-  // Handle detail toggle
-  useEffect(() => {
-    if (!isOpen('help')) return;
+  useHotkey(
+    ActionIds.HelpToggleDetail,
+    () => setDetailLevel(prev => prev === 'essential' ? 'detailed' : 'essential'),
+    { modes: ['NORMAL'], enabled: overlayOpen }
+  );
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'd' || e.key === 'D') {
-        e.preventDefault();
-        setDetailLevel(prev => prev === 'essential' ? 'detailed' : 'essential');
-      }
-    };
+  const hotkeys = useMemo(() => {
+    return ActionRegistryList
+      .filter((action) => !action.surfaces || action.surfaces.includes('web'))
+      .map((action): HotkeyInfo => ({
+        key: formatShortcut(action.defaultShortcut),
+        description: action.title,
+        category: action.category,
+      }))
+      .sort((a, b) => a.category.localeCompare(b.category) || a.description.localeCompare(b.description));
+  }, []);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
-
-  if (!isOpen('help')) {
+  if (!overlayOpen) {
     return null;
   }
 
-  const grouped = groupByCategory(HOTKEYS);
+  const grouped = groupByCategory(hotkeys);
   const categories = detailLevel === 'essential'
     ? ['Navigation', 'View', 'Search', 'Overlays']
     : Object.keys(grouped);

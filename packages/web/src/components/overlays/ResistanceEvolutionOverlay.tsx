@@ -12,6 +12,7 @@ import {
 } from '@phage-explorer/core';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 
@@ -75,10 +76,9 @@ export function ResistanceEvolutionOverlay(): React.ReactElement | null {
 
   // Hotkey to toggle overlay
   useHotkey(
-    { key: 'E', modifiers: { shift: true } },
-    'Resistance Evolution Simulator',
+    ActionIds.OverlayResistanceEvolution,
     () => toggle('resistanceEvolution'),
-    { modes: ['NORMAL'], category: 'Simulation', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Initialize simulation

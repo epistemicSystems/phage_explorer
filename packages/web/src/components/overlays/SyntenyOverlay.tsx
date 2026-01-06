@@ -13,6 +13,7 @@ import type { PhageFull, GeneInfo } from '@phage-explorer/core';
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
@@ -118,10 +119,9 @@ export function SyntenyOverlay({
 
   // Hotkey to toggle overlay (Alt+S)
   useHotkey(
-    { key: 's', modifiers: { alt: true } },
-    'Synteny Analysis',
+    ActionIds.OverlaySynteny,
     () => toggle('synteny'),
-    { modes: ['NORMAL'], category: 'Analysis' }
+    { modes: ['NORMAL'] }
   );
 
   // Initialize worker

@@ -18,6 +18,7 @@ import {
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks/useHotkey';
+import { ActionIds } from '../../keyboard';
 import { detectWebGPU } from '../../utils';
 import { gpuCompute } from '../../workers/gpu/GPUCompute';
 import { Overlay } from './Overlay';
@@ -116,10 +117,9 @@ export function GpuWasmBenchmarkOverlay({
 
   // Hotkey: Alt+Shift+B
   useHotkey(
-    { key: 'b', modifiers: { alt: true, shift: true } },
-    'GPU vs WASM Benchmark',
+    ActionIds.OverlayGpuWasmBenchmark,
     () => toggle('gpuWasmBenchmark'),
-    { modes: ['NORMAL'], category: 'Dev', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Reset state when closing

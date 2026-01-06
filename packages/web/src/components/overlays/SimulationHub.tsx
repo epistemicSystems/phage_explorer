@@ -8,6 +8,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { SIMULATION_METADATA } from '@phage-explorer/core';
@@ -134,17 +136,11 @@ export function SimulationHub(): React.ReactElement | null {
   );
 
   // Register hotkey
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'S' && e.shiftKey && !e.ctrlKey && !e.metaKey && !isOpen('simulationHub')) {
-        e.preventDefault();
-        toggle('simulationHub');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggle, isOpen]);
+  useHotkey(
+    ActionIds.OverlaySimulationHub,
+    () => toggle('simulationHub'),
+    { modes: ['NORMAL'] }
+  );
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -215,7 +211,7 @@ export function SimulationHub(): React.ReactElement | null {
     <Overlay
       id="simulationHub"
       title="SIMULATION HUB"
-      hotkey="S"
+      hotkey="Shift+S"
       size="xl"
     >
       <div style={{

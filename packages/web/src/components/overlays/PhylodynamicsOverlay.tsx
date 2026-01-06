@@ -16,6 +16,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { useHotkey } from '../../hooks/useHotkey';
+import { ActionIds } from '../../keyboard';
 import {
   analyzePhylodynamics,
   generateDemoPhylodynamicsData,
@@ -65,10 +66,9 @@ export function PhylodynamicsOverlay({
 
   // Hotkey: Ctrl+Shift+Y (phylod[Y]namics)
   useHotkey(
-    { key: 'y', modifiers: { ctrl: true, shift: true } },
-    'Phylodynamic Trajectory Explorer',
+    ActionIds.OverlayPhylodynamics,
     useCallback(() => toggle('phylodynamics'), [toggle]),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'intermediate' }
+    { modes: ['NORMAL'] }
   );
 
   // Run analysis when overlay opens
@@ -398,13 +398,13 @@ export function PhylodynamicsOverlay({
       };
       collectLeafDates(result.tree.root);
 
-      const points = clockRegression.residuals
-        .map((r) => {
-          const date = leafDateById.get(r.id);
-          if (date == null) return null;
-          return { id: r.id, date, distance: r.observed, expected: r.expected };
-        })
-        .filter((p): p is { id: string; date: number; distance: number; expected: number } => p !== null);
+	      const points = clockRegression.residuals
+	        .map((r) => {
+	          const date = leafDateById.get(r.id);
+	          if (date === undefined) return null;
+	          return { id: r.id, date, distance: r.observed, expected: r.expected };
+	        })
+	        .filter((p): p is { id: string; date: number; distance: number; expected: number } => p !== null);
 
       if (points.length < 2) {
         ctx.fillStyle = colors.textMuted;

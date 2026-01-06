@@ -12,6 +12,7 @@ import type { PhageFull, GeneInfo } from '@phage-explorer/core';
 import type { PhageRepository, DefenseSystem } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
+import { ActionIds } from '../../keyboard';
 import { getOverlayContext, useBeginnerMode } from '../../education';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
@@ -85,12 +86,11 @@ export function DefenseArmsRaceOverlay({
   const [selectedSystem, setSelectedSystem] = useState<DefenseSystem | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
 
-  // Hotkey (Alt+E for dEfense - Alt+R used by StructureConstraintOverlay)
+  // Hotkey (Alt+E for dEfense - Alt+Shift+R used by StructureConstraintOverlay)
   useHotkey(
-    { key: 'e', modifiers: { alt: true } },
-    'Defense Arms Race',
+    ActionIds.OverlayDefenseArmsRace,
     () => toggle('defenseArmsRace'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Fetch defense systems when overlay opens

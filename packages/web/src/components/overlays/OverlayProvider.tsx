@@ -238,13 +238,15 @@ export function OverlayProvider({ children }: OverlayProviderProps): React.React
   // Global escape key handler
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && stack.length > 0) {
-        const topItem = stack[stack.length - 1];
-        if (topItem.config.closeOnEscape) {
-          e.preventDefault();
-          e.stopPropagation();
-          close(topItem.id);
-        }
+      if (e.key !== 'Escape') return;
+      if (e.defaultPrevented) return;
+      if (stack.length === 0) return;
+
+      const topItem = stack[stack.length - 1];
+      if (topItem.config.closeOnEscape) {
+        e.preventDefault();
+        e.stopPropagation();
+        close(topItem.id);
       }
     };
 

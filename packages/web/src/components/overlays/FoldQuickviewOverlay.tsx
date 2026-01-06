@@ -20,6 +20,7 @@ import {
 import type { PhageRepository } from '../../db';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks/useHotkey';
+import { ActionIds } from '../../keyboard';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 
@@ -162,10 +163,9 @@ export function FoldQuickviewOverlay({
   const [genomeError, setGenomeError] = useState<string | null>(null);
 
   useHotkey(
-    { key: 'f', modifiers: { alt: true, shift: true } },
-    'Fold Quickview',
+    ActionIds.OverlayFoldQuickview,
     () => toggle('foldQuickview'),
-    { modes: ['NORMAL'], category: 'Analysis', minLevel: 'power' }
+    { modes: ['NORMAL'] }
   );
 
   // Load embeddings when opened.
