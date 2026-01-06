@@ -26,6 +26,9 @@ test-*.ts
 phage_illustrations/
 a.out
 
+# AI agent session summaries (ephemeral work logs)
+*_SUMMARY.md
+
 # Generated database (root level only, web public db is tracked for deployment)
 /phage.db
 !packages/web/public/phage.db
