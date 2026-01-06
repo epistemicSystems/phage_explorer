@@ -67,8 +67,19 @@ function ViewModeToggle({ value, onChange }: ViewModeToggleProps): React.ReactEl
 
   // Update on resize
   useEffect(() => {
-    window.addEventListener('resize', updateIndicatorPosition);
-    return () => window.removeEventListener('resize', updateIndicatorPosition);
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(() => {
+      updateIndicatorPosition();
+    });
+
+    observer.observe(container);
+    for (const segment of segmentRefs.current) {
+      if (segment) observer.observe(segment);
+    }
+
+    return () => observer.disconnect();
   }, [updateIndicatorPosition]);
 
   const handleKey = useCallback(
@@ -128,7 +139,6 @@ function ViewModeToggle({ value, onChange }: ViewModeToggleProps): React.ReactEl
               {option.icon}
             </span>
             <span className="view-mode-label">{option.label}</span>
-            <span className="view-mode-subtle">{option.description}</span>
           </button>
         );
       })}
@@ -198,6 +208,7 @@ function SequenceViewBase({
   const colors = theme.colors;
   const reducedMotion = useReducedMotion();
   const supportsDvh = useDvhSupport();
+  const containerRef = useRef<HTMLDivElement>(null);
   const normalizedHeight = useMemo(() => {
     if (typeof height === 'string' && !supportsDvh && height.includes('dvh')) {
       // Older iOS Safari treats dvh as invalid, which can collapse the canvas height to 0.
@@ -301,6 +312,7 @@ function SequenceViewBase({
   const {
     canvasRef,
     visibleRange,
+    handleWheelDelta,
     orientation,
     isMobile,
     scrollPosition,
@@ -336,6 +348,45 @@ function SequenceViewBase({
     onVisibleRangeChange: handleVisibleRangeChange,
     onZoomChange: handleZoomChange,
   });
+
+  const latestVisibleRangeRef = useRef(visibleRange);
+  useEffect(() => {
+    latestVisibleRangeRef.current = visibleRange;
+  }, [visibleRange]);
+
+  const sequenceLengthRef = useRef(sequence.length);
+  useEffect(() => {
+    sequenceLengthRef.current = sequence.length;
+  }, [sequence]);
+
+  // Desktop wheel/trackpad scroll: attach at the container level so scrolling works
+  // even when the pointer is over header controls (and Lenis is prevented for this region).
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onWheel = (event: WheelEvent) => {
+      // Allow browser pinch-to-zoom (trackpad) and page scroll while loading.
+      if (event.ctrlKey) return;
+      const visibleRangeLatest = latestVisibleRangeRef.current;
+      const totalLength = sequenceLengthRef.current;
+      if (!totalLength || !visibleRangeLatest) return;
+
+      const deltaY = event.deltaY;
+      const atTop = visibleRangeLatest.startIndex <= 0;
+      const atEnd = visibleRangeLatest.endIndex >= totalLength;
+
+      if ((deltaY < 0 && atTop) || (deltaY > 0 && atEnd)) {
+        return;
+      }
+
+      event.preventDefault();
+      handleWheelDelta(event.deltaX, event.deltaY, event.deltaMode as 0 | 1 | 2);
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+    return () => container.removeEventListener('wheel', onWheel);
+  }, [handleWheelDelta]);
 
   // Keep the renderer in sync when other UI components set scrollPosition
   // (e.g. gene map clicks, collaboration state sync).
@@ -645,103 +696,45 @@ function SequenceViewBase({
 
   return (
     <div
-      className={`sequence-view ${className}`}
+      ref={containerRef}
+      className={`sequence-view lenis-prevent ${className}`}
       data-lenis-prevent
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        border: `1px solid ${colors.border}`,
-        borderRadius: '6px',
-        backgroundColor: colors.background,
-        overflowX: 'auto',
-        overflowY: 'hidden',
-      }}
       role="region"
       aria-label="Sequence viewer"
       aria-describedby={descriptionId}
       aria-live="polite"
     >
       {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0.4rem 0.75rem',
-          borderBottom: `1px solid ${colors.borderLight}`,
-          flexWrap: 'wrap',
-          gap: '8px',
-        }}
-      >
-        <span style={{ color: colors.primary, fontWeight: 'bold', fontSize: '0.9rem' }}>
-          Sequence
-        </span>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <div className="sequence-view__header">
+        <span className="sequence-view__title">Sequence</span>
+        <div className="sequence-view__controls">
           {/* Zoom controls */}
-          <div style={{ display: 'flex', gap: '0.15rem', alignItems: 'center' }}>
+          <div className="sequence-view__zoom">
             <button
               onClick={() => zoomOut()}
-              className="btn compact"
-              style={{
-                fontSize: '1rem',
-                padding: '0.4rem 0.8rem',
-                minWidth: '36px',
-                minHeight: '36px',
-                borderRadius: '6px 0 0 6px',
-                lineHeight: 1,
-              }}
+              className="btn compact sequence-view__zoom-btn"
               title="Zoom out (-)"
             >
               -
             </button>
-            <span
-              style={{
-                fontSize: '0.8rem',
-                padding: '0.4rem 0.5rem',
-                background: colors.backgroundAlt,
-                color: colors.textMuted,
-                borderTop: `1px solid ${colors.borderLight}`,
-                borderBottom: `1px solid ${colors.borderLight}`,
-                minWidth: '3.5rem',
-                textAlign: 'center',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '36px',
-              }}
-            >
+            <span className="sequence-view__zoom-label">
               {zoomLabel}
             </span>
             <button
               onClick={() => zoomIn()}
-              className="btn compact"
-              style={{
-                fontSize: '1rem',
-                padding: '0.4rem 0.8rem',
-                minWidth: '36px',
-                minHeight: '36px',
-                borderRadius: '0 6px 6px 0',
-                lineHeight: 1,
-              }}
+              className="btn compact sequence-view__zoom-btn"
               title="Zoom in (+)"
             >
               +
             </button>
             <button
               onClick={() => setSnapToCodon((prev) => !prev)}
-              className="btn compact"
-              style={{
-                fontSize: '0.8rem',
-                padding: '0.4rem 0.6rem',
-                minHeight: '36px',
-                marginLeft: '0.5rem',
-                background: snapToCodon ? colors.backgroundAlt : 'transparent',
-              }}
+              className={`btn compact sequence-view__snap-btn ${snapToCodon ? 'is-active' : ''}`}
               title="Toggle codon snapping"
             >
               Snap 3bp
             </button>
-            <span style={{ fontSize: '0.75rem', color: colors.textMuted, marginLeft: '0.5rem', display: 'none' }}>
+            <span className="sequence-view__orientation">
               {orientation === 'landscape' ? 'landscape' : 'portrait'}
             </span>
           </div>
@@ -752,12 +745,7 @@ function SequenceViewBase({
           {viewMode !== 'dna' && (
             <button
               onClick={cycleReadingFrame}
-              className="btn compact"
-              style={{
-                fontSize: '0.8rem',
-                padding: '0.4rem 0.6rem',
-                minHeight: '36px',
-              }}
+              className="btn compact sequence-view__frame-btn"
               title="Cycle reading frame (f)"
             >
               Frame {frameLabel}
@@ -765,7 +753,7 @@ function SequenceViewBase({
           )}
           {/* Position indicator - hide on mobile to save space if needed, or wrap */}
           {visibleRange && (
-            <span style={{ fontSize: '0.75rem', color: colors.textMuted, marginLeft: '4px' }}>
+            <span className="sequence-view__range">
               {visibleRange.startIndex.toLocaleString()} - {visibleRange.endIndex.toLocaleString()}
             </span>
           )}
@@ -877,7 +865,7 @@ function SequenceViewBase({
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="sequence-view__jump-row">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -896,30 +884,21 @@ function SequenceViewBase({
               scrollToPosition(target);
               setScrollPosition(target);
             }}
-            style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}
+            className="sequence-view__jump-form"
           >
             <input
               value={jumpInput}
               onChange={(e) => setJumpInput(e.target.value)}
               placeholder="Jump (idx or %)"
-              style={{
-                width: '130px',
-                padding: '0.35rem 0.5rem',
-                borderRadius: '6px',
-                border: `1px solid ${colors.borderLight}`,
-                background: colors.backgroundAlt,
-                color: colors.text,
-                fontSize: '0.9rem',
-              }}
+              className="sequence-view__jump-input"
             />
             <button
               type="submit"
-              className="btn compact"
-              style={{ minHeight: '32px', padding: '0.35rem 0.75rem' }}
+              className="btn compact sequence-view__jump-btn"
             >
               Go
             </button>
-            <span style={{ color: colors.textMuted, fontSize: '0.8rem' }}>
+            <span className="sequence-view__jump-status">
               Pos: {visibleStart.toLocaleString()}/{seqLength.toLocaleString()} ({visiblePercent}%)
             </span>
           </form>

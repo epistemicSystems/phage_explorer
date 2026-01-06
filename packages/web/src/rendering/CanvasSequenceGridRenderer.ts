@@ -237,6 +237,7 @@ export class CanvasSequenceGridRenderer {
   private paused = false;
   private isScrolling = false;
   private scrollEndTimer: ReturnType<typeof setTimeout> | null = null;
+  private suppressScrollStateOnce = false;
   private lastFrameHadPostProcess = false; // Track if last frame had post-processing
   private lastRenderRange: VisibleRange | null = null;
   private lastRenderLayout: { cols: number; rows: number } | null = null;
@@ -331,20 +332,35 @@ export class CanvasSequenceGridRenderer {
 
     // Set up scroll callback with scroll state tracking for performance
     this.scroller.onScroll((range) => {
-      // Mark as scrolling to disable expensive effects during animation
-      this.isScrolling = true;
-      if (this.scrollEndTimer) {
-        clearTimeout(this.scrollEndTimer);
+      // Mark as scrolling to disable expensive effects during active user interaction.
+      // Programmatic adjustments (like snap-to-codon on scroll end) should not re-enter "scrolling" mode.
+      const suppressScrollState = this.suppressScrollStateOnce;
+      if (suppressScrollState) {
+        this.suppressScrollStateOnce = false;
+      } else {
+        this.isScrolling = true;
+        if (this.scrollEndTimer) {
+          clearTimeout(this.scrollEndTimer);
+        }
+        // End scrolling state after 400ms of inactivity, then do final quality render.
+        // NOTE: 400ms is longer than typical mouse wheel inter-tick gaps (~100-200ms),
+        // preventing post-processing from toggling on/off between discrete wheel events.
+        // This eliminates the visual flicker that occurred with the shorter 150ms timeout.
+        this.scrollEndTimer = setTimeout(() => {
+          this.scrollEndTimer = null;
+          this.isScrolling = false;
+          this.needsFullRedraw = true;
+
+          // When snapping is enabled, align to the nearest codon-consistent boundary after wheel scrolling ends.
+          // Treat the snap as a final adjustment rather than a new scroll interaction.
+          if (this.snapToCodon) {
+            this.suppressScrollStateOnce = true;
+            this.scroller.snapToMultipleIfEnabled();
+          }
+
+          this.scheduleRender(); // Final high-quality render after scroll stops (and after snap, if any)
+        }, 400);
       }
-      // End scrolling state after 400ms of inactivity, then do final quality render.
-      // NOTE: 400ms is longer than typical mouse wheel inter-tick gaps (~100-200ms),
-      // preventing post-processing from toggling on/off between discrete wheel events.
-      // This eliminates the visual flicker that occurred with the shorter 150ms timeout.
-      this.scrollEndTimer = setTimeout(() => {
-        this.isScrolling = false;
-        this.needsFullRedraw = true;
-        this.scheduleRender(); // Final high-quality render after scroll stops
-      }, 400);
 
       this.onVisibleRangeChange?.(range);
       this.scheduleRender();

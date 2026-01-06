@@ -1399,6 +1399,137 @@ textarea:focus-visible,
 }
 
 /* =============================================================================
+   SEQUENCE VIEW LAYOUT
+   ============================================================================= */
+
+.sequence-view {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  overflow: hidden;
+}
+
+.sequence-view__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-light);
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sequence-view__title {
+  color: var(--color-primary);
+  font-weight: var(--font-bold);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+}
+
+.sequence-view__controls {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sequence-view__zoom {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sequence-view__zoom-btn {
+  min-width: 32px;
+  min-height: 32px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-base);
+}
+
+.sequence-view__zoom-label {
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-background-alt);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-light);
+  min-width: 3.5rem;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+}
+
+.sequence-view__snap-btn {
+  min-height: 32px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.sequence-view__snap-btn.is-active {
+  background: var(--color-background-alt);
+  border-color: var(--color-border-light);
+}
+
+.sequence-view__orientation {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-left: var(--space-2);
+  display: none;
+}
+
+.sequence-view__frame-btn {
+  min-height: 36px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.sequence-view__range {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-left: var(--space-1);
+}
+
+.sequence-view__jump-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sequence-view__jump-form {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sequence-view__jump-input {
+  width: 130px;
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  background: var(--color-background-alt);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.sequence-view__jump-btn {
+  min-height: 32px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.sequence-view__jump-status {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* =============================================================================
    SEQUENCE VIEW MODE TOGGLE
    Premium segmented control for DNA / Dual / Amino Acid views
    ============================================================================= */
@@ -1407,9 +1538,11 @@ textarea:focus-visible,
   position: relative;
   display: inline-flex;
   align-items: stretch;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-2);
   padding: 6px;
+  max-width: 100%;
+  overflow: hidden;
   border-radius: var(--radius-xl);
   background: var(--view-toggle-bg, var(--color-background-elevated));
   border: 1px solid var(--view-toggle-border, var(--color-border-subtle));
@@ -1444,6 +1577,7 @@ textarea:focus-visible,
   gap: var(--space-2);
   padding: 10px 14px;
   min-height: 44px;
+  min-width: 0;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   background: transparent;

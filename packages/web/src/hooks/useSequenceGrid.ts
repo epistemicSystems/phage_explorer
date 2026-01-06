@@ -73,6 +73,8 @@ export interface UseSequenceGridResult {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   /** Current visible range */
   visibleRange: VisibleRange | null;
+  /** Apply wheel deltas to the renderer (use with a passive:false wheel listener) */
+  handleWheelDelta: (deltaX: number, deltaY: number, deltaMode?: 0 | 1 | 2) => void;
   /** Current screen orientation */
   orientation: 'portrait' | 'landscape';
   /** Whether device is detected as mobile (touch + small screen) */
@@ -453,12 +455,10 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     window.addEventListener('orientationchange', handleOrientationChange);
     window.addEventListener('resize', handleOrientationChange);
 
-    const handleWheel = (e: WheelEvent) => proxy.handleWheel(e);
     const handleTouchStart = (e: TouchEvent) => proxy.handleTouchStart(e);
     const handleTouchMove = (e: TouchEvent) => proxy.handleTouchMove(e);
     const handleTouchEnd = (e: TouchEvent) => proxy.handleTouchEnd(e);
 
-    canvas.addEventListener('wheel', handleWheel, { passive: false });
     canvas.addEventListener('touchstart', handleTouchStart, { passive: true });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd, { passive: true });
@@ -471,7 +471,6 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
       resizeObserver.disconnect();
       window.removeEventListener('orientationchange', handleOrientationChange);
       window.removeEventListener('resize', handleOrientationChange);
-      canvas.removeEventListener('wheel', handleWheel);
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
@@ -536,11 +535,6 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     window.addEventListener('orientationchange', handleOrientationChange);
     window.addEventListener('resize', handleOrientationChange); // Also track resize
 
-    // Handle wheel events
-    const handleWheel = (e: WheelEvent) => {
-      renderer.handleWheel(e);
-    };
-
     // Handle touch events for mobile scrolling
     const handleTouchStart = (e: TouchEvent) => {
       renderer.handleTouchStart(e);
@@ -554,7 +548,6 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
       renderer.handleTouchEnd(e);
     };
 
-    canvas.addEventListener('wheel', handleWheel, { passive: false });
     canvas.addEventListener('touchstart', handleTouchStart, { passive: true });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd, { passive: true });
@@ -568,7 +561,6 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
       resizeObserver.disconnect();
       window.removeEventListener('orientationchange', handleOrientationChange);
       window.removeEventListener('resize', handleOrientationChange);
-      canvas.removeEventListener('wheel', handleWheel);
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
@@ -735,6 +727,17 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
     rendererRef.current?.markDirty();
   }, []);
 
+  const handleWheelDelta = useCallback(
+    (deltaX: number, deltaY: number, deltaMode: 0 | 1 | 2 = 0) => {
+      if (useWorkerRenderer && workerRef.current) {
+        workerRef.current.postMessage({ type: 'wheel', deltaX, deltaY, deltaMode });
+        return;
+      }
+      rendererRef.current?.handleWheelDelta(deltaX, deltaY, deltaMode);
+    },
+    [useWorkerRenderer]
+  );
+
   const jumpToDiff = useCallback(
     (direction: 'next' | 'prev'): number | null => {
       if (!diffPositions || diffPositions.length === 0) return null;
@@ -780,6 +783,7 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
   return {
     canvasRef,
     visibleRange,
+    handleWheelDelta,
     orientation,
     isMobile,
     scrollPosition,

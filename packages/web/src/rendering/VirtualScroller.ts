@@ -287,11 +287,6 @@ export class VirtualScroller {
    * For wheel events, the input device handles the momentum.
    */
   handleWheel(event: WheelEvent): void {
-    event.preventDefault();
-
-    // Stop any ongoing momentum animation - wheel takes over
-    this.stopMomentum();
-
     // Calculate scroll delta
     let deltaX = event.deltaX;
     let deltaY = event.deltaY;
@@ -325,9 +320,25 @@ export class VirtualScroller {
       deltaX = 0;
     }
 
+    const currentX = this.state.scrollX;
+    const currentY = this.state.scrollY;
+
     // Always use direct scrolling for wheel events
-    // The wheel/trackpad already provides its own momentum
-    this.scrollBy(deltaX, deltaY);
+    // Clamp to valid range to avoid getting stuck in rubber-band overscroll
+    // (Wheel events don't have a "release" event to trigger snap-back animation)
+    const targetX = Math.max(0, Math.min(currentX + deltaX, this.maxScrollX));
+    const targetY = Math.max(0, Math.min(currentY + deltaY, this.maxScrollY));
+
+    if (targetX === currentX && targetY === currentY) {
+      return;
+    }
+
+    event.preventDefault();
+
+    // Stop any ongoing momentum animation - wheel takes over
+    this.stopMomentum();
+
+    this.scrollTo(targetX, targetY);
   }
 
   /**
@@ -362,7 +373,10 @@ export class VirtualScroller {
     }
 
     // Always use direct scrolling for wheel events
-    this.scrollBy(dx, dy);
+    // Clamp to valid range to avoid getting stuck in rubber-band overscroll
+    const targetX = Math.max(0, Math.min(this.state.scrollX + dx, this.maxScrollX));
+    const targetY = Math.max(0, Math.min(this.state.scrollY + dy, this.maxScrollY));
+    this.scrollTo(targetX, targetY);
   }
 
   /**
@@ -635,6 +649,16 @@ export class VirtualScroller {
    */
   setSnapToMultiple(multiple: number | null): void {
     this.updateOptions({ snapToMultiple: multiple });
+  }
+
+  /**
+   * Snap to the nearest boundary if snapping is enabled.
+   * Useful for applying snap after wheel scrolling ends (there is no "wheel end" event).
+   */
+  snapToMultipleIfEnabled(): void {
+    const multiple = this.options.snapToMultiple;
+    if (!multiple) return;
+    this.snapToMultipleBoundary(multiple);
   }
 
   /**
