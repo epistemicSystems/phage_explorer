@@ -150,7 +150,10 @@ export function computeProteinSelfSimilarityMatrix(
 
   const k = Math.max(2, Math.min(5, options.k ?? 3));
   const targetBins = options.bins ?? Math.min(24, Math.max(8, Math.floor(len / 10)));
-  const bins = Math.max(1, Math.min(targetBins, len));
+  
+  // Ensure window size (len/bins) >= k to guarantee valid k-mer extraction
+  const maxBins = Math.floor(len / k);
+  const bins = Math.max(1, Math.min(targetBins, maxBins));
 
   const windows: Array<Map<string, number>> = new Array(bins);
   for (let i = 0; i < bins; i++) {
