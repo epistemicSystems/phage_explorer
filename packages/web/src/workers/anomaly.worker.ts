@@ -194,7 +194,12 @@ function pca2d(matrix: number[][]): { coords: [number, number][]; explained: [nu
   }
 
   const powerIteration = (mat: number[][], iterations = 48): { vec: number[]; val: number } => {
-    let v = Array(mat.length).fill(1 / Math.sqrt(Math.max(1, mat.length)));
+    // Initialize with deterministic pseudo-random vector to avoid orthogonality issues
+    let v = Array(mat.length).fill(0).map((_, i) => ((i * 7919 + 104729) % 1000) / 1000 - 0.5);
+    // Normalize initial vector
+    const initNorm = Math.hypot(...v) || 1;
+    v = v.map(x => x / initNorm);
+
     const multiply = (vec: number[]) =>
       mat.map(row => row.reduce((sum, val, idx) => sum + val * vec[idx], 0));
 

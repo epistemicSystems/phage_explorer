@@ -108,8 +108,8 @@ function covariance(centered: number[][]): number[][] {
 // Power iteration for top eigenvector/value
 function powerIteration(mat: number[][], iters = 64): { vec: number[]; val: number } {
   const n = mat.length;
-  // Initialize with random vector
-  let v = Array.from({ length: n }, () => Math.random() - 0.5);
+  // Initialize with deterministic vector (matches Rust implementation)
+  let v = Array.from({ length: n }, (_, i) => ((i * 7919 + 104729) % 1000) / 1000.0 - 0.5);
   const normInit = Math.hypot(...v) || 1;
   v = v.map(x => x / normInit);
 
@@ -119,6 +119,19 @@ function powerIteration(mat: number[][], iters = 64): { vec: number[]; val: numb
     const w = mv(v);
     const norm = Math.hypot(...w) || 1;
     v = w.map(x => x / norm);
+  }
+
+  // Canonicalize sign: make largest element positive to ensure stable orientation
+  let maxAbs = -1;
+  let maxIdx = -1;
+  v.forEach((val, i) => {
+      if (Math.abs(val) > maxAbs) {
+          maxAbs = Math.abs(val);
+          maxIdx = i;
+      }
+  });
+  if (maxIdx >= 0 && v[maxIdx] < 0) {
+      v = v.map(x => -x);
   }
 
   const Av = mv(v);

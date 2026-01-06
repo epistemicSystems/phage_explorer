@@ -55,6 +55,35 @@ async function initMinHashWasm(): Promise<void> {
 initMinHashWasm().catch(() => { /* WASM unavailable */ });
 
 /**
+ * Internal helper to compute signature from a normalized sequence.
+ * Does NOT check cache.
+ */
+function computeSignatureInternal(
+  normalizedSeq: string,
+  k: number,
+  numHashes: number,
+  canonical: boolean
+): Uint32Array | null {
+  const encoder = textEncoder;
+  if (!wasmMinHashAvailable || !encoder) return null;
+
+  const fn = canonical ? wasmMinHashSignatureCanonical : wasmMinHashSignature;
+  if (!fn) return null;
+
+  if (normalizedSeq.length < k) return null;
+
+  try {
+    const bytes = encoder.encode(normalizedSeq);
+    const sig = fn(bytes, k, numHashes);
+    const result = new Uint32Array(sig.signature); // Copy before free
+    sig.free();
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Compute MinHash signature for a sequence using WASM.
  * Uses the global cache for transparent reuse across calls.
  * Returns null if WASM unavailable or sequence too short.
@@ -65,13 +94,7 @@ function computeMinHashSignature(
   numHashes: number,
   canonical = true
 ): Uint32Array | null {
-  const encoder = textEncoder;
-  if (!wasmMinHashAvailable || !encoder) return null;
-
-  const fn = canonical ? wasmMinHashSignatureCanonical : wasmMinHashSignature;
-  if (!fn) return null;
-
-  if (sequence.length < k) return null;
+  if (!wasmMinHashAvailable || !textEncoder) return null;
 
   // Normalize to uppercase BEFORE cache lookup for consistent keys
   const normalizedSeq = sequence.toUpperCase();
@@ -79,15 +102,7 @@ function computeMinHashSignature(
   // Use cache for transparent reuse
   const cache = getMinHashCache();
   return cache.getOrCompute(normalizedSeq, k, numHashes, canonical, () => {
-    try {
-      const bytes = encoder.encode(normalizedSeq);
-      const sig = fn(bytes, k, numHashes);
-      const result = new Uint32Array(sig.signature); // Copy before free
-      sig.free();
-      return result;
-    } catch {
-      return null;
-    }
+    return computeSignatureInternal(normalizedSeq, k, numHashes, canonical);
   });
 }
 
@@ -131,13 +146,23 @@ function std(values: number[], m: number): number {
   return Math.sqrt(v);
 }
 
-function computeGC(seq: string): { percent: number; total: number } {
+function computeGC(seq: string, start = 0, end?: number): { percent: number; total: number } {
   let gc = 0;
   let total = 0;
-  for (const c of seq) {
-    const u = c.toUpperCase();
-    if (u === 'G' || u === 'C') gc++;
-    if (u === 'A' || u === 'T' || u === 'G' || u === 'C') total++;
+  const limit = end ?? seq.length;
+  
+  for (let i = start; i < limit; i++) {
+    const code = seq.charCodeAt(i);
+    // G=71, C=67, A=65, T=84, g=103, c=99, a=97, t=116
+    // Check for G/C (case-insensitive)
+    if (code === 71 || code === 67 || code === 103 || code === 99) {
+      gc++;
+      total++;
+    } 
+    // Check for A/T (case-insensitive)
+    else if (code === 65 || code === 84 || code === 97 || code === 116) {
+      total++;
+    }
   }
   return {
     percent: total > 0 ? (gc / total) * 100 : 0,
@@ -153,18 +178,21 @@ function slidingGC(
 ): WindowStat[] {
   const stats: WindowStat[] = [];
   const validWindows: { start: number; end: number; gc: number }[] = [];
+  const len = sequence.length;
 
   // First pass: Collect valid GC values to compute robust statistics
-  for (let start = 0; start < sequence.length; start += step) {
-    const slice = sequence.slice(start, start + window);
-    if (!slice.length) break;
+  for (let start = 0; start < len; start += step) {
+    const end = Math.min(start + window, len);
+    const windowLen = end - start;
+    if (windowLen === 0) break;
     
-    const { percent, total } = computeGC(slice);
+    // Use optimized computeGC with indices to avoid slicing
+    const { percent, total } = computeGC(sequence, start, end);
     
     // Skip windows with insufficient valid data (e.g. gaps/Ns)
-    if (total < slice.length * minValidRatio) continue;
+    if (total < windowLen * minValidRatio) continue;
 
-    validWindows.push({ start, end: start + slice.length, gc: percent });
+    validWindows.push({ start, end, gc: percent });
   }
 
   const gcValues = validWindows.map(w => w.gc);
@@ -371,8 +399,11 @@ function precomputeReferenceSignatures(
     let sig = cache.get(cacheKey);
 
     if (!sig) {
-      // Compute and cache using ID-based key
-      sig = computeMinHashSignature(seq, k, MINHASH_NUM_HASHES, true);
+      // Normalize here once
+      const normalizedSeq = seq.toUpperCase();
+      // Compute WITHOUT using the sequence-based cache lookup, to avoid double-caching
+      sig = computeSignatureInternal(normalizedSeq, k, MINHASH_NUM_HASHES, true);
+      
       if (sig) {
         cache.set(cacheKey, sig);
       }

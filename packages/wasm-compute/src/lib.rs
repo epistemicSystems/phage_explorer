@@ -425,81 +425,13 @@ pub fn analyze_kmers(sequence_a: &str, sequence_b: &str, k: usize) -> KmerAnalys
 
 #[wasm_bindgen]
 pub fn min_hash_jaccard(sequence_a: &str, sequence_b: &str, k: usize, num_hashes: usize) -> f64 {
-    if num_hashes == 0 {
-        return 0.0;
-    }
+    // Use the optimized minhash_signature logic (byte-based, rolling hash)
+    // This ensures consistency with the rest of the module and handles U/T normalization.
+    let sig_a = minhash_signature(sequence_a.as_bytes(), k, num_hashes);
+    let sig_b = minhash_signature(sequence_b.as_bytes(), k, num_hashes);
 
-    let sig_a = get_min_hash_signature(sequence_a, k, num_hashes);
-    let sig_b = get_min_hash_signature(sequence_b, k, num_hashes);
-
-    // If either sequence had no valid k-mers, signatures will be all MAX; treat as zero similarity.
-    let empty_sig_a = sig_a.iter().all(|&v| v == u32::MAX);
-    let empty_sig_b = sig_b.iter().all(|&v| v == u32::MAX);
-    if empty_sig_a || empty_sig_b {
-        return 0.0;
-    }
-
-    let mut matches = 0;
-    for i in 0..num_hashes {
-        if sig_a[i] == sig_b[i] {
-            matches += 1;
-        }
-    }
-
-    matches as f64 / num_hashes as f64
-}
-
-fn get_min_hash_signature(seq: &str, k: usize, num_hashes: usize) -> Vec<u32> {
-    let mut signature = vec![u32::MAX; num_hashes];
-    let seq_bytes = seq.as_bytes(); // Optimization: use bytes
-
-    if seq.len() < k || num_hashes == 0 {
-        return signature;
-    }
-
-    for i in 0..=(seq.len() - k) {
-        let window = &seq_bytes[i..i+k];
-
-        // Check for N
-        if window.iter().any(|&b| b == b'N' || b == b'n') {
-            continue;
-        }
-
-        // We need a string for consistent hashing with JS implementation or just consistent logic
-        // JS uses: hash(kmer, h * 0x9e3779b9)
-        // Let's implement the same FNV-1a inspired hash from JS code
-
-        // JS hash function logic:
-        // h = seed;
-        // for char code: h ^= code, h = imul(h, 0x01000193)
-        // return h >>> 0
-
-        // We can replicate this.
-        // window is &[u8].
-        // We need to handle case insensitivity (uppercase).
-
-        for h_idx in 0..num_hashes {
-            let seed = (h_idx as u32).wrapping_mul(0x9e3779b9);
-            let mut h = seed;
-
-            for &byte in window {
-                // To uppercase: 'a'..='z' -> -32
-                let b = if byte >= b'a' && byte <= b'z' {
-                    byte - 32
-                } else {
-                    byte
-                };
-
-                h ^= b as u32;
-                h = h.wrapping_mul(0x01000193);
-            }
-
-            if h < signature[h_idx] {
-                signature[h_idx] = h;
-            }
-        }
-    }
-    signature
+    // Reuse the signature-based Jaccard calculation
+    minhash_jaccard_from_signatures(&sig_a.signature, &sig_b.signature)
 }
 
 // ============================================================================
@@ -850,6 +782,9 @@ fn mix_hash(index: u64, seed: u32) -> u32 {
 /// 4. Ambiguous bases reset rolling state (no k-mer spans N)
 #[wasm_bindgen]
 pub fn minhash_signature(seq: &[u8], k: usize, num_hashes: usize) -> MinHashSignature {
+    // Limit k to 32 for u64 index (4^32 = 2^64)
+    let k = k.min(32);
+
     // Edge cases
     if k == 0 || num_hashes == 0 || seq.len() < k {
         return MinHashSignature {
@@ -858,9 +793,6 @@ pub fn minhash_signature(seq: &[u8], k: usize, num_hashes: usize) -> MinHashSign
             k,
         };
     }
-
-    // Limit k to 32 for u64 index (4^32 = 2^64)
-    let k = k.min(32);
 
     let mut signature = vec![u32::MAX; num_hashes];
     let mut total_kmers: u64 = 0;
@@ -930,6 +862,9 @@ pub fn minhash_signature(seq: &[u8], k: usize, num_hashes: usize) -> MinHashSign
 /// MinHashSignature with strand-independent hashes.
 #[wasm_bindgen]
 pub fn minhash_signature_canonical(seq: &[u8], k: usize, num_hashes: usize) -> MinHashSignature {
+    // Limit k to 32 for u64 index
+    let k = k.min(32);
+
     // Edge cases
     if k == 0 || num_hashes == 0 || seq.len() < k {
         return MinHashSignature {
@@ -938,9 +873,6 @@ pub fn minhash_signature_canonical(seq: &[u8], k: usize, num_hashes: usize) -> M
             k,
         };
     }
-
-    // Limit k to 32 for u64 index
-    let k = k.min(32);
 
     let mut signature = vec![u32::MAX; num_hashes];
     let mut total_kmers: u64 = 0;
@@ -1418,6 +1350,13 @@ fn power_iteration_single(
 
         // Normalize to get new eigenvector estimate
         normalize_vec(&mut xtxv);
+
+        // Align sign to avoid oscillation (v and -v represent the same eigenvector).
+        if dot_product_vec(&v, &xtxv) < 0.0 {
+            for x in xtxv.iter_mut() {
+                *x = -*x;
+            }
+        }
 
         // Check convergence
         let diff: f64 = v.iter().zip(xtxv.iter()).map(|(a, b)| (a - b).abs()).sum();
