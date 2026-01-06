@@ -32,11 +32,9 @@ export function computeSequenceLogo(
 ): LogoColumn[] {
   if (!alignment || alignment.length === 0) return [];
 
-  const numSequences = alignment.length;
   const seqLength = alignment[0].length;
   const alphabet = type === 'dna' ? DNA_ALPHABET : PROTEIN_ALPHABET;
   const maxBits = Math.log2(alphabet.length);
-  const errorCorrection = calculateErrorCorrection(numSequences, alphabet.length);
 
   const columns: LogoColumn[] = [];
 
@@ -73,6 +71,8 @@ export function computeSequenceLogo(
 
     // 3. Calculate Information Content R(p)
     // R(p) = max_bits - H(p) - e(n)
+    // Use validChars for n to account for gaps reducing sample size
+    const errorCorrection = calculateErrorCorrection(validChars, alphabet.length);
     let infoContent = maxBits - entropy - errorCorrection;
     infoContent = Math.max(0, infoContent); // Clamp to 0
 

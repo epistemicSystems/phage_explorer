@@ -97,9 +97,11 @@ export function computeKmerFrequencies(
     let len = 0;
     
     for (let i = 0; i < seq.length; i++) {
-      const code = CHAR_MAP[seq.charCodeAt(i)];
+      const charCode = seq.charCodeAt(i);
+      // Handle non-ASCII characters safely (treat as invalid/skipped)
+      const code = charCode < 256 ? CHAR_MAP[charCode] : -1;
       
-      if (code !== -1) {
+      if (code !== undefined && code !== -1) {
         hash = ((hash << 2) & mask) | code;
         len++;
         if (len >= k) {

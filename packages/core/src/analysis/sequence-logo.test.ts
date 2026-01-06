@@ -30,7 +30,8 @@ describe('Sequence logo', () => {
     expect(logo).toHaveLength(4);
     // Column 1 has only A from two sequences; N and - should be ignored.
     expect(logo[0]?.letters.map((l) => l.char)).toEqual(['A']);
-    expect(logo[0]?.totalBits).toBeGreaterThan(1);
+    // With 2 samples, error correction is large (~1.08 bits). Info = 2 - 0 - 1.08 = 0.92.
+    expect(logo[0]?.totalBits).toBeGreaterThan(0.9);
     // Column 4 has only T from two sequences; also ignores N/-.
     expect(logo[3]?.letters.map((l) => l.char)).toEqual(['T']);
   });

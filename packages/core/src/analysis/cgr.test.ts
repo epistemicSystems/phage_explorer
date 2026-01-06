@@ -24,6 +24,19 @@ describe('CGR', () => {
     expect(result.totalPoints).toBe(2);
   });
 
+  it('computeCGR > resets chain on N to avoid false k-mers (k > 1)', () => {
+    // Sequence: A C N G T
+    // k=2
+    // Valid: AC (steps=2), GT (steps=2).
+    // Invalid: CN, NG.
+    // False k-mer (old logic): CG (connecting C..G across N).
+    const result = computeCGR('ACNGT', 2);
+    
+    // Should produce AC and GT. Total 2.
+    // If it skipped N without reset, it would produce AC, CG, GT (3).
+    expect(result.totalPoints).toBe(2);
+  });
+
   it('getKmerCoordinates > maps single bases to quadrant centers', () => {
     expect(getKmerCoordinates('A')).toEqual({ x: 0.25, y: 0.25 });
     expect(getKmerCoordinates('T')).toEqual({ x: 0.75, y: 0.25 });

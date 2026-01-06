@@ -38,6 +38,7 @@ export function computeCGR(sequence: string, k: number = 6): CGRResult {
   // Current position in unit square
   let x = 0.5;
   let y = 0.5;
+  let validSteps = 0;
 
   const seq = sequence.toUpperCase();
 
@@ -45,15 +46,21 @@ export function computeCGR(sequence: string, k: number = 6): CGRResult {
     const char = seq[i];
     const corner = CORNERS[char as keyof typeof CORNERS];
 
-    // Skip non-ACGT characters
-    if (!corner) continue;
+    // Reset on non-ACGT characters (e.g. N, gaps)
+    if (!corner) {
+      x = 0.5;
+      y = 0.5;
+      validSteps = 0;
+      continue;
+    }
 
     // Move halfway to corner
     x = (x + corner.x) / 2;
     y = (y + corner.y) / 2;
+    validSteps++;
 
-    // Only start plotting after k steps (transient removal)
-    if (i >= k - 1) {
+    // Only start plotting after k valid steps (transient removal)
+    if (validSteps >= k) {
       // Map to grid coordinates
       // Clamp independently to prevent row wrapping artifacts at x=1.0 or y=1.0
       const gridX = Math.min(Math.floor(x * resolution), resolution - 1);
