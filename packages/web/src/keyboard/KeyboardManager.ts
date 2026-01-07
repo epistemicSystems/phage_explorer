@@ -691,6 +691,7 @@ export class KeyboardManager {
  * Singleton instance
  */
 let instance: KeyboardManager | null = null;
+let validationRan = false;
 
 /**
  * Get the keyboard manager singleton
@@ -699,6 +700,18 @@ export function getKeyboardManager(): KeyboardManager {
   if (!instance) {
     instance = new KeyboardManager();
     instance.init();
+
+    // Run static ActionRegistry validation in dev mode (once)
+    if (import.meta.env.DEV && !validationRan) {
+      validationRan = true;
+      // Lazy import to avoid circular dependencies and keep bundle lean in prod
+      import('./validateConflicts').then(({ validateHotkeyConflicts, logValidationResults }) => {
+        const result = validateHotkeyConflicts({ surface: 'web' });
+        logValidationResults(result);
+      }).catch(() => {
+        // Validation module not available - skip silently
+      });
+    }
   }
   return instance;
 }
