@@ -100,7 +100,7 @@ export function AAKeyOverlay(): React.ReactElement | null {
           </OverlaySection>
         ))}
         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>
-          Colors use the active theme palette. Press K or ESC to close.
+          Colors use the active theme palette. Press ⇧K or ESC to close.
         </div>
       </OverlayStack>
     </Overlay>
