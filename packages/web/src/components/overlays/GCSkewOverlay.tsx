@@ -278,8 +278,8 @@ export function GCSkewOverlay({
           </OverlayDescription>
         )}
 
-        {/* Stats */}
-        {!isLoading && result && genomeLength > 0 && (
+        {/* Stats - only show when we have valid analysis data */}
+        {!isLoading && hasData && genomeLength > 0 && (
           <OverlayStatGrid columns={4}>
             <OverlayStatCard label="Genome Length" value={`${genomeLength.toLocaleString()} bp`} />
             <OverlayStatCard label="Window Size" value={`${windowSize} bp`} />
