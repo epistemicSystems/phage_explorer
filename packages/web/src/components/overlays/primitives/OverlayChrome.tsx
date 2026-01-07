@@ -167,7 +167,7 @@ export function OverlayGrid({
   const gridStyle: CSSProperties = {
     display: 'grid',
     gridTemplateColumns: `repeat(auto-fill, minmax(${minColumnWidth}, 1fr))`,
-    gap: gap ?? 'var(--chrome-gap-compact, 0.25rem)',
+    gap: gap ?? 'var(--chrome-gap-compact)',
     padding: 'var(--chrome-padding-y)',
     ...style,
   };

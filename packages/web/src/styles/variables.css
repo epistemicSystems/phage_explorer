@@ -262,6 +262,7 @@
   --chrome-padding-compact-x: var(--space-2);
   --chrome-padding-compact-y: var(--space-1);
   --chrome-gap: var(--space-2);
+  --chrome-gap-compact: var(--space-1);
   --chrome-gap-lg: var(--space-4);
 
   /* === BADGE TOKENS === */

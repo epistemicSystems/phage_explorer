@@ -187,7 +187,7 @@ export function HelpOverlay(): React.ReactElement | null {
               >
                 <OverlayGrid>
                   {layerHotkeys.map((hotkey, index) => (
-                    <OverlayRow key={hotkey.description} alternate={index % 2 !== 0}>
+                    <OverlayRow key={`${hotkey.key}-${index}`} alternate={index % 2 !== 0}>
                       <OverlayKeyValue label={hotkey.key} value={hotkey.description} />
                       {hotkey.scope === 'contextual' && (
                         <OverlayBadge variant="muted">contextual</OverlayBadge>

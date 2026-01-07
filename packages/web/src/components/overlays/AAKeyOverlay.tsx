@@ -62,7 +62,7 @@ export function AAKeyOverlay(): React.ReactElement | null {
                       display: 'flex',
                       alignItems: 'center',
                       gap: 'var(--chrome-gap)',
-                      padding: 'var(--chrome-padding-compact-x)',
+                      padding: 'var(--chrome-padding-compact-y) var(--chrome-padding-compact-x)',
                       borderRadius: 'var(--radius-sm)',
                       backgroundColor: 'var(--color-background)',
                       border: '1px solid var(--color-border-light)',
