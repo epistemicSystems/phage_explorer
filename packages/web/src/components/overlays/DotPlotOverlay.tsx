@@ -26,6 +26,7 @@ import {
   OverlayToolbar,
   OverlayLoadingState,
   OverlayEmptyState,
+  OverlayErrorState,
   OverlayLegend,
   OverlayLegendItem,
 } from './primitives';
@@ -132,16 +133,28 @@ export function DotPlotOverlay({
       return;
     }
 
+    let cancelled = false;
     setLoading(true);
+
     repository
       .getFullGenomeLength(phageId)
       .then((length: number) => repository.getSequenceWindow(phageId, 0, length))
       .then((seq: string) => {
+        if (cancelled) return;
         sequenceCache.current.set(phageId, seq);
         setSequence(seq);
       })
-      .catch(() => setSequence(''))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (cancelled) return;
+        setSequence('');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, repository, currentPhage]);
 
   // Run dot plot analysis when sequence or resolution changes
@@ -361,10 +374,7 @@ export function DotPlotOverlay({
 
         {/* Error State */}
         {error && !loading && (
-          <OverlayEmptyState
-            message={error}
-            hint="Try selecting a different phage or refreshing."
-          />
+          <OverlayErrorState message={error} />
         )}
 
         {/* Empty State */}
