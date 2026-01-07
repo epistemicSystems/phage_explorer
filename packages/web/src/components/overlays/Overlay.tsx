@@ -152,7 +152,7 @@ export function Overlay({
   // Use context-provided mobile detection for consistency
   const effectivePosition: OverlayPosition = isMobile && position === 'center' ? 'bottom' : position;
   const shouldUseBottomSheet = isMobile && effectivePosition === 'bottom';
-  const overlayBorderRadius = shouldUseBottomSheet ? '16px 16px 0 0' : '8px';
+  const overlayBorderRadius = shouldUseBottomSheet ? 'var(--overlay-border-radius-mobile)' : 'var(--overlay-border-radius)';
   const resolvedIcon = typeof icon === 'string' ? OVERLAY_HEADER_ICONS[id] ?? icon : icon;
 
   // Handle close - use useCallback to avoid stale closures
