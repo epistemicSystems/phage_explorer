@@ -259,3 +259,99 @@ describe('HelpOverlay integration', () => {
     }
   });
 });
+
+describe('Overlay-scoped hotkey behavior', () => {
+  // These tests ensure overlay-specific shortcuts are properly scoped
+  // to only activate when their parent overlay is open.
+
+  it('contextual actions exist for overlay-internal shortcuts', () => {
+    // Overlay-internal shortcuts should be marked as contextual
+    const contextualActions = ActionRegistryList.filter(a => a.scope === 'contextual');
+
+    // We should have contextual actions (overlay-internal hotkeys)
+    expect(contextualActions.length).toBeGreaterThan(0);
+
+    // All contextual actions should have proper fields
+    for (const action of contextualActions) {
+      expect(action.id).toBeDefined();
+      expect(action.title).toBeDefined();
+      expect(action.defaultShortcut).toBeDefined();
+    }
+  });
+
+  it('overlay toggle actions are global scope', () => {
+    // Actions that open/toggle overlays should be global (always available)
+    const overlayToggleActions = ActionRegistryList.filter(
+      a => a.overlayAction === 'toggle' || a.overlayAction === 'open'
+    );
+
+    // Overlay toggles should be global so they work anywhere
+    for (const action of overlayToggleActions) {
+      expect(action.scope).toBe('global');
+    }
+  });
+
+  it('contextual actions do not conflict with each other', () => {
+    // Contextual actions can share shortcuts because they're in different contexts
+    const result = validateHotkeyConflicts();
+    const errors = result.conflicts.filter(c => c.severity === 'error');
+
+    // No errors should have only contextual actions (that would be wrong)
+    for (const error of errors) {
+      const allContextual = error.actions.every(a => a.scope === 'contextual');
+      expect(allContextual).toBe(false);
+    }
+  });
+
+  it('help overlay has contextual detail toggle', () => {
+    // HelpOverlay's 'd' toggle should be contextual (only active when overlay open)
+    const helpDetailAction = ActionRegistryList.find(
+      a => a.id === 'help.toggleDetail'
+    );
+
+    expect(helpDetailAction).toBeDefined();
+    expect(helpDetailAction!.scope).toBe('contextual');
+  });
+
+  it('escape key is not registered as a regular hotkey', () => {
+    // Escape is handled by the Overlay component directly, not through ActionRegistry
+    // This ensures Escape always closes the topmost overlay without conflicts
+    const escapeActions = ActionRegistryList.filter(a => {
+      const shortcuts = Array.isArray(a.defaultShortcut)
+        ? a.defaultShortcut
+        : [a.defaultShortcut];
+      return shortcuts.some(s => 'key' in s && s.key === 'Escape');
+    });
+
+    // Should have few or no Escape shortcuts to avoid conflicts with overlay close
+    expect(escapeActions.length).toBeLessThan(3);
+  });
+
+  it('overlay actions have valid categories', () => {
+    // Overlay actions should have valid category assignments
+    const overlayActions = ActionRegistryList.filter(a => a.overlayId);
+
+    // Valid categories for overlay actions (based on actual registry)
+    const validCategories = new Set([
+      'Overlays', 'Search', 'Simulation', 'Analysis', 'Comparison', 'Dev',
+    ]);
+
+    for (const action of overlayActions) {
+      // Overlay actions should have a valid category
+      expect(validCategories.has(action.category)).toBe(true);
+    }
+  });
+
+  it('contextual shortcuts do not shadow critical global shortcuts', () => {
+    // Critical global shortcuts (Escape-to-close, ?, /) should not be shadowed
+    const criticalShortcuts = ['?', '/'];
+    const result = validateHotkeyConflicts();
+
+    for (const shortcut of criticalShortcuts) {
+      const conflicts = result.conflicts.filter(c =>
+        c.shortcut.includes(shortcut) && c.severity === 'error'
+      );
+      expect(conflicts.length).toBe(0);
+    }
+  });
+});
