@@ -291,18 +291,28 @@ function SequenceViewBase({
     }
   }, [postProcess, scanlines, scanlineIntensity, glow]);
 
+  // Track the last scroll position WE set (from user scrolling).
+  // This distinguishes our updates from truly external changes (gene map clicks).
+  const lastScrollWeSetRef = useRef<number | null>(null);
+
   // Stable callbacks to avoid renderer recreation on every render.
   // CRITICAL: Inline functions in useSequenceGrid options cause the renderer
   // to be destroyed and recreated on every React render, breaking scrolling.
   const handleVisibleRangeChange = useCallback(
     (range: { startIndex: number }) => {
+      // Mark this as our own update BEFORE setting store
+      lastScrollWeSetRef.current = range.startIndex;
       setScrollPosition(range.startIndex);
     },
     [setScrollPosition]
   );
 
+  // Track the last zoom scale WE set (from user pinch/zoom).
+  const lastZoomWeSetRef = useRef<number | null>(null);
+
   const handleZoomChange = useCallback(
     (scale: number) => {
+      lastZoomWeSetRef.current = scale;
       setStoreZoomScale(scale);
     },
     [setStoreZoomScale]
@@ -388,28 +398,28 @@ function SequenceViewBase({
     return () => container.removeEventListener('wheel', onWheel);
   }, [handleWheelDelta]);
 
-  // Keep the renderer in sync when other UI components set scrollPosition
+  // Keep the renderer in sync when OTHER UI components set scrollPosition
   // (e.g. gene map clicks, collaboration state sync).
   //
-  // IMPORTANT: This effect must ONLY respond to storeScrollPosition changes, NOT scrollPosition.
-  // If we include scrollPosition in deps, the effect fires when the user scrolls:
-  //   1. User scrolls → hook's scrollPosition updates immediately
-  //   2. Effect fires because scrollPosition changed
-  //   3. storeScrollPosition is still stale (store update hasn't propagated yet)
-  //   4. Effect sees mismatch and calls scrollToPosition(staleValue) → scroll reset!
+  // CRITICAL: We must distinguish between:
+  //   1. OUR updates (from user scrolling via handleVisibleRangeChange) - SKIP these
+  //   2. EXTERNAL updates (gene map clicks, collaboration) - APPLY these
   //
-  // By only depending on storeScrollPosition, we only sync when external sources
-  // (gene map, collaboration) update the store - not when the user scrolls.
-  const lastExternalScrollRef = useRef<number | null>(null);
+  // We track what we set in lastScrollWeSetRef. If the store value matches what
+  // we just set, it's our own update and we skip. Otherwise, it's external and
+  // we scroll to that position (without centering, since we want top-alignment).
   useEffect(() => {
     if (typeof storeScrollPosition !== 'number' || !Number.isFinite(storeScrollPosition)) return;
-    // Skip if we've already applied this store value
-    if (lastExternalScrollRef.current === storeScrollPosition) return;
-    lastExternalScrollRef.current = storeScrollPosition;
+    // Skip if this is our own update from normal scrolling
+    if (lastScrollWeSetRef.current === storeScrollPosition) return;
+    // This is an external update - scroll to it (without centering for consistency)
+    // Note: For gene map clicks that WANT centering, they should call scrollToPosition directly
+    // via a ref, not through the store. For now, we use center=false for store sync.
     scrollToPosition(storeScrollPosition);
   }, [storeScrollPosition, scrollToPosition]);
 
-  const lastExternalZoomRef = useRef<number | null>(null);
+  // Sync zoom from external sources (collaboration, presets) to renderer.
+  // Skip our own updates by checking lastZoomWeSetRef.
   useEffect(() => {
     if (storeZoomScale === null) {
       setStoreZoomScale(zoomScale);
@@ -417,10 +427,9 @@ function SequenceViewBase({
     }
 
     if (!Number.isFinite(storeZoomScale)) return;
-    if (Math.abs(storeZoomScale - zoomScale) < 1e-4) return;
-    if (lastExternalZoomRef.current === storeZoomScale) return;
-
-    lastExternalZoomRef.current = storeZoomScale;
+    // Skip if this is our own update
+    if (lastZoomWeSetRef.current !== null && Math.abs(lastZoomWeSetRef.current - storeZoomScale) < 1e-4) return;
+    // Apply external zoom change
     setRendererZoomScale(storeZoomScale);
   }, [storeZoomScale, zoomScale, setRendererZoomScale, setStoreZoomScale]);
 
