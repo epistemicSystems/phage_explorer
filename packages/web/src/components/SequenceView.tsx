@@ -209,6 +209,7 @@ function SequenceViewBase({
   const reducedMotion = useReducedMotion();
   const supportsDvh = useDvhSupport();
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const normalizedHeight = useMemo(() => {
     if (typeof height === 'string' && !supportsDvh && height.includes('dvh')) {
       // Older iOS Safari treats dvh as invalid, which can collapse the canvas height to 0.
@@ -369,11 +370,11 @@ function SequenceViewBase({
     sequenceLengthRef.current = sequence.length;
   }, [sequence]);
 
-  // Desktop wheel/trackpad scroll: attach at the container level so scrolling works
-  // even when the pointer is over header controls (and Lenis is prevented for this region).
+  // Desktop wheel/trackpad scroll: attach ONLY to the canvas wrapper so page scroll
+  // works when pointer is over header controls. This fixes mousewheel page scroll.
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const wrapper = canvasWrapperRef.current;
+    if (!wrapper) return;
 
     const onWheel = (event: WheelEvent) => {
       // Allow browser pinch-to-zoom (trackpad) and page scroll while loading.
@@ -394,8 +395,8 @@ function SequenceViewBase({
       handleWheelDelta(event.deltaX, event.deltaY, event.deltaMode as 0 | 1 | 2);
     };
 
-    container.addEventListener('wheel', onWheel, { passive: false });
-    return () => container.removeEventListener('wheel', onWheel);
+    wrapper.addEventListener('wheel', onWheel, { passive: false });
+    return () => wrapper.removeEventListener('wheel', onWheel);
   }, [handleWheelDelta]);
 
   // Keep the renderer in sync when OTHER UI components set scrollPosition
@@ -779,7 +780,7 @@ function SequenceViewBase({
       </div>
 
       {/* Canvas */}
-      <div style={{ flex: 1, minHeight: resolvedHeight, position: 'relative' }}>
+      <div ref={canvasWrapperRef} style={{ flex: 1, minHeight: resolvedHeight, position: 'relative' }}>
         <canvas
           ref={canvasRef}
           onClick={handleCanvasClick}

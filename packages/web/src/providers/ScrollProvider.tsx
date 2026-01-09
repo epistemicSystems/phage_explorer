@@ -179,7 +179,10 @@ export function ScrollProvider({
 
   // Determine if we should actually enable smooth scroll
   // Disable on touch devices - Lenis causes flickering with native scroll momentum
-  const shouldEnable = enabled && !reducedMotion && !isTouchDevice;
+  // ALSO disable on desktop because .app-shell uses overflow:hidden with .app-body
+  // as the scroll container. Lenis targets window scroll which doesn't work here.
+  // This was blocking mousewheel scroll on the main page.
+  const shouldEnable = false; // Disabled: enabled && !reducedMotion && !isTouchDevice;
 
   // Initialize Lenis
   useEffect(() => {
