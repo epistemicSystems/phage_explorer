@@ -920,7 +920,6 @@ export default function App(): React.ReactElement {
           ),
         }}
         footer={{
-          version: '0.0.0',
           hints: footerHints,
           children: <BeginnerModeIndicator />,
         }}

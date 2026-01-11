@@ -26,13 +26,20 @@ const defaultHints: KeyHint[] = [
 ];
 
 export const Footer: React.FC<FooterProps> = ({
-  version = '0.0.0',
+  version,
   hints = defaultHints,
   children,
 }) => {
+  // Only show version when explicitly provided (not placeholder)
+  const showVersion = version && version !== '0.0.0';
+
   return (
     <footer className="app-footer" role="contentinfo" aria-label="Application Footer">
-      <span className="footer-version" aria-label={`Version ${version}`}>Phage Explorer v{version}</span>
+      {showVersion ? (
+        <span className="footer-version" aria-label={`Version ${version}`}>Phage Explorer v{version}</span>
+      ) : (
+        <span className="footer-version">Phage Explorer</span>
+      )}
       <div className="footer-hints" role="list" aria-label="Keyboard Shortcuts">
         {hints.map((hint, i) => (
           <React.Fragment key={hint.key}>
