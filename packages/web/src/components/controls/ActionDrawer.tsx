@@ -160,7 +160,7 @@ export function ActionDrawer({ isOpen, onClose }: ActionDrawerProps): React.Reac
         },
         {
           id: 'pressure',
-          label: 'Selection',
+          label: 'Packaging Pressure',
           icon: <IconTrendingUp size={20} />,
           action: () => handleOverlay('pressure'),
         },
