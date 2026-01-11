@@ -438,7 +438,10 @@ export default function App(): React.ReactElement {
         if (requestId !== loadRequestIdRef.current) return;
 
         if (!phage) {
-          setLoadingPhage(false);
+          // Guard: only clear loading if this is still the current request
+          if (requestId === loadRequestIdRef.current) {
+            setLoadingPhage(false);
+          }
           return;
         }
 
