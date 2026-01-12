@@ -11,7 +11,7 @@
  * - Form inputs and interactions
  */
 
-import { test, expect, type Page, type Locator, type TestInfo } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 import { setupTestHarness } from './e2e-harness';
 
 // Helper to check if running on mobile viewport

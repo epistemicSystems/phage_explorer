@@ -8,7 +8,7 @@
  */
 
 import { test, expect, type Page, type ConsoleMessage, type TestInfo } from '@playwright/test';
-import { setupTestHarness, type TestHarnessState } from './e2e-harness';
+import { setupTestHarness } from './e2e-harness';
 
 const SITE_URL = process.env.PLAYWRIGHT_BASE_URL || 'https://phage-explorer.org';
 const LIVE_ENABLED = process.env.PLAYWRIGHT_LIVE === '1';

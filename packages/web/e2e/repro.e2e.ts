@@ -90,6 +90,28 @@ test('mobile: welcome sheet visible and Lenis disabled', async ({ page }, testIn
   await expect(mobile3DToggle).toBeVisible();
   await expect(mobile3DToggle).toHaveAttribute('aria-label', '3D model: off');
 
+  // Fullscreen 3D should not turn into a full-screen overlay (regression: HUD panels used a full-surface class).
+  await mobile3DToggle.click();
+  await expect(mobile3DToggle).toHaveAttribute('aria-label', '3D model: on');
+
+  const threePanel = page.locator('.panel', { hasText: '3D Structure' }).first();
+  await threePanel.scrollIntoViewIfNeeded();
+
+  const fullscreen3D = threePanel.locator('button[title="Fullscreen"]').first();
+  await expect(fullscreen3D).toBeVisible();
+  await fullscreen3D.click();
+
+  const fullscreenHud = page.locator('.three-hud', { hasText: 'FPS' }).first();
+  await expect(fullscreenHud).toBeVisible();
+  await expect(page.locator('.three-overlay', { hasText: 'FPS' })).toHaveCount(0);
+
+  // Exit fullscreen so it doesn't intercept subsequent mobile interactions (FAB, bottom sheets).
+  await page.evaluate(() => {
+    const btn = document.querySelector('button[title="Fullscreen"]');
+    if (btn instanceof HTMLButtonElement) btn.click();
+  });
+  await expect(page.locator('.three-container--fullscreen')).toHaveCount(0);
+
   // ActionDrawer opens and launches a representative analysis overlay.
   const fab = page.getByRole('button', { name: 'Open control menu' });
   await expect(fab).toBeVisible();

@@ -41,7 +41,6 @@ export interface NetworkEntry {
   url: string;
   method?: string;
   status?: number;
-  timing?: number;
   resourceType?: string;
 }
 
@@ -75,7 +74,12 @@ function shouldCaptureRequest(url: string): boolean {
 // Harness Implementation
 // -----------------------------------------------------------------------------
 
-export function createTestHarness(page: Page, testInfo: TestInfo): TestHarnessState {
+interface LegacyArrays {
+  pageErrors?: string[];
+  consoleErrors?: string[];
+}
+
+export function createTestHarness(page: Page, legacyArrays?: LegacyArrays): TestHarnessState {
   const state: TestHarnessState = {
     events: [],
     consoleErrors: [],
@@ -94,6 +98,9 @@ export function createTestHarness(page: Page, testInfo: TestInfo): TestHarnessSt
     };
     state.pageErrors.push(entry);
     state.events.push({ ts: entry.ts, type: 'pageerror', data: entry });
+
+    // Also populate legacy array if provided (single handler, no duplicates)
+    legacyArrays?.pageErrors?.push(error.message);
   });
 
   // Console handler
@@ -114,6 +121,9 @@ export function createTestHarness(page: Page, testInfo: TestInfo): TestHarnessSt
     if (msgType === 'error') {
       state.consoleErrors.push(entry);
       state.events.push({ ts: entry.ts, type: 'console', data: { level: 'error', ...entry } });
+
+      // Also populate legacy array if provided (single handler, no duplicates)
+      legacyArrays?.consoleErrors?.push(msg.text());
     } else if (msgType === 'warning') {
       state.consoleWarnings.push(entry);
       state.events.push({ ts: entry.ts, type: 'console', data: { level: 'warning', ...entry } });
@@ -218,17 +228,12 @@ export function setupTestHarness(page: Page, testInfo: TestInfo): {
   pageErrors: string[];
   consoleErrors: string[];
 } {
-  const state = createTestHarness(page, testInfo);
-
   // Backwards-compatible arrays for existing inline assertions
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
 
-  // Mirror errors to legacy arrays
-  page.on('pageerror', (err) => pageErrors.push(err.message));
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') consoleErrors.push(msg.text());
-  });
+  // Create harness state with legacy arrays populated from the same handlers
+  const state = createTestHarness(page, { pageErrors, consoleErrors });
 
   const finalize = async () => {
     await writeArtifacts(state, testInfo);
