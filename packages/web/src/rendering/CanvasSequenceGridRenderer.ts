@@ -321,14 +321,15 @@ export class CanvasSequenceGridRenderer {
     });
 
     // Create virtual scroller (will be configured when sequence is set)
-    // Use generous overscan (10 rows) to pre-render content beyond viewport for smooth scrolling
+    // Use massive overscan to pre-render content far beyond viewport for buttery smooth scrolling.
+    // With row tile caching, extra rows are cheap - tiles are reused from cache on subsequent frames.
     this.scroller = new VirtualScroller({
       totalItems: 0,
       itemWidth: this.cellWidth,
       itemHeight: this.rowHeight,
       viewportWidth: options.viewportWidth ?? this.getViewportSize().width,
       viewportHeight: options.viewportHeight ?? this.getViewportSize().height,
-      overscan: 10, // Pre-render 10 rows above/below viewport for smooth scroll reveal
+      overscan: 200, // Pre-render 200 rows above/below viewport
     });
     this.updateCodonSnap();
 
