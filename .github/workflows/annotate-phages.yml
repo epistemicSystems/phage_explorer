@@ -26,6 +26,13 @@ on:
         default: '0'
         type: string
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel long-running annotation jobs
+
+env:
+  BUN_VERSION: "1.2.4"
+
 jobs:
   annotate:
     runs-on: ubuntu-latest
@@ -41,12 +48,12 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
           cache-dependency-path: scripts/annotation/requirements.txt
 
@@ -54,8 +61,16 @@ jobs:
         run: |
           pip install -r scripts/annotation/requirements.txt
 
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: Install Node dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Build data pipeline
         run: bun run build --filter=@phage-explorer/data-pipeline
