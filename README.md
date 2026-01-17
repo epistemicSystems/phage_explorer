@@ -8,7 +8,7 @@ A Terminal User Interface (TUI) for browsing, visualizing, and analyzing bacteri
 
 **One-liner install:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/phage_explorer/main/install.sh | bash
+curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/phage_explorer/main/install.sh?$(date +%s)" | bash
 ```
 
 ---
@@ -88,7 +88,7 @@ curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/phage_explorer/ma
 
 ```bash
 # Install latest release (includes database)
-curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/phage_explorer/main/install.sh | bash -s -- --with-database
+curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/phage_explorer/main/install.sh?$(date +%s)" | bash -s -- --with-database
 
 # Run
 phage-explorer
