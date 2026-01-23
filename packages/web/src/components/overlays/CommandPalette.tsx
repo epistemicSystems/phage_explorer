@@ -14,9 +14,16 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import * as Comlink from 'comlink';
 import { useTheme } from '../../hooks/useTheme';
 import { useHotkey } from '../../hooks';
-import { ActionIds } from '../../keyboard';
+import {
+  ActionIds,
+  ActionRegistryList,
+  formatKeyCombo,
+  type ActionDefinition,
+  type KeyCombo,
+  type ExperienceLevel as KbExperienceLevel,
+} from '../../keyboard';
 import { Overlay } from './Overlay';
-import { useOverlay } from './OverlayProvider';
+import { useOverlay, type OverlayId } from './OverlayProvider';
 import { usePhageStore } from '@phage-explorer/state';
 import { formatFasta, downloadString, copyToClipboard, buildSequenceClipboardPayload } from '../../utils/export';
 import { getSearchWorker, type SearchWorkerAPI, type FuzzySearchEntry, type FuzzySearchResult } from '../../workers';
@@ -131,6 +138,40 @@ const LEVEL_ORDER: Record<ExperienceLevel, number> = {
 function meetsLevelRequirement(userLevel: ExperienceLevel, requiredLevel?: ExperienceLevel): boolean {
   if (!requiredLevel) return true;
   return LEVEL_ORDER[userLevel] >= LEVEL_ORDER[requiredLevel];
+}
+
+/**
+ * Format shortcuts from ActionRegistry for display
+ * Returns empty string if no shortcut defined
+ */
+function formatRegistryShortcut(shortcut: KeyCombo | KeyCombo[]): string {
+  if (!shortcut || (Array.isArray(shortcut) && shortcut.length === 0)) {
+    return '';
+  }
+  const combos = Array.isArray(shortcut) ? shortcut : [shortcut];
+  return combos.map(formatKeyCombo).join(' / ');
+}
+
+/**
+ * Map experience level from keyboard types to command palette types
+ */
+function mapExperienceLevel(level?: KbExperienceLevel): ExperienceLevel | undefined {
+  return level as ExperienceLevel | undefined;
+}
+
+/**
+ * Infer command context from action properties
+ */
+function inferContextFromAction(action: ActionDefinition): CommandContext[] {
+  // Most overlay actions require a phage to be loaded
+  if (action.overlayId && action.category === 'Analysis') {
+    return ['has-phage'];
+  }
+  if (action.scope === 'contextual') {
+    // Contextual actions typically require a phage
+    return ['has-phage'];
+  }
+  return ['always'];
 }
 
 // Category icons for visual scanning
@@ -313,9 +354,55 @@ export function CommandPalette({ commands: customCommands, context: propContext 
     close('commandPalette');
   }, [close]);
 
+  // Generate overlay commands from ActionRegistry (single source of truth for shortcuts)
+  const registryCommands: Command[] = useMemo(() => {
+    return ActionRegistryList
+      .filter((action) => {
+        // Only include web-surface actions
+        if (action.surfaces && !action.surfaces.includes('web')) return false;
+        // Skip command palette itself and close-all (handled separately)
+        if (action.id === ActionIds.OverlayCommandPalette) return false;
+        if (action.id === ActionIds.OverlayCloseAll) return false;
+        // Skip contextual-only actions that need special handling
+        if (action.scope === 'contextual' && !action.overlayId) return false;
+        return true;
+      })
+      .map((action): Command => {
+        const shortcut = formatRegistryShortcut(action.defaultShortcut);
+        const contexts = inferContextFromAction(action);
+
+        // Create the action handler based on whether it opens an overlay
+        let actionHandler: () => void;
+        if (action.overlayId) {
+          const overlayId = action.overlayId as OverlayId;
+          if (action.overlayAction === 'toggle') {
+            actionHandler = () => { close('commandPalette'); toggle(overlayId); };
+          } else {
+            actionHandler = () => { close('commandPalette'); open(overlayId); };
+          }
+        } else {
+          // Non-overlay actions are placeholders (view mode, nav, etc.)
+          // The actual handlers are registered via useHotkey in their components
+          actionHandler = () => {};
+        }
+
+        return {
+          id: `registry:${action.id}`,
+          label: action.title,
+          description: action.description,
+          category: action.category,
+          shortcut,
+          action: actionHandler,
+          minLevel: mapExperienceLevel(action.minLevel),
+          contexts: contexts.includes('always') ? undefined : contexts,
+        };
+      });
+  }, [close, open, toggle]);
+
   // Default commands with experience levels and contexts
+  // These supplement the registry commands with dynamic/custom actions
   const defaultCommands: Command[] = useMemo(() => [
-    // Theme commands (available to all)
+    // Theme commands (dynamic based on available themes)
     ...availableThemes.map((next) => ({
       id: `theme:${next.id}`,
       label: next.id === theme.id ? `Theme: ${next.name} (current)` : `Theme: ${next.name}`,
@@ -323,51 +410,8 @@ export function CommandPalette({ commands: customCommands, context: propContext 
       action: () => setTheme(next.id),
       minLevel: 'novice' as const,
     })),
-    {
-      id: 'nav:settings',
-      label: 'Open Settings',
-      category: 'Navigation',
-      shortcut: 'Ctrl+,',
-      action: () => { close(); open('settings'); },
-      minLevel: 'novice',
-    },
 
-    // Overlay commands
-    { id: 'overlay:help', label: 'Show Help', category: 'Navigation', shortcut: '?', action: () => { close(); open('help'); }, minLevel: 'novice' },
-    { id: 'overlay:search', label: 'Search Phages', category: 'Navigation', shortcut: 's', action: () => { close(); open('search'); }, minLevel: 'novice' },
-    { id: 'overlay:analysis', label: 'Analysis Menu', category: 'Analysis', shortcut: 'a', action: () => { close(); open('analysisMenu'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'overlay:simulation', label: 'Simulation Hub', category: 'Simulation', shortcut: 'S', action: () => { close(); open('simulationHub'); }, minLevel: 'intermediate' },
-    { id: 'overlay:comparison', label: 'Genome Comparison', category: 'Analysis', shortcut: 'c', action: () => { close(); open('comparison'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'overlay:collaboration', label: 'Collaboration', category: 'Navigation', action: () => { close(); open('collaboration'); }, minLevel: 'intermediate' },
-
-    // Analysis commands (require phage loaded)
-    { id: 'analysis:gc', label: 'GC Skew Analysis', category: 'Analysis', shortcut: 'g', action: () => { close(); open('gcSkew'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'analysis:complexity', label: 'Sequence Complexity', category: 'Analysis', shortcut: 'x', action: () => { close(); open('complexity'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'analysis:bendability', label: 'DNA Bendability', category: 'Analysis', shortcut: 'b', action: () => { close(); open('bendability'); }, minLevel: 'intermediate', contexts: ['has-phage', 'dna-mode'] },
-    { id: 'analysis:promoter', label: 'Promoter/RBS Sites', category: 'Analysis', shortcut: 'p', action: () => { close(); open('promoter'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'analysis:repeat', label: 'Repeat Finder', category: 'Analysis', shortcut: 'r', action: () => { close(); open('repeats'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'analysis:cgr', label: 'Chaos Game Representation', category: 'Analysis', shortcut: 'Alt+Shift+C', action: () => { close(); open('cgr'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'analysis:hilbert', label: 'Hilbert Curve Visualization', category: 'Analysis', shortcut: 'Alt+Shift+H', action: () => { close(); open('hilbert'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'analysis:dotplot', label: 'Dot Plot', category: 'Analysis', shortcut: 'Alt+O', action: () => { close(); open('dotPlot'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'analysis:gel', label: 'Virtual Gel Electrophoresis', category: 'Analysis', shortcut: 'Alt+G', action: () => { close(); open('gel'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'analysis:constraints', label: 'Structure Constraints', category: 'Analysis', shortcut: 'Alt+R', action: () => { close(); open('structureConstraint'); }, minLevel: 'power', contexts: ['has-phage'] },
-    { id: 'analysis:non-b', label: 'Non-B DNA Structures', category: 'Analysis', shortcut: 'Alt+N', action: () => { close(); open('nonBDNA'); }, minLevel: 'power', contexts: ['has-phage'] },
-    { id: 'analysis:crispr', label: 'CRISPR Arrays', category: 'Analysis', shortcut: 'Alt+C', action: () => { close(); open('crispr'); }, minLevel: 'intermediate', contexts: ['has-phage'] },
-
-    // Advanced analysis (power users)
-    { id: 'analysis:kmer', label: 'K-mer Anomaly Detection', category: 'Advanced', shortcut: 'j', action: () => { close(); open('kmerAnomaly'); }, minLevel: 'power', contexts: ['has-phage'] },
-    { id: 'analysis:anomaly', label: 'Anomaly Detection', category: 'Advanced', shortcut: 'Alt+Y', action: () => { close(); open('anomaly'); }, minLevel: 'power', contexts: ['has-phage'] },
-    { id: 'analysis:hgt', label: 'HGT Provenance', category: 'Advanced', shortcut: 'Alt+H', action: () => { close(); open('hgt'); }, minLevel: 'power', contexts: ['has-phage'] },
-    { id: 'analysis:tropism', label: 'Tropism & Receptors', category: 'Advanced', shortcut: '0', action: () => { close(); open('tropism'); }, minLevel: 'power', contexts: ['has-phage'] },
-    { id: 'analysis:bias', label: 'Codon Bias Decomposition', category: 'Advanced', shortcut: 'Alt+B', action: () => { close(); open('biasDecomposition'); }, minLevel: 'power', contexts: ['has-phage'] },
-    { id: 'analysis:phase', label: 'Phase Portrait', category: 'Advanced', shortcut: 'Alt+Shift+P', action: () => { close(); open('phasePortrait'); }, minLevel: 'power', contexts: ['has-phage'] },
-    { id: 'analysis:packaging', label: 'Packaging Pressure', category: 'Advanced', shortcut: 'v', action: () => { close(); open('pressure'); }, minLevel: 'power', contexts: ['has-phage'] },
-    { id: 'analysis:stability', label: 'Virion Stability', category: 'Advanced', shortcut: 'Alt+V', action: () => { close(); open('stability'); }, minLevel: 'power', contexts: ['has-phage'] },
-
-    { id: 'reference:aa-key', label: 'Amino Acid Key', category: 'Reference', shortcut: 'k', action: () => { close(); open('aaKey'); }, minLevel: 'novice' },
-    { id: 'reference:aa-legend', label: 'Amino Acid Legend (compact)', category: 'Reference', shortcut: 'l', action: () => { close(); open('aaLegend'); }, minLevel: 'novice' },
-
-    // Education commands
+    // Education commands (dynamic based on current state)
     {
       id: 'edu:toggle-beginner',
       label: beginnerModeEnabled ? 'Disable Beginner Mode' : 'Enable Beginner Mode',
@@ -410,18 +454,7 @@ export function CommandPalette({ commands: customCommands, context: propContext 
       minLevel: 'novice',
     },
 
-    // View commands (context-dependent)
-    { id: 'view:dna', label: 'Switch to DNA Mode', category: 'View', shortcut: 'Space', action: () => {}, minLevel: 'novice', contexts: ['amino-mode'] },
-    { id: 'view:aa', label: 'Switch to Amino Acid Mode', category: 'View', shortcut: 'Space', action: () => {}, minLevel: 'novice', contexts: ['dna-mode'] },
-    { id: 'view:diff', label: 'Toggle Diff Mode', category: 'View', shortcut: 'd', action: () => {}, minLevel: 'intermediate', contexts: ['has-phage'] },
-    { id: 'view:3d', label: 'Toggle 3D Model', category: 'View', shortcut: 'm', action: () => {}, minLevel: 'intermediate', contexts: ['has-phage'] },
-
-    // Navigation commands
-    { id: 'nav:start', label: 'Go to Start', category: 'Navigation', shortcut: 'gg', action: () => {}, minLevel: 'novice', contexts: ['has-phage'] },
-    { id: 'nav:end', label: 'Go to End', category: 'Navigation', shortcut: 'G', action: () => {}, minLevel: 'novice', contexts: ['has-phage'] },
-    { id: 'nav:goto', label: 'Go to Position...', category: 'Navigation', shortcut: 'Ctrl+g', action: () => { close(); open('goto'); }, minLevel: 'novice', contexts: ['has-phage'] },
-
-    // Export commands (power users, require selection/phage)
+    // Export commands (custom actions that use store state)
     {
       id: 'export:fasta',
       label: 'Export as FASTA',
@@ -436,7 +469,7 @@ export function CommandPalette({ commands: customCommands, context: propContext 
         const name = currentPhage?.name || 'phage';
         const fasta = formatFasta(`${name} [exported from Phage Explorer]`, seq);
         downloadString(fasta, `${name.replace(/\s+/g, '_')}.fasta`);
-        close();
+        close('commandPalette');
       },
       minLevel: 'intermediate',
       contexts: ['has-phage']
@@ -457,10 +490,10 @@ export function CommandPalette({ commands: customCommands, context: propContext 
         copyToClipboard(payload.text, payload.html)
           .then(() => alert('Sequence copied (text + HTML).'))
           .catch(() => alert('Failed to copy sequence.'));
-        close();
+        close('commandPalette');
       },
       minLevel: 'novice',
-      contexts: ['has-phage'] // Sequence availability implied by context
+      contexts: ['has-phage']
     },
     {
       id: 'export:json',
@@ -474,12 +507,15 @@ export function CommandPalette({ commands: customCommands, context: propContext 
           timestamp: new Date().toISOString(),
         };
         downloadString(JSON.stringify(exportData, null, 2), 'analysis_export.json', 'application/json');
-        close();
+        close('commandPalette');
       },
       minLevel: 'power',
       contexts: ['has-phage']
     },
-  ], [availableThemes, close, open, setTheme, theme.id]);
+
+    // Include all registry-derived commands
+    ...registryCommands,
+  ], [availableThemes, beginnerModeEnabled, close, open, openGlossary, registryCommands, setBeginnerModeEnabled, setTheme, startTour, theme.id, toggleBeginnerMode, toggle]);
 
   const allCommands = customCommands ?? defaultCommands;
 
