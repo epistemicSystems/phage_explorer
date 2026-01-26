@@ -50,11 +50,11 @@
 
 .fab:hover {
   box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.4),
-    0 0 20px rgba(34, 211, 238, 0.3);
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 0 12px rgba(34, 211, 238, 0.18);
 }
 
-/* Subtle glow pulse when idle */
+/* Subtle glow pulse when idle - quiet premium */
 @keyframes fab-glow-pulse {
   0%, 100% {
     box-shadow:
@@ -64,7 +64,7 @@
   50% {
     box-shadow:
       0 4px 12px rgba(0, 0, 0, 0.3),
-      0 0 16px rgba(34, 211, 238, 0.2);
+      0 0 10px rgba(34, 211, 238, 0.12);
   }
 }
 
@@ -91,9 +91,9 @@
   z-index: calc(var(--z-modal-backdrop) + 10);
   animation: none;
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.4),
-    0 0 24px rgba(34, 211, 238, 0.2),
-    inset 0 0 0 1px rgba(34, 211, 238, 0.3);
+    0 8px 20px rgba(0, 0, 0, 0.35),
+    0 0 14px rgba(34, 211, 238, 0.12),
+    inset 0 0 0 1px rgba(34, 211, 238, 0.2);
 }
 
 /* Show FAB on tablet/mobile screens */
@@ -136,5 +136,72 @@
 @media (hover: none) and (pointer: coarse) {
   .fab:not(.fab--open):not(:active) {
     animation-duration: 6s; /* Slower = less battery drain */
+  }
+}
+
+/* =============================================================================
+   FAB Label Hint - Helps new users understand the FAB purpose
+   ============================================================================= */
+
+.fab-hint {
+  position: fixed;
+  /* Position to the left of the FAB */
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px) + 16px);
+  right: calc(16px + env(safe-area-inset-right, 0px) + 56px + 12px);
+  display: none;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-background-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-fixed);
+  pointer-events: none;
+  animation: fab-hint-fade-in 0.3s var(--ease-out) forwards;
+  animation-delay: 1s;
+  opacity: 0;
+}
+
+@keyframes fab-hint-fade-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Show hint on tablet/mobile screens */
+@media (max-width: 900px) {
+  .fab-hint {
+    display: flex;
+  }
+}
+
+/* Match FAB positioning on phones */
+@media (max-width: 640px) {
+  .fab-hint {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 16px);
+  }
+}
+
+/* Landscape phones */
+@media (max-width: 640px) and (orientation: landscape) {
+  .fab-hint {
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 16px);
+  }
+}
+
+/* Hide hint when FAB is open or after user has interacted */
+.fab-hint--hidden,
+.fab--open ~ .fab-hint {
+  display: none !important;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .fab-hint {
+    animation: none;
+    opacity: 1;
   }
 }

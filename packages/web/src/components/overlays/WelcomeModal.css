@@ -77,14 +77,17 @@
 .welcome-intro__title {
   color: var(--color-text);
   margin-bottom: var(--space-4);
-  font-size: var(--text-xl);
-  font-weight: var(--font-bold);
+  font-size: var(--overlay-title-size);
+  font-weight: var(--overlay-title-weight);
+  line-height: var(--overlay-title-line-height);
+  letter-spacing: var(--overlay-title-tracking);
 }
 
 .welcome-intro__description {
-  color: var(--color-text-dim);
-  line-height: 1.6;
-  max-width: 500px;
+  color: var(--overlay-description-color);
+  font-size: var(--overlay-body-size);
+  line-height: var(--overlay-body-line-height);
+  max-width: var(--overlay-body-max-width);
   margin: 0 auto;
 }
 
@@ -163,8 +166,9 @@
 }
 
 .welcome-feature__text {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
+  font-size: var(--overlay-body-size);
+  color: var(--overlay-description-color);
+  line-height: var(--overlay-body-line-height);
   margin: 0;
 }
 
@@ -176,8 +180,8 @@
 .welcome-level__title {
   color: var(--color-text);
   margin-bottom: var(--space-5);
-  font-size: var(--text-lg);
-  font-weight: var(--font-bold);
+  font-size: var(--overlay-section-title-size);
+  font-weight: var(--overlay-section-title-weight);
 }
 
 .welcome-level__grid {
@@ -194,8 +198,8 @@
 
 .welcome-level__hint {
   text-align: center;
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
+  font-size: var(--overlay-caption-size);
+  color: var(--overlay-caption-color);
   margin-top: var(--space-4);
 }
 
@@ -304,8 +308,9 @@
 
 .welcome-level-card__desc {
   margin: 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-dim);
+  font-size: var(--overlay-body-size);
+  color: var(--overlay-description-color);
+  line-height: var(--overlay-body-line-height);
 }
 
 /* Primer step */
@@ -316,8 +321,8 @@
 .welcome-primer__title {
   color: var(--color-text);
   margin-bottom: var(--space-2);
-  font-size: var(--text-lg);
-  font-weight: var(--font-bold);
+  font-size: var(--overlay-section-title-size);
+  font-weight: var(--overlay-section-title-weight);
 }
 
 /* Footer controls */
@@ -328,26 +333,15 @@
   gap: var(--space-4);
 }
 
+/* Skip button is styled via .btn.btn-ghost, add modal-specific overrides */
 .welcome-footer__skip {
-  background: none;
-  border: none;
-  color: var(--color-text-dim);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  padding: var(--space-2);
+  color: var(--overlay-description-color);
+  font-size: var(--overlay-body-size);
 }
 
 .welcome-footer__skip:hover {
-  color: var(--color-text);
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.welcome-footer__skip:focus-visible {
-  outline: none;
-  color: var(--color-primary);
-  text-decoration: underline;
 }
 
 .welcome-footer__actions {
@@ -372,81 +366,34 @@
     justify-content: flex-end;
   }
 
-  .welcome-btn--secondary,
-  .welcome-btn--tour,
-  .welcome-btn--primary {
+  .welcome-footer__actions .btn {
     flex: 1 1 auto;
     min-width: 120px;
   }
 }
 
-.welcome-btn--secondary {
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text);
-  cursor: pointer;
-  font-weight: var(--font-medium);
-  transition:
-    border-color 150ms var(--ease-out),
-    background 150ms var(--ease-out),
-    transform 350ms var(--ease-spring),
-    box-shadow 150ms var(--ease-out);
-  -webkit-tap-highlight-color: transparent;
-}
+/* Secondary button now uses .btn.btn-secondary from components.css */
 
-.welcome-btn--secondary:hover {
-  border-color: var(--color-border-light);
-  background: var(--color-background-hover);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.welcome-btn--secondary:active {
-  transform: scale(0.97);
-  transition: transform 80ms var(--ease-out);
-}
-
-.welcome-btn--secondary:focus-visible {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
-}
-
-.welcome-btn--tour {
-  position: relative;
-  padding: var(--space-2) var(--space-5);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-accent);
+/* Tour button - accent variant with shimmer effect */
+.btn-tour {
+  border-color: var(--color-accent);
   background: transparent;
   color: var(--color-accent);
-  cursor: pointer;
   font-weight: var(--font-bold);
-  transition:
-    background 150ms var(--ease-out),
-    transform 350ms var(--ease-spring),
-    box-shadow 150ms var(--ease-out);
-  -webkit-tap-highlight-color: transparent;
-  overflow: hidden;
 }
 
-.welcome-btn--tour:hover {
+.btn-tour:hover {
   background: rgba(251, 191, 36, 0.1);
+  border-color: var(--color-accent);
   box-shadow: 0 0 12px rgba(251, 191, 36, 0.2);
 }
 
-.welcome-btn--tour:active {
-  transform: scale(0.97);
-  transition: transform 80ms var(--ease-out);
-}
-
-.welcome-btn--tour:focus-visible {
-  outline: none;
+.btn-tour:focus-visible {
   box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-accent);
 }
 
 /* Shimmer effect on tour button */
-.welcome-btn--tour::before {
+.btn-tour::before {
   content: '';
   position: absolute;
   top: 0;
@@ -467,60 +414,7 @@
   100% { left: 200%; }
 }
 
-.welcome-btn--primary {
-  position: relative;
-  padding: var(--space-2) var(--space-5);
-  border-radius: var(--radius-lg);
-  border: none;
-  background: var(--color-primary);
-  color: var(--color-background);
-  font-weight: var(--font-bold);
-  cursor: pointer;
-  transition:
-    background 150ms var(--ease-out),
-    transform 350ms var(--ease-spring),
-    box-shadow 150ms var(--ease-out);
-  -webkit-tap-highlight-color: transparent;
-  overflow: hidden;
-}
-
-.welcome-btn--primary:hover {
-  background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(34, 211, 238, 0.3);
-}
-
-.welcome-btn--primary:active {
-  transform: scale(0.97);
-  transition: transform 80ms var(--ease-out);
-}
-
-.welcome-btn--primary:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
-}
-
-/* Subtle shine effect on primary button */
-.welcome-btn--primary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -75%;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.2) 50%,
-    transparent 100%
-  );
-  transform: skewX(-20deg);
-  animation: primary-shine 4s ease-in-out infinite;
-}
-
-@keyframes primary-shine {
-  0% { left: -75%; }
-  100% { left: 150%; }
-}
+/* Primary button now uses .btn.btn-primary from components.css */
 
 /* Animation */
 .animate-fade-in {
@@ -542,10 +436,7 @@
 @media (prefers-reduced-motion: reduce) {
   .welcome-step-dot,
   .welcome-feature,
-  .welcome-level-card,
-  .welcome-btn--secondary,
-  .welcome-btn--tour,
-  .welcome-btn--primary {
+  .welcome-level-card {
     transition: none;
     animation: none;
   }
@@ -554,8 +445,7 @@
     animation: none;
   }
 
-  .welcome-btn--tour::before,
-  .welcome-btn--primary::before {
+  .btn-tour::before {
     animation: none;
   }
 

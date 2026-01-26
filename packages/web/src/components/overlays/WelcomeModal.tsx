@@ -8,7 +8,7 @@
  * by the Overlay component.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { useWebPreferences } from '../../store/createWebStore';
@@ -54,7 +54,7 @@ function StepIndicator({ currentStep }: StepIndicatorProps): React.ReactElement 
         );
       })}
       <span className="welcome-step-label">
-        {currentIndex + 1} / {totalSteps}
+        Step {currentIndex + 1} of {totalSteps}
       </span>
     </div>
   );
@@ -127,6 +127,25 @@ export function WelcomeModal(): React.ReactElement | null {
     setStep(step === 'primer' ? 'level' : 'intro');
   }, [step]);
 
+  // Handle Enter key to activate primary action (Next/Get Started)
+  useEffect(() => {
+    if (!isOpen('welcome')) return;
+
+    const handleEnterKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
+      if (e.isComposing) return;
+      // Don't trigger if focused on a button (let button handle it)
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'BUTTON') return;
+
+      e.preventDefault();
+      handleNext();
+    };
+
+    document.addEventListener('keydown', handleEnterKey);
+    return () => document.removeEventListener('keydown', handleEnterKey);
+  }, [isOpen, handleNext]);
+
   // If already seen, don't render unless explicitly opened via help/menu
   if (hasSeenWelcome && !isOpen('welcome')) {
     return null;
@@ -148,7 +167,7 @@ export function WelcomeModal(): React.ReactElement | null {
           <button
             type="button"
             onClick={handleFinish}
-            className="welcome-footer__skip"
+            className="btn btn-ghost welcome-footer__skip"
           >
             Skip
           </button>
@@ -158,7 +177,7 @@ export function WelcomeModal(): React.ReactElement | null {
               <button
                 type="button"
                 onClick={handleTour}
-                className="welcome-btn--tour"
+                className="btn btn-tour"
                 style={{ marginRight: '0.5rem' }}
               >
                 Take Tour
@@ -168,7 +187,7 @@ export function WelcomeModal(): React.ReactElement | null {
               <button
                 type="button"
                 onClick={handleBack}
-                className="welcome-btn--secondary"
+                className="btn btn-secondary"
               >
                 Back
               </button>
@@ -177,7 +196,7 @@ export function WelcomeModal(): React.ReactElement | null {
               <button
                 type="button"
                 onClick={handleTour}
-                className="welcome-btn--tour"
+                className="btn btn-tour"
               >
                 Take Tour
               </button>
@@ -185,7 +204,7 @@ export function WelcomeModal(): React.ReactElement | null {
             <button
               type="button"
               onClick={handleNext}
-              className="welcome-btn--primary"
+              className="btn btn-primary"
             >
               {step === 'primer' ? 'Get Started' : 'Next'}
             </button>

@@ -311,6 +311,16 @@ hr {
   font-variant-numeric: tabular-nums;
 }
 
+/**
+ * .font-data - Monospace font for data values
+ * Use for genome lengths, coordinates, IDs, accessions, and other
+ * numeric/identifier data that benefits from tabular alignment.
+ */
+.font-data {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Uppercase utility */
 .uppercase {
   text-transform: uppercase;
@@ -340,4 +350,345 @@ hr {
     0 0 4px currentColor,
     0 0 8px currentColor,
     0 0 16px currentColor;
+}
+
+/* ============================================================================
+ * OVERLAY TYPOGRAPHY HIERARCHY
+ * Premium typography classes for consistent overlay content styling
+ * ========================================================================== */
+
+/**
+ * .overlay-title - Main overlay header
+ * Use for the primary title in overlay headers
+ */
+.overlay-title {
+  font-size: var(--overlay-title-size);
+  font-weight: var(--overlay-title-weight);
+  line-height: var(--overlay-title-line-height);
+  letter-spacing: var(--overlay-title-tracking);
+  color: var(--color-text);
+  margin: 0;
+}
+
+/**
+ * .overlay-section-title - Section headers within overlays
+ * Use for dividing content into logical sections
+ */
+.overlay-section-title {
+  font-size: var(--overlay-section-title-size);
+  font-weight: var(--overlay-section-title-weight);
+  line-height: var(--overlay-section-title-line-height);
+  letter-spacing: var(--overlay-section-title-tracking);
+  color: var(--color-primary);
+  margin: 0 0 var(--space-2) 0;
+}
+
+/**
+ * .overlay-subtitle - Secondary headers
+ * Use for subsection titles or secondary labels
+ */
+.overlay-subtitle {
+  font-size: var(--overlay-subtitle-size);
+  font-weight: var(--overlay-subtitle-weight);
+  line-height: var(--overlay-subtitle-line-height);
+  color: var(--color-text);
+  margin: 0;
+}
+
+/**
+ * .overlay-body - Main body text
+ * Use for primary content paragraphs within overlays
+ */
+.overlay-body {
+  font-size: var(--overlay-body-size);
+  font-weight: var(--overlay-body-weight);
+  line-height: var(--overlay-body-line-height);
+  max-width: var(--overlay-body-max-width);
+  color: var(--color-text);
+}
+
+.overlay-body p {
+  margin-bottom: 0.75em;
+}
+
+.overlay-body p:last-child {
+  margin-bottom: 0;
+}
+
+/**
+ * .overlay-description - Helper/explanation text
+ * Use for descriptions, hints, and supplementary info
+ */
+.overlay-desc,
+.overlay-description {
+  font-size: var(--overlay-description-size);
+  font-weight: var(--overlay-description-weight);
+  line-height: var(--overlay-description-line-height);
+  color: var(--overlay-description-color);
+}
+
+/**
+ * .overlay-caption - Chart legends, footnotes
+ * Use for annotations, legends, and small supplementary text
+ */
+.overlay-caption {
+  font-size: var(--overlay-caption-size);
+  font-weight: var(--overlay-caption-weight);
+  line-height: var(--overlay-caption-line-height);
+  color: var(--overlay-caption-color);
+}
+
+/**
+ * .overlay-label - Data labels
+ * Use for stat labels, form labels, and field names
+ */
+.overlay-label {
+  font-size: var(--overlay-label-size);
+  font-weight: var(--overlay-label-weight);
+  letter-spacing: var(--overlay-label-tracking);
+  color: var(--overlay-label-color);
+  text-transform: uppercase;
+}
+
+/**
+ * .overlay-value - Data values
+ * Use for stats, metrics, and numerical displays
+ */
+.overlay-value {
+  font-family: var(--font-mono);
+  font-size: var(--overlay-value-size);
+  font-weight: var(--overlay-value-weight);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+/* Value size variants */
+.overlay-value--sm {
+  font-size: var(--text-base);
+}
+
+.overlay-value--lg {
+  font-size: var(--text-xl);
+}
+
+/**
+ * .overlay-legend - Legend container
+ * Use for chart legend rows
+ */
+.overlay-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-size: var(--overlay-caption-size);
+  color: var(--overlay-caption-color);
+}
+
+.overlay-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/**
+ * Semantic text colors for overlay content
+ */
+.overlay-text-primary {
+  color: var(--color-primary);
+}
+
+.overlay-text-accent {
+  color: var(--color-accent);
+}
+
+.overlay-text-success {
+  color: var(--color-success);
+}
+
+.overlay-text-warning {
+  color: var(--color-warning);
+}
+
+.overlay-text-error {
+  color: var(--color-error);
+}
+
+.overlay-text-muted {
+  color: var(--color-text-muted);
+}
+
+.overlay-text-dim {
+  color: var(--color-text-dim);
+}
+
+/* Mobile adjustments for overlay typography */
+@media (max-width: 640px) {
+  .overlay-title {
+    font-size: var(--text-base);
+  }
+
+  .overlay-section-title {
+    font-size: var(--text-sm);
+  }
+
+  .overlay-value {
+    font-size: var(--text-base);
+  }
+
+  .overlay-value--lg {
+    font-size: var(--text-lg);
+  }
+}
+
+/* ============================================================================
+ * PROSE - Long-form content styling
+ * Use for help content, tutorials, and overlay descriptions
+ * ========================================================================== */
+
+/**
+ * .prose - Optimized for readability
+ * Applies comfortable line length, spacing, and link styling
+ */
+.prose {
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text);
+  max-width: 60ch;
+}
+
+.prose > * + * {
+  margin-top: 1em;
+}
+
+.prose p {
+  margin-bottom: 0;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  line-height: var(--leading-snug);
+}
+
+.prose h1 { font-size: var(--text-2xl); }
+.prose h2 { font-size: var(--text-xl); }
+.prose h3 { font-size: var(--text-lg); }
+.prose h4 { font-size: var(--text-base); }
+
+/* Links in prose - visible but not noisy */
+.prose a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(34, 211, 238, 0.4);
+  transition:
+    color 150ms var(--ease-out),
+    text-decoration-color 150ms var(--ease-out);
+}
+
+.prose a:hover {
+  color: var(--color-primary-hover, #67e8f9);
+  text-decoration-color: currentColor;
+}
+
+/* Lists in prose */
+.prose ul,
+.prose ol {
+  padding-left: 1.25em;
+  margin-bottom: 0;
+}
+
+.prose li {
+  margin-bottom: 0.375em;
+}
+
+.prose li:last-child {
+  margin-bottom: 0;
+}
+
+/* Nested lists */
+.prose li > ul,
+.prose li > ol {
+  margin-top: 0.375em;
+}
+
+/* Code in prose */
+.prose code {
+  font-size: 0.9em;
+  padding: 0.125em 0.3em;
+  background: var(--color-background-alt);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary);
+}
+
+.prose pre {
+  margin: 1em 0;
+  max-width: 100%;
+}
+
+.prose pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+}
+
+/* Blockquotes in prose */
+.prose blockquote {
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-left: 3px solid var(--color-border-light);
+  color: var(--color-text-dim);
+  font-style: normal;
+}
+
+/* Strong and emphasis */
+.prose strong {
+  font-weight: var(--font-semibold);
+  color: var(--color-text);
+}
+
+.prose em {
+  font-style: italic;
+  color: inherit;
+}
+
+/* Horizontal rule */
+.prose hr {
+  margin: 1.5em 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Prose size variants */
+.prose--sm {
+  font-size: var(--text-xs);
+}
+
+.prose--lg {
+  font-size: var(--text-base);
+  line-height: var(--leading-loose);
+  max-width: 65ch;
+}
+
+/* Center prose in wide containers */
+.prose--centered {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Mobile adjustments for prose */
+@media (max-width: 640px) {
+  .prose {
+    font-size: var(--text-sm);
+    max-width: 100%;
+  }
+
+  .prose--lg {
+    font-size: var(--text-sm);
+  }
 }

@@ -292,3 +292,21 @@
     transform: none;
   }
 }
+
+/* =============================================================================
+   REDUCED MOTION - Disable animations for accessibility
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .phage-picker-trigger,
+  .phage-picker-trigger svg,
+  .phage-picker-sheet__search,
+  .phage-picker-sheet__item,
+  .phage-picker-sheet__item::before {
+    transition: none;
+  }
+
+  .phage-picker-trigger:active,
+  .phage-picker-sheet__item:active {
+    transform: none;
+  }
+}

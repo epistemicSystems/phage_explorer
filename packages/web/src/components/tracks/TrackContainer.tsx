@@ -182,7 +182,7 @@ export function TrackContainer({
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               {/* Position indicator */}
-              <span style={{ fontSize: '0.75rem', color: colors.textMuted, fontFamily: 'monospace' }}>
+              <span className="font-data" style={{ fontSize: '0.75rem', color: colors.textMuted }}>
                 {visibleStart.toLocaleString()} - {visibleEnd.toLocaleString()} bp
               </span>
               {/* Collapse chevron */}

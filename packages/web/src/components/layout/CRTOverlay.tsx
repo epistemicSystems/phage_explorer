@@ -8,10 +8,11 @@ import {
 
 export const CRTOverlay: React.FC = () => {
   const scanlines = useWebPreferences(s => s.scanlines);
+  const fxSafeMode = useWebPreferences((s) => s.fxSafeMode);
   const reducedMotion = useReducedMotion();
   const coarsePointer = useMemo(() => detectCoarsePointerDevice(), []);
 
-  if (!getEffectiveScanlines(scanlines, { reducedMotion, coarsePointer })) return null;
+  if (!getEffectiveScanlines(scanlines, { reducedMotion, coarsePointer, safeMode: fxSafeMode })) return null;
 
   return (
     <div className="crt-overlay" aria-hidden="true">

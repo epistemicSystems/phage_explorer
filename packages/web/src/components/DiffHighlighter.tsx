@@ -84,7 +84,7 @@ export function DiffHighlighter({
         </div>
         {summary && (
           <span style={{ color: '#9ca3af' }}>
-            Identity: {summary.identity.toFixed(2)}% · Changes: {summary.totalChanges.toLocaleString()}
+            Identity: <span className="font-data">{summary.identity.toFixed(2)}%</span> · Changes: <span className="font-data">{summary.totalChanges.toLocaleString()}</span>
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.4rem' }}>
@@ -96,7 +96,7 @@ export function DiffHighlighter({
           </button>
         </div>
         {activeIndex !== null && (
-          <span style={{ color: '#9ca3af' }}>At {activeIndex.toLocaleString()}</span>
+          <span style={{ color: '#9ca3af' }}>At <span className="font-data">{activeIndex.toLocaleString()}</span></span>
         )}
       </div>
     </div>
@@ -119,7 +119,7 @@ function Badge({ label, value, color }: { label: string; value: number; color: s
     >
       <span style={{ width: 10, height: 10, borderRadius: 999, background: color, display: 'inline-block' }} />
       <span>{label}:</span>
-      <strong>{value.toLocaleString()}</strong>
+      <strong className="font-data">{value.toLocaleString()}</strong>
     </span>
   );
 }

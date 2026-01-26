@@ -535,3 +535,12 @@
     right: var(--space-2);
   }
 }
+
+/* =============================================================================
+   REDUCED MOTION - Disable animations for accessibility
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .column--list.mobile-drawer {
+    animation: none;
+  }
+}

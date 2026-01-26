@@ -24,6 +24,7 @@ export function CRTToggleButton({
 }: CRTToggleButtonProps): React.ReactElement | null {
   const scanlines = useWebPreferences((s) => s.scanlines);
   const setScanlines = useWebPreferences((s) => s.setScanlines);
+  const fxSafeMode = useWebPreferences((s) => s.fxSafeMode);
   const reducedMotion = useReducedMotion();
   const coarsePointer = useMemo(() => detectCoarsePointerDevice(), []);
 
@@ -31,7 +32,7 @@ export function CRTToggleButton({
     setScanlines(!scanlines);
   };
 
-  if (!allowHeavyFx({ reducedMotion, coarsePointer })) return null;
+  if (!allowHeavyFx({ reducedMotion, coarsePointer, safeMode: fxSafeMode })) return null;
 
   const sizeMap = {
     sm: { button: 32, icon: 16 },

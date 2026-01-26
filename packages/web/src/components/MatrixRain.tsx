@@ -55,6 +55,8 @@ export const MatrixRain: React.FC<MatrixRainProps> = ({
     // Track visibility for performance
     let isVisible = !document.hidden;
     let isInViewport = true;
+    let isPausedForScroll = false;
+    let scrollPauseTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Resize handler
     const resize = () => {
@@ -89,7 +91,7 @@ export const MatrixRain: React.FC<MatrixRainProps> = ({
       animationId = null;
 
       // Skip rendering if tab is hidden or element is offscreen
-      if (!isVisible || !isInViewport) {
+      if (!isVisible || !isInViewport || isPausedForScroll) {
         return;
       }
 
@@ -137,7 +139,7 @@ export const MatrixRain: React.FC<MatrixRainProps> = ({
     };
 
     const startAnimation = () => {
-      if (animationId === null && isVisible && isInViewport) {
+      if (animationId === null && isVisible && isInViewport && !isPausedForScroll) {
         animationId = requestAnimationFrame(draw);
       }
     };
@@ -147,6 +149,22 @@ export const MatrixRain: React.FC<MatrixRainProps> = ({
         cancelAnimationFrame(animationId);
         animationId = null;
       }
+    };
+
+    const pauseForScroll = () => {
+      if (scrollPauseTimer) {
+        clearTimeout(scrollPauseTimer);
+      }
+      if (!isPausedForScroll) {
+        isPausedForScroll = true;
+        stopAnimation();
+      }
+      // Resume after scroll settles (matches sequence renderer scroll-end timeout).
+      scrollPauseTimer = setTimeout(() => {
+        scrollPauseTimer = null;
+        isPausedForScroll = false;
+        startAnimation();
+      }, 400);
     };
 
     // Start initial animation
@@ -188,13 +206,31 @@ export const MatrixRain: React.FC<MatrixRainProps> = ({
       observer.observe(canvas);
     }
 
+    const handleWheelActivity = (event: WheelEvent) => {
+      // Let the browser handle pinch-to-zoom gestures without pausing FX.
+      if (event.ctrlKey) return;
+      pauseForScroll();
+    };
+
+    const handleTouchActivity = () => {
+      pauseForScroll();
+    };
+
     window.addEventListener('resize', handleResize);
     document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('wheel', handleWheelActivity, { passive: true, capture: true });
+    document.addEventListener('touchmove', handleTouchActivity, { passive: true, capture: true });
 
     return () => {
       stopAnimation();
+      if (scrollPauseTimer) {
+        clearTimeout(scrollPauseTimer);
+        scrollPauseTimer = null;
+      }
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('wheel', handleWheelActivity, { capture: true } as AddEventListenerOptions);
+      document.removeEventListener('touchmove', handleTouchActivity, { capture: true } as AddEventListenerOptions);
       observer?.disconnect();
     };
   }, [width, height, theme, density, speed, charSet, opacity, reducedMotion, tuiMode]);

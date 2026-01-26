@@ -65,9 +65,9 @@
   /* === EFFECTS === */
   --color-shadow: #000000;
   --color-highlight: #ffffff;
-  --color-glow: rgba(34, 211, 238, 0.5);  /* Softer glow */
-  --color-glow-soft: rgba(34, 211, 238, 0.25);
-  --color-glow-secondary: rgba(192, 132, 252, 0.4);
+  --color-glow: rgba(34, 211, 238, 0.3);  /* Quiet premium - restrained glow */
+  --color-glow-soft: rgba(34, 211, 238, 0.15);
+  --color-glow-secondary: rgba(192, 132, 252, 0.2);
 
   /* === FOCUS RING SYSTEM (Stripe-inspired) === */
   --focus-ring-color: rgba(34, 211, 238, 0.65);
@@ -149,9 +149,9 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.35), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 12px var(--color-glow), 0 0 24px var(--color-glow);
-  --shadow-glow-lg: 0 0 20px var(--color-glow), 0 0 40px var(--color-glow);
-  --shadow-glow-soft: 0 0 20px var(--color-glow-soft);
+  --shadow-glow: 0 0 8px var(--color-glow), 0 0 16px var(--color-glow);
+  --shadow-glow-lg: 0 0 12px var(--color-glow), 0 0 24px var(--color-glow);
+  --shadow-glow-soft: 0 0 12px var(--color-glow-soft);
   --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.25);
 
   /* === PREMIUM ELEVATION SYSTEM === */
@@ -186,10 +186,10 @@
     0 16px 32px rgba(0, 0, 0, 0.09),
     0 32px 64px rgba(0, 0, 0, 0.09);
 
-  /* Colored accent shadows for emphasis */
-  --shadow-primary-glow: 0 4px 20px -4px rgba(34, 211, 238, 0.25);
-  --shadow-secondary-glow: 0 4px 20px -4px rgba(192, 132, 252, 0.25);
-  --shadow-accent-glow: 0 4px 20px -4px rgba(251, 191, 36, 0.25);
+  /* Colored accent shadows for emphasis - quiet premium (restrained) */
+  --shadow-primary-glow: 0 4px 12px -4px rgba(34, 211, 238, 0.18);
+  --shadow-secondary-glow: 0 4px 12px -4px rgba(192, 132, 252, 0.18);
+  --shadow-accent-glow: 0 4px 12px -4px rgba(251, 191, 36, 0.18);
 
   /* Elevation shadows with colored accents for premium feel */
   --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.2);
@@ -259,6 +259,54 @@
   --overlay-divider-border: 1px solid var(--color-border-light);
   --overlay-shadow: var(--shadow-floating);
 
+  /* === OVERLAY TYPOGRAPHY HIERARCHY === */
+  /* Premium typography scale for consistent overlay content */
+
+  /* Overlay Title - Main header (e.g., "GC Skew Analysis") */
+  --overlay-title-size: var(--text-lg);
+  --overlay-title-weight: var(--font-bold);
+  --overlay-title-line-height: var(--leading-tight);
+  --overlay-title-tracking: var(--tracking-tight);
+
+  /* Overlay Section Title - Section headers within content */
+  --overlay-section-title-size: var(--text-base);
+  --overlay-section-title-weight: var(--font-semibold);
+  --overlay-section-title-line-height: var(--leading-snug);
+  --overlay-section-title-tracking: var(--tracking-normal);
+
+  /* Overlay Subtitle - Secondary headers/labels */
+  --overlay-subtitle-size: var(--text-sm);
+  --overlay-subtitle-weight: var(--font-medium);
+  --overlay-subtitle-line-height: var(--leading-snug);
+
+  /* Overlay Body - Main content text */
+  --overlay-body-size: var(--text-sm);
+  --overlay-body-weight: var(--font-normal);
+  --overlay-body-line-height: var(--leading-relaxed);
+  --overlay-body-max-width: 60ch;
+
+  /* Overlay Description - Helper/explanation text */
+  --overlay-description-size: var(--text-sm);
+  --overlay-description-weight: var(--font-normal);
+  --overlay-description-line-height: var(--leading-normal);
+  --overlay-description-color: var(--color-text-dim);
+
+  /* Overlay Caption - Chart legends, footnotes, annotations */
+  --overlay-caption-size: var(--text-xs);
+  --overlay-caption-weight: var(--font-normal);
+  --overlay-caption-line-height: var(--leading-normal);
+  --overlay-caption-color: var(--color-text-muted);
+
+  /* Overlay Data Label - Stat labels, form labels */
+  --overlay-label-size: var(--text-xs);
+  --overlay-label-weight: var(--font-medium);
+  --overlay-label-tracking: var(--tracking-wide);
+  --overlay-label-color: var(--color-text-muted);
+
+  /* Overlay Data Value - Stats, metrics (uses mono font) */
+  --overlay-value-size: var(--text-lg);
+  --overlay-value-weight: var(--font-medium);
+
   /* === COMPONENT CHROME === */
   /* Consistent chrome for buttons, badges, tags */
   --chrome-padding-x: var(--space-3);
@@ -280,6 +328,25 @@
   --hotkey-padding-y: 0.1rem;
   --hotkey-radius: var(--radius-sm);
   --hotkey-font-size: var(--text-sm);
+
+  /* === BUTTON / CTA TOKENS === */
+  /* Consistent sizing and spacing for button hierarchy */
+  --btn-padding-x: var(--space-4);
+  --btn-padding-y: var(--space-2);
+  --btn-padding-x-sm: var(--space-3);
+  --btn-padding-y-sm: var(--space-1);
+  --btn-padding-x-lg: var(--space-6);
+  --btn-padding-y-lg: var(--space-3);
+  --btn-min-height: 36px;
+  --btn-min-height-sm: 28px;
+  --btn-min-height-lg: 44px;
+  --btn-font-size: var(--text-sm);
+  --btn-font-size-sm: var(--text-xs);
+  --btn-font-size-lg: var(--text-base);
+  --btn-font-weight: var(--font-medium);
+  --btn-radius: var(--radius-lg);
+  --btn-radius-sm: var(--radius-md);
+  --btn-disabled-opacity: 0.5;
 }
 
 /* Utility classes for spacing */

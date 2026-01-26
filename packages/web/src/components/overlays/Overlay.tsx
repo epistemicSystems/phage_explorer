@@ -9,11 +9,11 @@
  * - Animation support
  */
 
-import React, { useRef, useEffect, useCallback, useState, type ReactNode, type CSSProperties } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo, useState, type ReactNode, type CSSProperties } from 'react';
 import { useOverlay, useOverlayZIndex, type OverlayId } from './OverlayProvider';
 import { BottomSheet } from '../mobile/BottomSheet';
 import { useReducedMotion } from '../../hooks';
-import { useWebPreferences } from '../../store/createWebStore';
+import { detectCoarsePointerDevice, getEffectiveScanlines, useWebPreferences } from '../../store/createWebStore';
 import {
   IconAlertTriangle,
   IconAperture,
@@ -123,6 +123,8 @@ const OVERLAY_HEADER_ICONS: Partial<Record<OverlayId, React.ReactNode>> = {
   logo: <IconBookmark size={OVERLAY_ICON_SIZE} />,
 };
 
+const PREVIOUS_FOCUS_BY_OVERLAY_ID = new Map<OverlayId, HTMLElement>();
+
 export function Overlay({
   id,
   title,
@@ -143,9 +145,16 @@ export function Overlay({
   const [isBackdropHovered, setIsBackdropHovered] = useState(false);
   const reducedMotion = useReducedMotion();
   const scanlinesEnabled = useWebPreferences((s) => s.scanlines);
-  const showScanlines = scanlinesEnabled && !reducedMotion;
+  const fxSafeMode = useWebPreferences((s) => s.fxSafeMode);
+  const coarsePointer = useMemo(() => detectCoarsePointerDevice(), []);
+  const showScanlines = getEffectiveScanlines(scanlinesEnabled, { reducedMotion, coarsePointer, safeMode: fxSafeMode });
 
   const overlayIsOpen = isOpen(id);
+  // Track the *latest* open state so effect cleanups can distinguish between:
+  // - overlay actually closing (restore focus)
+  // - overlay swapping mounts (e.g. Suspense fallback -> loaded overlay) while still open
+  const overlayIsOpenLatestRef = useRef(overlayIsOpen);
+  overlayIsOpenLatestRef.current = overlayIsOpen;
   const overlayStackItem = stack.find((item) => item.id === id);
   const closeOnEscape = overlayStackItem?.config.closeOnEscape ?? true;
   const closeOnBackdrop = overlayStackItem?.config.closeOnBackdrop ?? true;
@@ -191,7 +200,13 @@ export function Overlay({
     if (!overlay) return;
 
     // Focus the overlay on mount
-    previousFocus.current = (document.activeElement as HTMLElement) ?? null;
+    const activeElement = document.activeElement as HTMLElement | null;
+    // Preserve the original focus target across Suspense swaps (fallback -> loaded overlay),
+    // so closing restores focus to what the user had before opening the overlay.
+    if (!PREVIOUS_FOCUS_BY_OVERLAY_ID.has(id) && activeElement) {
+      PREVIOUS_FOCUS_BY_OVERLAY_ID.set(id, activeElement);
+    }
+    previousFocus.current = PREVIOUS_FOCUS_BY_OVERLAY_ID.get(id) ?? activeElement;
     overlay.focus();
 
     // Get all focusable elements
@@ -222,6 +237,7 @@ export function Overlay({
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      if (e.isComposing) return;
       if (e.defaultPrevented) return;
       if (!closeOnEscape) return;
       e.stopPropagation();
@@ -239,6 +255,13 @@ export function Overlay({
         overlay.removeEventListener('keydown', handleTab);
       }
 
+      // If the overlay is still open, do not restore focus or clear the stored focus target.
+      // This happens when the overlay remounts while open (e.g. Suspense fallback replaced by
+      // the loaded overlay).
+      if (overlayIsOpenLatestRef.current) {
+        return;
+      }
+
       const activeElement = document.activeElement as HTMLElement | null;
       const shouldRestoreFocus =
         !activeElement ||
@@ -246,8 +269,12 @@ export function Overlay({
         activeElement === document.documentElement ||
         overlay.contains(activeElement);
 
-      if (shouldRestoreFocus && previousFocus.current && typeof previousFocus.current.focus === 'function') {
-        previousFocus.current.focus();
+      const stored = PREVIOUS_FOCUS_BY_OVERLAY_ID.get(id) ?? previousFocus.current;
+      PREVIOUS_FOCUS_BY_OVERLAY_ID.delete(id);
+
+      const canFocus = stored && typeof stored.focus === 'function' && (stored as HTMLElement).isConnected;
+      if (shouldRestoreFocus && canFocus) {
+        stored.focus();
       }
     };
   }, [overlayIsOpen, handleClose, closeOnEscape]);
@@ -275,9 +302,9 @@ export function Overlay({
     padding: shouldUseBottomSheet
       ? 0
       : isMobile
-        ? 'calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left))'
+        ? 'calc(var(--space-4) + env(safe-area-inset-top, 0px)) calc(var(--space-4) + env(safe-area-inset-right, 0px)) calc(var(--space-4) + env(safe-area-inset-bottom, 0px)) calc(var(--space-4) + env(safe-area-inset-left, 0px))'
         : effectivePosition === 'center'
-          ? '2rem'
+          ? 'var(--space-8)'
           : 0,
     zIndex,
     cursor: showBackdrop && closeOnBackdrop && isBackdropHovered ? 'pointer' : 'default',
@@ -288,7 +315,7 @@ export function Overlay({
     width: shouldUseBottomSheet ? '100%' : SIZE_WIDTHS[size],
     maxWidth: shouldUseBottomSheet ? '100%' : '95vw',
     maxHeight: shouldUseBottomSheet ? '85dvh' : SIZE_MAX_HEIGHTS[size],
-    backgroundColor: 'var(--color-background)',
+    backgroundColor: 'var(--color-background-elevated)',
     border: 'var(--overlay-border)',
     borderRadius: overlayBorderRadius,
     boxShadow: 'var(--overlay-shadow)',
@@ -303,7 +330,8 @@ export function Overlay({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 'var(--overlay-header-padding-y) var(--overlay-header-padding-x)',
-    borderBottom: '1px solid var(--color-border-light)',
+    borderBottom: 'var(--overlay-divider-border)',
+    background: 'var(--color-background-alt)',
   };
 
   const titleStyle: CSSProperties = {
@@ -316,13 +344,17 @@ export function Overlay({
     flex: 1,
     overflow: 'auto',
     padding: 'var(--overlay-content-padding)',
-    paddingBottom: shouldUseBottomSheet ? 'calc(var(--overlay-content-padding) + env(safe-area-inset-bottom))' : 'var(--overlay-content-padding)',
+    paddingBottom: shouldUseBottomSheet
+      ? 'calc(var(--overlay-content-padding) + env(safe-area-inset-bottom, 0px))'
+      : 'var(--overlay-content-padding)',
   };
 
   const footerStyle: CSSProperties = {
     padding: 'var(--overlay-footer-padding-y) var(--overlay-footer-padding-x)',
-    borderTop: '1px solid var(--color-border-light)',
-    paddingBottom: shouldUseBottomSheet ? 'calc(var(--overlay-footer-padding-y) + env(safe-area-inset-bottom))' : 'var(--overlay-footer-padding-y)',
+    borderTop: 'var(--overlay-divider-border)',
+    paddingBottom: shouldUseBottomSheet
+      ? 'calc(var(--overlay-footer-padding-y) + env(safe-area-inset-bottom, 0px))'
+      : 'var(--overlay-footer-padding-y)',
   };
 
   // Mobile: use BottomSheet for native gesture physics
@@ -340,7 +372,7 @@ export function Overlay({
         minHeight={size === 'sm' ? 30 : 50}
         maxHeight={size === 'full' ? 95 : 90}
       >
-        <div className={`overlay overlay-${id} ${className}`}>
+        <div className={`overlay overlay-${id} ${className}`} data-testid={`overlay-${id}`}>
           {children}
         </div>
       </BottomSheet>
@@ -364,19 +396,31 @@ export function Overlay({
         role="dialog"
         aria-modal="true"
         aria-labelledby={`overlay-title-${id}`}
+        data-testid={`overlay-${id}`}
       >
         {/* Header */}
         <div style={headerStyle}>
           <div style={titleStyle}>
             <span
               aria-hidden="true"
-              style={{ color: 'var(--color-primary)', fontSize: '1.1rem', display: 'inline-flex', alignItems: 'center' }}
+              style={{
+                color: 'var(--color-primary)',
+                fontSize: 'var(--text-lg)',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
             >
               {resolvedIcon}
             </span>
             <span
               id={`overlay-title-${id}`}
-              style={{ color: 'var(--color-primary)', fontWeight: 'bold', fontSize: '1rem' }}
+              style={{
+                color: 'var(--color-text)',
+                fontWeight: 'var(--overlay-title-weight)',
+                fontSize: 'var(--overlay-title-size)',
+                lineHeight: 'var(--overlay-title-line-height)',
+                letterSpacing: 'var(--overlay-title-tracking)',
+              }}
             >
               {title}
             </span>
@@ -423,6 +467,7 @@ export function Overlay({
                 e.currentTarget.style.color = 'var(--color-text-dim)';
               }}
               aria-label="Close overlay"
+              data-testid={`overlay-${id}-close`}
             >
               <IconX size={20} />
             </button>

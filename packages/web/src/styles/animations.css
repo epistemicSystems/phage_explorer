@@ -187,17 +187,17 @@
   animation: blink 1s step-end infinite;
 }
 
-/* Glow pulse (for focused/active elements) */
+/* Glow pulse (for focused/active elements) - quiet premium */
 @keyframes glow-pulse {
   0%,
   100% {
-    box-shadow: 0 0 4px var(--color-glow, #00ffff),
-      0 0 8px var(--color-glow, #00ffff);
+    box-shadow: 0 0 3px var(--color-glow, #00ffff),
+      0 0 6px var(--color-glow, #00ffff);
   }
   50% {
-    box-shadow: 0 0 8px var(--color-glow, #00ffff),
-      0 0 16px var(--color-glow, #00ffff),
-      0 0 24px var(--color-glow, #00ffff);
+    box-shadow: 0 0 5px var(--color-glow, #00ffff),
+      0 0 10px var(--color-glow, #00ffff),
+      0 0 14px var(--color-glow, #00ffff);
   }
 }
 

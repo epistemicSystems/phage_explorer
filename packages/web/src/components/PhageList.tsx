@@ -66,11 +66,11 @@ export function PhageList({
           )}
         </div>
       </div>
-      <ul className="list" role="list">
+      <ul className="list" role="list" data-testid="phage-list">
         {phages.map((phage, idx) => {
           const isActive = idx === currentIndex;
           const isLytic = phage.lifecycle === 'lytic';
-          
+
           return (
             <li key={phage.id} role="listitem">
               <button
@@ -79,11 +79,12 @@ export function PhageList({
                 onClick={() => onSelect(idx)}
                 type="button"
                 aria-current={isActive ? 'true' : undefined}
+                data-testid={isActive ? 'phage-list-item-selected' : 'phage-list-item'}
               >
                 <div className="list-item-main">
                   <div className="list-title">{phage.name}</div>
                   <div className="list-subtitle text-dim">
-                    {phage.host ?? 'Unknown host'} · {(phage.genomeLength ?? 0).toLocaleString()} bp
+                    {phage.host ?? 'Unknown host'} · <span className="font-data">{(phage.genomeLength ?? 0).toLocaleString()} bp</span>
                   </div>
                 </div>
                 <div className="list-item-meta">

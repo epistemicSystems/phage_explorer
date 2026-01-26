@@ -461,14 +461,14 @@ textarea:focus-visible,
     background 80ms var(--ease-out);
 }
 
-/* Selected/active item with premium glow */
+/* Selected/active item - quiet premium (restrained glow) */
 .list-item.active {
   background: var(--color-background-active);
   border-color: var(--color-primary);
   box-shadow:
-    var(--shadow-md),
-    0 0 20px -8px var(--color-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    var(--shadow-sm),
+    0 0 12px -6px var(--color-glow-soft),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 /* Indicator bar animates in with spring */
@@ -1188,12 +1188,12 @@ textarea:focus-visible,
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  min-height: 36px;
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
+  padding: var(--btn-padding-y) var(--btn-padding-x);
+  min-height: var(--btn-min-height);
+  font-size: var(--btn-font-size);
+  font-weight: var(--btn-font-weight);
   letter-spacing: var(--tracking-normal);
-  border-radius: var(--radius-lg);
+  border-radius: var(--btn-radius);
   border: 1px solid var(--color-border-subtle);
   background: var(--color-background-elevated);
   color: var(--color-text);
@@ -1344,7 +1344,7 @@ textarea:focus-visible,
   background: linear-gradient(180deg, #7dd3fc 0%, var(--color-primary-hover) 100%);
   border-color: var(--color-primary-hover);
   color: var(--color-background);
-  box-shadow: var(--shadow-md), 0 0 16px var(--color-glow-soft);
+  box-shadow: var(--shadow-md), 0 0 10px var(--color-glow-soft);
 }
 
 .btn-primary:active {
@@ -1357,15 +1357,82 @@ textarea:focus-visible,
   transition: none;
 }
 
-/* Ghost button variant */
+/* Secondary button variant - clear visual hierarchy below primary */
+.btn-secondary {
+  background: var(--color-background-alt);
+  border-color: var(--color-border-light);
+  color: var(--color-text);
+  box-shadow: var(--shadow-xs);
+}
+
+.btn-secondary::before {
+  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+}
+
+.btn-secondary:hover {
+  background: var(--color-background-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm), 0 0 0 1px rgba(34, 211, 238, 0.1);
+}
+
+.btn-secondary:active {
+  background: var(--color-background-active);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-xs), inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Ghost button variant - minimal emphasis */
 .btn-ghost {
   background: transparent;
   border-color: transparent;
+  box-shadow: none;
+}
+
+.btn-ghost::before {
+  display: none;
 }
 
 .btn-ghost:hover {
   background: var(--color-background-hover);
   border-color: transparent;
+  box-shadow: none;
+}
+
+.btn-ghost:active {
+  background: var(--color-background-active);
+}
+
+/* Disabled state - accessible contrast, clear affordance */
+.btn:disabled,
+.btn[disabled],
+.btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: var(--color-background-alt);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-muted);
+  box-shadow: none;
+  transform: none;
+}
+
+.btn:disabled::before,
+.btn[disabled]::before,
+.btn.disabled::before,
+.btn:disabled::after,
+.btn[disabled]::after,
+.btn.disabled::after {
+  display: none;
+}
+
+/* Ensure primary disabled is still recognizable but muted */
+.btn-primary:disabled,
+.btn-primary[disabled],
+.btn-primary.disabled {
+  background: var(--color-primary);
+  opacity: 0.4;
+  color: var(--color-background);
 }
 
 /* Icon button */
@@ -1377,16 +1444,17 @@ textarea:focus-visible,
 
 /* Small button */
 .btn-sm {
-  padding: var(--space-1) var(--space-3);
-  min-height: 28px;
-  font-size: var(--text-xs);
+  padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+  min-height: var(--btn-min-height-sm);
+  font-size: var(--btn-font-size-sm);
+  border-radius: var(--btn-radius-sm);
 }
 
 /* Large button */
 .btn-lg {
-  padding: var(--space-3) var(--space-6);
-  min-height: 44px;
-  font-size: var(--text-base);
+  padding: var(--btn-padding-y-lg) var(--btn-padding-x-lg);
+  min-height: var(--btn-min-height-lg);
+  font-size: var(--btn-font-size-lg);
 }
 
 /* Compact button - minimal footprint for toolbars */
@@ -2510,6 +2578,44 @@ textarea:focus-visible,
   flex-shrink: 0;
 }
 
+.fx-safe-mode-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.fx-safe-mode-toast__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.fx-safe-mode-toast__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-semibold);
+  color: var(--color-warning);
+  margin-bottom: var(--space-1);
+}
+
+.fx-safe-mode-toast__text {
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.fx-safe-mode-toast__subtext {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+}
+
+.fx-safe-mode-toast__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
 /* Mobile: position toast above control deck */
 @media (max-width: 640px) {
   .toast {
@@ -2522,6 +2628,15 @@ textarea:focus-visible,
   }
 
   .blocked-hotkey-toast__actions {
+    justify-content: flex-end;
+  }
+
+  .fx-safe-mode-toast {
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .fx-safe-mode-toast__actions {
     justify-content: flex-end;
   }
 }
@@ -2953,6 +3068,13 @@ kbd:hover,
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .error-boundary__card::before,
+  .error-boundary__icon {
+    animation: none;
+  }
+}
+
 .error-boundary__title {
   margin: 0 0 var(--space-3);
   font-size: var(--text-xl);
@@ -2976,7 +3098,24 @@ kbd:hover,
   border-left: 3px solid var(--color-error);
   border-radius: var(--radius-md);
   text-align: left;
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 360px;
+}
+
+.error-boundary__details-summary {
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text);
+}
+
+.error-boundary__details-summary::marker {
+  color: var(--color-text-muted);
+}
+
+.error-boundary__details[open] .error-boundary__details-summary {
+  margin-bottom: var(--space-3);
 }
 
 .error-boundary__code {
@@ -2984,6 +3123,8 @@ kbd:hover,
   font-size: var(--text-sm);
   color: var(--color-error);
   word-break: break-word;
+  white-space: pre-wrap;
+  margin: 0;
 }
 
 .error-boundary__actions {
@@ -3018,6 +3159,81 @@ kbd:hover,
   .error-boundary__btn-secondary {
     width: 100%;
   }
+}
+
+/* =============================================================================
+   FEATURE ERROR - Compact inline error for feature islands
+   ============================================================================= */
+
+.feature-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-background-elevated);
+  border: 1px solid var(--color-border-light);
+  border-left: 3px solid var(--color-error);
+  border-radius: var(--radius-lg);
+  text-align: left;
+}
+
+.feature-error__content {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.feature-error__icon {
+  flex-shrink: 0;
+  color: var(--color-error);
+  margin-top: 2px;
+}
+
+.feature-error__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.feature-error__title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text);
+}
+
+.feature-error__message {
+  font-size: var(--text-sm);
+  color: var(--color-text-dim);
+  word-break: break-word;
+}
+
+.feature-error__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.feature-error__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.feature-error__details {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--color-background);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-error);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow: auto;
 }
 
 /* =============================================================================

@@ -22,7 +22,7 @@ interface OverlaySectionProps {
 }
 
 const sectionStyle: CSSProperties = {
-  border: '1px solid var(--color-border-light)',
+  border: 'var(--overlay-divider-border)',
   borderRadius: 'var(--radius-md)',
   overflow: 'hidden',
 };
@@ -61,7 +61,7 @@ interface OverlaySectionHeaderProps {
 const sectionHeaderStyle: CSSProperties = {
   backgroundColor: 'var(--color-background-alt)',
   padding: 'var(--chrome-padding-y) var(--chrome-padding-x)',
-  borderBottom: '1px solid var(--color-border-light)',
+  borderBottom: 'var(--overlay-divider-border)',
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--chrome-gap)',
@@ -79,13 +79,16 @@ const badgeStyle: CSSProperties = {
 
 const sectionTitleStyle: CSSProperties = {
   color: 'var(--color-primary)',
-  fontWeight: 'bold',
-  fontSize: '0.9rem',
+  fontWeight: 'var(--overlay-section-title-weight)',
+  fontSize: 'var(--overlay-section-title-size)',
+  lineHeight: 'var(--overlay-section-title-line-height)',
+  letterSpacing: 'var(--overlay-section-title-tracking)',
 };
 
 const sectionDescStyle: CSSProperties = {
-  color: 'var(--color-text-dim)',
-  fontSize: '0.85rem',
+  color: 'var(--overlay-description-color)',
+  fontSize: 'var(--overlay-caption-size)',
+  lineHeight: 'var(--overlay-caption-line-height)',
   marginLeft: 'auto',
 };
 
@@ -288,14 +291,23 @@ export function OverlayKeyValue({
         style={{
           color: 'var(--color-accent)',
           fontFamily: 'var(--font-mono, monospace)',
-          fontSize: '0.9rem',
+          fontSize: 'var(--overlay-body-size)',
           minWidth: keyWidth,
           flexShrink: 0,
         }}
       >
         {label}
       </span>
-      <span style={{ color: 'var(--color-text)', flex: 1 }}>{value}</span>
+      <span
+        style={{
+          color: 'var(--color-text)',
+          fontSize: 'var(--overlay-body-size)',
+          lineHeight: 'var(--overlay-body-line-height)',
+          flex: 1,
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -307,7 +319,7 @@ export function OverlayKeyValue({
 interface OverlayBadgeProps {
   children: ReactNode;
   /** Variant affects styling */
-  variant?: 'default' | 'muted' | 'accent';
+  variant?: 'default' | 'muted' | 'accent' | 'subtle';
   /** Additional CSS classes */
   className?: string;
   /** Custom styles */
@@ -329,12 +341,17 @@ export function OverlayBadge({
     muted: {
       color: 'var(--color-text-muted)',
       backgroundColor: 'var(--color-background)',
-      border: '1px solid var(--color-border-light)',
+      border: 'var(--overlay-divider-border)',
     },
     accent: {
       color: 'var(--color-background)',
       backgroundColor: 'var(--color-accent)',
       border: 'none',
+    },
+    subtle: {
+      color: 'var(--color-text-dim)',
+      backgroundColor: 'var(--color-background-alt)',
+      border: '1px solid var(--color-border-subtle)',
     },
   };
 
@@ -413,11 +430,12 @@ interface OverlayDescriptionProps {
 }
 
 const descriptionStyle: CSSProperties = {
-  padding: 'var(--chrome-padding-x)',
+  padding: 'var(--chrome-padding-y) var(--chrome-padding-x)',
   backgroundColor: 'var(--color-background-alt)',
   borderRadius: 'var(--radius-sm)',
-  color: 'var(--color-text-dim)',
-  fontSize: '0.9rem',
+  color: 'var(--overlay-description-color)',
+  fontSize: 'var(--overlay-description-size)',
+  lineHeight: 'var(--overlay-description-line-height)',
 };
 
 export function OverlayDescription({
@@ -473,8 +491,28 @@ export function OverlayStatCard({
 }: OverlayStatCardProps): React.ReactElement {
   return (
     <div className={`overlay-stat-card ${className}`} style={{ ...statCardStyle, ...style }}>
-      <div style={{ color: labelColor ?? 'var(--color-text-muted)', fontSize: '0.75rem' }}>{label}</div>
-      <div style={{ color: 'var(--color-text)', fontFamily: 'var(--font-mono, monospace)' }}>{value}</div>
+      <div
+        style={{
+          color: labelColor ?? 'var(--overlay-label-color)',
+          fontSize: 'var(--overlay-label-size)',
+          fontWeight: 'var(--overlay-label-weight)',
+          letterSpacing: 'var(--overlay-label-tracking)',
+          textTransform: 'uppercase',
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          color: 'var(--color-text)',
+          fontFamily: 'var(--font-mono, monospace)',
+          fontSize: 'var(--overlay-value-size)',
+          fontWeight: 'var(--overlay-value-weight)',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -569,7 +607,7 @@ interface OverlayEmptyStateProps {
 const emptyStateStyle: CSSProperties = {
   textAlign: 'center',
   padding: 'var(--space-8) var(--space-4)',
-  color: 'var(--color-text-muted)',
+  color: 'var(--overlay-caption-color)',
 };
 
 export function OverlayEmptyState({
@@ -583,10 +621,26 @@ export function OverlayEmptyState({
   return (
     <div className={`overlay-empty-state ${className}`} style={{ ...emptyStateStyle, ...style }}>
       {icon && <div style={{ marginBottom: 'var(--chrome-gap)', fontSize: '2rem', opacity: 0.5 }}>{icon}</div>}
-      <div style={{ color: 'var(--color-text-dim)', marginBottom: hint ? 'var(--chrome-gap-compact)' : 0 }}>
+      <div
+        style={{
+          color: 'var(--overlay-description-color)',
+          fontSize: 'var(--overlay-body-size)',
+          lineHeight: 'var(--overlay-body-line-height)',
+          marginBottom: hint ? 'var(--chrome-gap-compact)' : 0,
+        }}
+      >
         {message}
       </div>
-      {hint && <div style={{ fontSize: '0.85rem' }}>{hint}</div>}
+      {hint && (
+        <div
+          style={{
+            fontSize: 'var(--overlay-caption-size)',
+            lineHeight: 'var(--overlay-caption-line-height)',
+          }}
+        >
+          {hint}
+        </div>
+      )}
       {action && <div style={{ marginTop: 'var(--chrome-gap)' }}>{action}</div>}
     </div>
   );
@@ -626,10 +680,28 @@ export function OverlayErrorState({
 }: OverlayErrorStateProps): React.ReactElement {
   return (
     <div className={`overlay-error-state ${className}`} style={{ ...errorStateStyle, ...style }}>
-      <div style={{ color: 'var(--color-error)', fontWeight: 600, marginBottom: details ? 'var(--chrome-gap-compact)' : 0 }}>
+      <div
+        style={{
+          color: 'var(--color-error)',
+          fontWeight: 'var(--overlay-subtitle-weight)',
+          fontSize: 'var(--overlay-body-size)',
+          lineHeight: 'var(--overlay-body-line-height)',
+          marginBottom: details ? 'var(--chrome-gap-compact)' : 0,
+        }}
+      >
         {message}
       </div>
-      {details && <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{details}</div>}
+      {details && (
+        <div
+          style={{
+            color: 'var(--overlay-caption-color)',
+            fontSize: 'var(--overlay-caption-size)',
+            lineHeight: 'var(--overlay-caption-line-height)',
+          }}
+        >
+          {details}
+        </div>
+      )}
       {onRetry && (
         <button
           onClick={onRetry}
@@ -641,7 +713,7 @@ export function OverlayErrorState({
             border: 'none',
             borderRadius: 'var(--radius-sm)',
             cursor: 'pointer',
-            fontSize: '0.85rem',
+            fontSize: 'var(--text-sm)',
           }}
         >
           Retry
@@ -666,9 +738,10 @@ interface OverlayLegendProps {
 const legendStyle: CSSProperties = {
   display: 'flex',
   justifyContent: 'center',
-  gap: 'var(--space-8)',
-  color: 'var(--color-text-muted)',
-  fontSize: '0.85rem',
+  gap: 'var(--space-6)',
+  color: 'var(--overlay-caption-color)',
+  fontSize: 'var(--overlay-caption-size)',
+  lineHeight: 'var(--overlay-caption-line-height)',
   flexWrap: 'wrap',
 };
 
