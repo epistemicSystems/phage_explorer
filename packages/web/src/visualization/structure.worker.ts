@@ -432,6 +432,125 @@ function detectPhosphates(atoms: AtomRecord[], bonds: Bond[]): SerializedFunctio
   return groups;
 }
 
+// --- WASM-accelerated Functional Group Detection ---
+
+/**
+ * Detect functional groups using WASM for O(N) complexity on large structures.
+ */
+async function detectFunctionalGroupsWasm(
+  atoms: AtomRecord[],
+  bonds: Bond[],
+  wasm: WasmComputeModule
+): Promise<SerializedFunctionalGroup[]> {
+  if (typeof wasm.detect_functional_groups !== 'function') {
+    throw new Error('detect_functional_groups not available');
+  }
+
+  // Prepare flat arrays for WASM
+  const positions = new Float32Array(atoms.length * 3);
+  const elements: string[] = [];
+
+  for (let i = 0; i < atoms.length; i++) {
+    const atom = atoms[i];
+    positions[i * 3] = atom.x;
+    positions[i * 3 + 1] = atom.y;
+    positions[i * 3 + 2] = atom.z;
+    elements.push(elementToWasmChar(atom.element));
+  }
+
+  const elementStr = elements.join('');
+
+  // Convert bonds to flat Uint32Array [a0, b0, a1, b1, ...]
+  const bondsFlat = new Uint32Array(bonds.length * 2);
+  for (let i = 0; i < bonds.length; i++) {
+    bondsFlat[i * 2] = bonds[i].a;
+    bondsFlat[i * 2 + 1] = bonds[i].b;
+  }
+
+  const result = wasm.detect_functional_groups(positions, elementStr, bondsFlat);
+
+  const groups: SerializedFunctionalGroup[] = [];
+
+  // Parse aromatic rings
+  const aromaticIndices = result.aromatic_indices;
+  const ringSizes = result.ring_sizes;
+  let ringOffset = 0;
+  for (let r = 0; r < result.aromatic_count; r++) {
+    const size = ringSizes[r];
+    const atomIndices: number[] = [];
+    for (let i = 0; i < size; i++) {
+      atomIndices.push(aromaticIndices[ringOffset + i]);
+    }
+    groups.push({
+      type: 'aromatic',
+      atomIndices,
+      colorHex: FUNCTIONAL_GROUP_COLORS_HEX.aromatic,
+    });
+    ringOffset += size;
+  }
+
+  // Parse disulfide pairs
+  const disulfidePairs = result.disulfide_pairs;
+  for (let i = 0; i < result.disulfide_count; i++) {
+    groups.push({
+      type: 'disulfide',
+      atomIndices: [disulfidePairs[i * 2], disulfidePairs[i * 2 + 1]],
+      colorHex: FUNCTIONAL_GROUP_COLORS_HEX.disulfide,
+    });
+  }
+
+  // Parse phosphate groups
+  const phosphateData = result.phosphate_data;
+  let pOffset = 0;
+  for (let p = 0; p < result.phosphate_count; p++) {
+    const pIdx = phosphateData[pOffset];
+    const numOxygens = phosphateData[pOffset + 1];
+    const atomIndices: number[] = [pIdx];
+    for (let o = 0; o < numOxygens; o++) {
+      atomIndices.push(phosphateData[pOffset + 2 + o]);
+    }
+    groups.push({
+      type: 'phosphate',
+      atomIndices,
+      colorHex: FUNCTIONAL_GROUP_COLORS_HEX.phosphate,
+    });
+    pOffset += 2 + numOxygens;
+  }
+
+  // Free WASM memory
+  if (typeof result.free === 'function') {
+    result.free();
+  }
+
+  return groups;
+}
+
+/**
+ * Detect all functional groups with WASM acceleration for large structures.
+ */
+async function detectAllFunctionalGroups(
+  atoms: AtomRecord[],
+  bonds: Bond[]
+): Promise<SerializedFunctionalGroup[]> {
+  // For large structures, try WASM
+  if (atoms.length >= WASM_ATOM_THRESHOLD) {
+    const wasm = await getWasmModule();
+    if (wasm && typeof wasm.detect_functional_groups === 'function') {
+      try {
+        return await detectFunctionalGroupsWasm(atoms, bonds, wasm);
+      } catch (err) {
+        console.warn('[structure.worker] WASM functional group detection failed, falling back to JS:', err);
+      }
+    }
+  }
+
+  // Fallback to JS
+  const rings = detectAromaticRings(atoms, bonds);
+  const disulfides = detectDisulfides(atoms, bonds);
+  const phosphates = detectPhosphates(atoms, bonds);
+  return [...rings, ...disulfides, ...phosphates];
+}
+
 self.onmessage = async (e: MessageEvent<WorkerInput>) => {
   const { text, format, options } = e.data;
 
@@ -477,13 +596,11 @@ self.onmessage = async (e: MessageEvent<WorkerInput>) => {
     let functionalMs = 0;
     if (includeFunctionalGroups && bonds.length > 0) {
       // Report progress: functional groups
+      // This now uses WASM acceleration for large structures
       self.postMessage({ type: 'progress', stage: 'functional', percent: 85 });
 
       const functionalStart = performance.now();
-      const rings = detectAromaticRings(atoms, bonds);
-      const disulfides = detectDisulfides(atoms, bonds);
-      const phosphates = detectPhosphates(atoms, bonds);
-      functionalGroups = [...rings, ...disulfides, ...phosphates];
+      functionalGroups = await detectAllFunctionalGroups(atoms, bonds);
       functionalMs = performance.now() - functionalStart;
     }
 
