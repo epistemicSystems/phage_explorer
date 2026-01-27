@@ -218,8 +218,8 @@ describe('scanForAnomalies - result structure', () => {
       // KL divergence should be non-negative
       expect(window.klDivergence).toBeGreaterThanOrEqual(0);
 
-      // Compression ratio should be >= 1 (original/compressed, compressed is always smaller)
-      expect(window.compressionRatio).toBeGreaterThanOrEqual(0);
+      // Compression ratio should be >= 1 (original/compressed, compressed is smaller or equal)
+      expect(window.compressionRatio).toBeGreaterThanOrEqual(1);
     }
   });
 
