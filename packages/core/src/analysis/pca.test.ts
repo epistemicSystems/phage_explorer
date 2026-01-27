@@ -109,4 +109,98 @@ describe('PCA', () => {
       { component: 2, variance: 1 / 3, cumulative: 1 },
     ]);
   });
+
+  it('computeScreePlotData > handles zero total variance', () => {
+    const data = computeScreePlotData([0, 0], 0);
+    expect(data).toEqual([
+      { component: 1, variance: 0, cumulative: 0 },
+      { component: 2, variance: 0, cumulative: 0 },
+    ]);
+  });
+
+  it('performPCA > handles single sample (n=1)', () => {
+    const vectors: KmerVector[] = [
+      { phageId: 1, name: 'single', frequencies: new Float32Array([1, 2, 3]), gcContent: 0.5, genomeLength: 100 },
+    ];
+
+    const result = performPCA(vectors, { numComponents: 2 });
+
+    expect(result.projections).toHaveLength(1);
+    expect(result.projections[0]!.phageId).toBe(1);
+    // Single sample has zero variance - all projections should be 0
+    expect(result.totalVariance).toBe(0);
+  });
+
+  it('performPCA > computes 3 components with pc3', () => {
+    // Create a 3D dataset to exercise the pc3 path
+    const vectors: KmerVector[] = [
+      { phageId: 1, name: 'p1', frequencies: new Float32Array([0, 0, 0]), gcContent: 0, genomeLength: 0 },
+      { phageId: 2, name: 'p2', frequencies: new Float32Array([3, 0, 0]), gcContent: 0, genomeLength: 0 },
+      { phageId: 3, name: 'p3', frequencies: new Float32Array([0, 2, 0]), gcContent: 0, genomeLength: 0 },
+      { phageId: 4, name: 'p4', frequencies: new Float32Array([3, 2, 0]), gcContent: 0, genomeLength: 0 },
+      { phageId: 5, name: 'p5', frequencies: new Float32Array([0, 0, 1]), gcContent: 0, genomeLength: 0 },
+      { phageId: 6, name: 'p6', frequencies: new Float32Array([3, 2, 1]), gcContent: 0, genomeLength: 0 },
+    ];
+
+    const result = performPCA(vectors, { numComponents: 3, maxIterations: 200, tolerance: 1e-12 });
+
+    expect(result.loadings).toHaveLength(3);
+    expect(result.eigenvalues).toHaveLength(3);
+
+    // All projections should have pc3 defined
+    for (const proj of result.projections) {
+      expect(proj.pc3).toBeDefined();
+    }
+
+    // Cumulative variance should sum to ~1 with 3 components covering the 3D data
+    expect(result.cumulativeVariance[2]).toBeCloseTo(1, 3);
+  });
+
+  it('projectToPCA > projects with 3 components', () => {
+    const vectors: KmerVector[] = [
+      { phageId: 1, name: 'p1', frequencies: new Float32Array([0, 0, 0]), gcContent: 0, genomeLength: 0 },
+      { phageId: 2, name: 'p2', frequencies: new Float32Array([3, 0, 0]), gcContent: 0, genomeLength: 0 },
+      { phageId: 3, name: 'p3', frequencies: new Float32Array([0, 2, 0]), gcContent: 0, genomeLength: 0 },
+      { phageId: 4, name: 'p4', frequencies: new Float32Array([0, 0, 1]), gcContent: 0, genomeLength: 0 },
+    ];
+
+    const result = performPCA(vectors, { numComponents: 3 });
+
+    // Project a new vector
+    const newVec = new Float32Array([1, 1, 0.5]);
+    const projected = projectToPCA(newVec, result.mean, result.loadings);
+
+    expect(projected.pc1).toBeDefined();
+    expect(projected.pc2).toBeDefined();
+    expect(projected.pc3).toBeDefined();
+    expect(Number.isFinite(projected.pc3!)).toBe(true);
+  });
+
+  it('projectToPCA > handles 1 component only', () => {
+    const vectors: KmerVector[] = [
+      { phageId: 1, name: 'p1', frequencies: new Float32Array([0, 0]), gcContent: 0, genomeLength: 0 },
+      { phageId: 2, name: 'p2', frequencies: new Float32Array([2, 0]), gcContent: 0, genomeLength: 0 },
+    ];
+
+    const result = performPCA(vectors, { numComponents: 1 });
+    expect(result.loadings).toHaveLength(1);
+
+    const projected = projectToPCA(new Float32Array([1, 0]), result.mean, result.loadings);
+    expect(projected.pc1).toBeDefined();
+    expect(projected.pc2).toBe(0); // Only 1 loading, so pc2 defaults to 0
+    expect(projected.pc3).toBeUndefined();
+  });
+
+  it('performPCA > limits components to min(n, dim)', () => {
+    // 2 samples with 3 dimensions - max components is 2
+    const vectors: KmerVector[] = [
+      { phageId: 1, name: 'p1', frequencies: new Float32Array([1, 2, 3]), gcContent: 0, genomeLength: 0 },
+      { phageId: 2, name: 'p2', frequencies: new Float32Array([4, 5, 6]), gcContent: 0, genomeLength: 0 },
+    ];
+
+    const result = performPCA(vectors, { numComponents: 5 }); // Request 5, but limited to 2
+
+    expect(result.loadings.length).toBeLessThanOrEqual(2);
+    expect(result.eigenvalues.length).toBeLessThanOrEqual(2);
+  });
 });
