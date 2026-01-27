@@ -1,0 +1,117 @@
+/* =============================================================================
+   TOOLTIP SYSTEM - Smart positioning with entrance animations
+   ============================================================================= */
+
+.tooltip-container {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip-content {
+  position: absolute;
+  z-index: var(--z-tooltip, 1000);
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  background: var(--color-background-alt, #1a1a2e);
+  color: var(--color-text, #e0e0e0);
+  border: 1px solid var(--color-border, #333);
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--text-xs, 0.75rem);
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.3));
+  animation: tooltip-enter var(--duration-fast, 150ms) var(--ease-out, ease-out) forwards;
+}
+
+/* Position variants with directional animation origin */
+.tooltip-top {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: var(--space-2, 0.5rem);
+  --tooltip-enter-from: translateX(-50%) translateY(4px);
+  --tooltip-enter-to: translateX(-50%) translateY(0);
+}
+
+.tooltip-bottom {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: var(--space-2, 0.5rem);
+  --tooltip-enter-from: translateX(-50%) translateY(-4px);
+  --tooltip-enter-to: translateX(-50%) translateY(0);
+}
+
+.tooltip-left {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: var(--space-2, 0.5rem);
+  --tooltip-enter-from: translateY(-50%) translateX(4px);
+  --tooltip-enter-to: translateY(-50%) translateX(0);
+}
+
+.tooltip-right {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: var(--space-2, 0.5rem);
+  --tooltip-enter-from: translateY(-50%) translateX(-4px);
+  --tooltip-enter-to: translateY(-50%) translateX(0);
+}
+
+/* Flipped position classes (applied by JS when near viewport edge) */
+.tooltip-top.tooltip-flipped {
+  bottom: auto;
+  top: 100%;
+  margin-bottom: 0;
+  margin-top: var(--space-2, 0.5rem);
+  --tooltip-enter-from: translateX(-50%) translateY(-4px);
+  --tooltip-enter-to: translateX(-50%) translateY(0);
+}
+
+.tooltip-bottom.tooltip-flipped {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: var(--space-2, 0.5rem);
+  --tooltip-enter-from: translateX(-50%) translateY(4px);
+  --tooltip-enter-to: translateX(-50%) translateY(0);
+}
+
+.tooltip-left.tooltip-flipped {
+  right: auto;
+  left: 100%;
+  margin-right: 0;
+  margin-left: var(--space-2, 0.5rem);
+  --tooltip-enter-from: translateY(-50%) translateX(-4px);
+  --tooltip-enter-to: translateY(-50%) translateX(0);
+}
+
+.tooltip-right.tooltip-flipped {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: var(--space-2, 0.5rem);
+  --tooltip-enter-from: translateY(-50%) translateX(4px);
+  --tooltip-enter-to: translateY(-50%) translateX(0);
+}
+
+/* Entrance animation */
+@keyframes tooltip-enter {
+  from {
+    opacity: 0;
+    transform: var(--tooltip-enter-from, translateX(-50%) translateY(4px));
+  }
+  to {
+    opacity: 1;
+    transform: var(--tooltip-enter-to, translateX(-50%) translateY(0));
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .tooltip-content {
+    animation: none;
+    opacity: 1;
+  }
+}

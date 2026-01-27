@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import type { ExperienceLevel } from '@phage-explorer/state';
 import { useExperienceLevel } from '@phage-explorer/state';
 
@@ -54,6 +54,9 @@ export interface TooltipProps {
   forceShow?: boolean;
 }
 
+/** Viewport margin in px for flip detection */
+const FLIP_MARGIN = 12;
+
 export const Tooltip: React.FC<TooltipProps> = ({
   content,
   children,
@@ -65,7 +68,10 @@ export const Tooltip: React.FC<TooltipProps> = ({
   forceShow = false,
 }) => {
   const [internalVisible, setVisible] = useState(false);
+  const [flipped, setFlipped] = useState(false);
   const timeoutRef = useRef<number | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const experienceLevel = useExperienceLevel() as ExperienceLevel;
 
   // Check if this hint should show based on experience level
@@ -83,47 +89,62 @@ export const Tooltip: React.FC<TooltipProps> = ({
     };
   }, []);
 
-  const show = () => {
-    if (!shouldShow) return; // Don't show if experience level doesn't qualify
+  const show = useCallback(() => {
+    if (!shouldShow) return;
     if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
     timeoutRef.current = window.setTimeout(() => setVisible(true), delay);
-  };
+  }, [shouldShow, delay]);
 
-  const hide = () => {
+  const hide = useCallback(() => {
     if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
     setVisible(false);
-  };
+    setFlipped(false);
+  }, []);
 
   const visible = (externalVisible ?? internalVisible) && shouldShow;
 
+  // Viewport boundary detection: flip tooltip if it would overflow
+  useEffect(() => {
+    if (!visible || !tooltipRef.current) return;
+
+    const el = tooltipRef.current;
+    const rect = el.getBoundingClientRect();
+
+    let needsFlip = false;
+    if (position === 'top' && rect.top < FLIP_MARGIN) {
+      needsFlip = true;
+    } else if (position === 'bottom' && rect.bottom > window.innerHeight - FLIP_MARGIN) {
+      needsFlip = true;
+    } else if (position === 'left' && rect.left < FLIP_MARGIN) {
+      needsFlip = true;
+    } else if (position === 'right' && rect.right > window.innerWidth - FLIP_MARGIN) {
+      needsFlip = true;
+    }
+
+    setFlipped(needsFlip);
+  }, [visible, position]);
+
+  const tooltipClassName = [
+    'tooltip-content',
+    `tooltip-${position}`,
+    flipped ? 'tooltip-flipped' : '',
+  ].filter(Boolean).join(' ');
+
   return (
     <div
+      ref={containerRef}
       className={`tooltip-container ${className}`}
       onMouseEnter={show}
       onMouseLeave={hide}
       onFocus={show}
       onBlur={hide}
-      style={{ position: 'relative', display: 'inline-block' }}
     >
       {children}
       {visible && (
         <div
-          className={`tooltip-content tooltip-${position}`}
+          ref={tooltipRef}
+          className={tooltipClassName}
           role="tooltip"
-          style={{
-            position: 'absolute',
-            zIndex: 1000,
-            padding: '0.5rem',
-            background: 'var(--color-background-alt, #333)',
-            color: 'var(--color-text, #fff)',
-            border: '1px solid var(--color-border, #555)',
-            borderRadius: '4px',
-            fontSize: '0.8rem',
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-            ...getPositionStyle(position),
-          }}
         >
           {content}
         </div>
@@ -131,16 +152,3 @@ export const Tooltip: React.FC<TooltipProps> = ({
     </div>
   );
 };
-
-function getPositionStyle(position: 'top' | 'bottom' | 'left' | 'right'): React.CSSProperties {
-  switch (position) {
-    case 'top':
-      return { bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '0.5rem' };
-    case 'bottom':
-      return { top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '0.5rem' };
-    case 'left':
-      return { right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: '0.5rem' };
-    case 'right':
-      return { left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: '0.5rem' };
-  }
-}

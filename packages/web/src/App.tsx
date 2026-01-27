@@ -33,6 +33,7 @@ import {
 import { useTheme } from './hooks/useTheme';
 import { useReducedMotion } from './hooks';
 import { BlockedHotkeyToast } from './components/BlockedHotkeyToast';
+import { useToast } from './components/ui/Toast';
 import type { PhageRepository } from './db';
 import {
   detectCoarsePointerDevice,
@@ -126,8 +127,7 @@ export default function App(): React.ReactElement {
     closeGlossary,
     showContextFor,
   } = useBeginnerMode();
-  const [beginnerToast, setBeginnerToast] = useState<string | null>(null);
-  const toastTimerRef = useRef<number | null>(null);
+  const { toast: showToast } = useToast();
   const welcomeOpenedRef = useRef(false);
   const [srStatusMessage, setSrStatusMessage] = useState('');
   const [srAlertMessage, setSrAlertMessage] = useState('');
@@ -252,7 +252,6 @@ export default function App(): React.ReactElement {
   );
 
   const heavyFxActive = enableBackgroundEffects || effectiveScanlines || effectiveGlow;
-  const [fxSafeModeToast, setFxSafeModeToast] = useState(false);
   const safeModeCooldownUntilRef = useRef(0);
   const lastScrollActivityAtRef = useRef(0);
 
@@ -306,7 +305,22 @@ export default function App(): React.ReactElement {
           if (now > safeModeCooldownUntilRef.current && scrollingFrames >= 30 && slowFrames >= 6) {
             safeModeCooldownUntilRef.current = now + 30_000;
             setFxSafeMode(true);
-            setFxSafeModeToast(true);
+            showToast({
+              id: 'fx-safe-mode',
+              title: 'Safe mode enabled',
+              message: 'Heavy visual effects were paused to keep scrolling smooth. Your settings are unchanged.',
+              variant: 'warning',
+              duration: 8000,
+              actions: [
+                {
+                  label: 'Resume FX',
+                  onClick: () => {
+                    safeModeCooldownUntilRef.current = performance.now() + 30_000;
+                    setFxSafeMode(false);
+                  },
+                },
+              ],
+            });
             return;
           }
           windowStart = now;
@@ -866,22 +880,15 @@ export default function App(): React.ReactElement {
 
   const showBeginnerToast = useCallback(
     (nextEnabled: boolean) => {
-      setBeginnerToast(nextEnabled ? 'Beginner Mode enabled' : 'Beginner Mode disabled');
-      if (toastTimerRef.current) {
-        window.clearTimeout(toastTimerRef.current);
-      }
-      toastTimerRef.current = window.setTimeout(() => setBeginnerToast(null), 2000);
+      showToast({
+        id: 'beginner-mode',
+        message: nextEnabled ? 'Beginner Mode enabled' : 'Beginner Mode disabled',
+        variant: 'info',
+        duration: 2000,
+      });
     },
-    []
+    [showToast]
   );
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) {
-        window.clearTimeout(toastTimerRef.current);
-      }
-    };
-  }, []);
 
   const handleToggleBeginnerMode = useCallback(() => {
     const nextState = !beginnerModeEnabled;
@@ -1142,7 +1149,7 @@ export default function App(): React.ReactElement {
                 {isLoadingPhage && <span className="badge">Loading</span>}
               </div>
               {currentPhage ? (
-                <div className="detail-card">
+                <div className="detail-card detail-card--enter" key={currentPhage.accession ?? currentPhageIndex}>
                   <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', gap: '1rem', alignItems: isNarrow ? 'stretch' : 'flex-start' }}>
                     {/* Illustration - larger display for high-res images */}
                     {hasIllustration(currentPhage.slug ?? '') && (
@@ -1390,50 +1397,8 @@ export default function App(): React.ReactElement {
       )}
       <TourEngine />
       <OverlayManager repository={repository} currentPhage={currentPhage} />
-      {beginnerToast && (
-        <div className="toast toast-info" role="status" aria-live="polite">
-          {beginnerToast}
-        </div>
-      )}
-      {fxSafeModeToast && fxSafeMode && (
-        <div role="alert" aria-live="polite" className="toast toast-warning fx-safe-mode-toast">
-          <div className="fx-safe-mode-toast__body">
-            <div className="fx-safe-mode-toast__title">
-              <span aria-hidden="true">!</span>
-              <span>Safe mode enabled</span>
-            </div>
-            <div className="fx-safe-mode-toast__text">
-              Heavy visual effects were paused to keep scrolling smooth.
-            </div>
-            <div className="fx-safe-mode-toast__subtext">
-              Your settings are unchanged. Disable safe mode to restore effects.
-            </div>
-          </div>
-          <div className="fx-safe-mode-toast__actions">
-            <button
-              type="button"
-              onClick={() => {
-                safeModeCooldownUntilRef.current = performance.now() + 30_000;
-                setFxSafeMode(false);
-                setFxSafeModeToast(false);
-              }}
-              className="btn btn-sm btn-primary"
-              aria-label="Disable safe mode and restore effects"
-            >
-              Resume FX
-            </button>
-            <button
-              type="button"
-              onClick={() => setFxSafeModeToast(false)}
-              className="btn btn-sm btn-ghost"
-              aria-label="Dismiss notification"
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-      <BlockedHotkeyToast info={blockedHotkey} onDismiss={dismissBlockedHotkey} />
+      {/* All toasts (beginner mode, fx safe mode, blocked hotkey) rendered via ToastProvider */}
+      <BlockedHotkeyToast info={blockedHotkey} onDismiss={dismissBlockedHotkey} showToast={showToast} />
       <ControlDeck onPrevPhage={handlePrevPhage} onNextPhage={handleNextPhage} />
       {isMobile && (
         <>

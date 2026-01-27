@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { OverlayProvider } from './components/overlays/OverlayProvider';
+import { ToastProvider } from './components/ui/Toast';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 import { ScrollProvider } from './providers';
 import App from './App';
@@ -120,9 +121,11 @@ if (container) {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <ScrollProvider>
-            <OverlayProvider>
-              <App />
-            </OverlayProvider>
+            <ToastProvider>
+              <OverlayProvider>
+                <App />
+              </OverlayProvider>
+            </ToastProvider>
           </ScrollProvider>
         </QueryClientProvider>
       </ErrorBoundary>
