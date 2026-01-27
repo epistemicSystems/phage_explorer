@@ -124,4 +124,22 @@ test('WCAG 2.1 A/AA: base + key overlays', async ({ page }) => {
   await expectNoA11yViolations(page, 'Search overlay');
   await page.keyboard.press('Escape');
   await search.waitFor({ state: 'detached', timeout: 5000 }).catch(() => null);
+  await page.waitForTimeout(200);
+
+  // Analysis menu (a)
+  await page.keyboard.press('a');
+  const analysis = page.locator('.overlay-analysisMenu');
+  await analysis.waitFor({ state: 'visible', timeout: 5000 });
+  await expectNoA11yViolations(page, 'Analysis menu');
+  await page.keyboard.press('Escape');
+  await analysis.waitFor({ state: 'detached', timeout: 5000 }).catch(() => null);
+  await page.waitForTimeout(200);
+
+  // Settings overlay (Ctrl+,)
+  await page.keyboard.press('Control+,');
+  const settings = page.locator('.overlay-settings');
+  await settings.waitFor({ state: 'visible', timeout: 5000 });
+  await expectNoA11yViolations(page, 'Settings overlay');
+  await page.keyboard.press('Escape');
+  await settings.waitFor({ state: 'detached', timeout: 5000 }).catch(() => null);
 });
