@@ -98,6 +98,40 @@ export class DotPlotBuffers {
   readonly inverted: Float32Array;
 }
 
+export class FunctionalGroupResult {
+  private constructor();
+  free(): void;
+  [Symbol.dispose](): void;
+  /**
+   * Get sizes of each aromatic ring.
+   */
+  readonly ring_sizes: Uint32Array;
+  /**
+   * Number of aromatic rings.
+   */
+  readonly aromatic_count: number;
+  /**
+   * Get phosphate group data.
+   */
+  readonly phosphate_data: Uint32Array;
+  /**
+   * Number of disulfide bonds.
+   */
+  readonly disulfide_count: number;
+  /**
+   * Get disulfide bond pairs as flat array [s1, s2, s1, s2, ...].
+   */
+  readonly disulfide_pairs: Uint32Array;
+  /**
+   * Number of phosphate groups.
+   */
+  readonly phosphate_count: number;
+  /**
+   * Get aromatic ring atom indices as flat array.
+   */
+  readonly aromatic_indices: Uint32Array;
+}
+
 export class GridResult {
   private constructor();
   free(): void;
@@ -712,6 +746,22 @@ export function count_kmers_dense_canonical(seq: Uint8Array, k: number): DenseKm
 export function detect_bonds_spatial(positions: Float32Array, elements: string): BondDetectionResult;
 
 /**
+ * Detect functional groups (aromatic rings, disulfides, phosphates) using WASM.
+ *
+ * This replaces the O(N²) JavaScript implementation with an optimized Rust version.
+ * The adjacency list is built once and reused for all detection algorithms.
+ *
+ * # Arguments
+ * * `positions` - Flat array of atom positions [x0, y0, z0, x1, y1, z1, ...]
+ * * `elements` - String of element symbols (one char per atom: "CCCCNNO...")
+ * * `bonds` - Flat array of bond pairs [a0, b0, a1, b1, ...] from detect_bonds_spatial
+ *
+ * # Returns
+ * FunctionalGroupResult with typed arrays for each group type.
+ */
+export function detect_functional_groups(positions: Float32Array, elements: string, bonds: Uint32Array): FunctionalGroupResult;
+
+/**
  * Detect palindromic (inverted repeat) sequences in DNA.
  *
  * A palindrome in DNA is a sequence that reads the same on the complementary
@@ -1140,3 +1190,194 @@ export function shannon_entropy_from_counts(counts: Float64Array): number;
  * Amino acid sequence as a string. Unknown codons (containing N) become 'X'.
  */
 export function translate_sequence(seq: string, frame: number): string;
+
+export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+
+export interface InitOutput {
+  readonly memory: WebAssembly.Memory;
+  readonly __wbg_bonddetectionresult_free: (a: number, b: number) => void;
+  readonly __wbg_cgrcountsresult_free: (a: number, b: number) => void;
+  readonly __wbg_codonusageresult_free: (a: number, b: number) => void;
+  readonly __wbg_densekmerresult_free: (a: number, b: number) => void;
+  readonly __wbg_dotplotbuffers_free: (a: number, b: number) => void;
+  readonly __wbg_functionalgroupresult_free: (a: number, b: number) => void;
+  readonly __wbg_get_hoeffdingresult_d: (a: number) => number;
+  readonly __wbg_get_hoeffdingresult_n: (a: number) => number;
+  readonly __wbg_get_kmeranalysisresult_bray_curtis_dissimilarity: (a: number) => number;
+  readonly __wbg_get_kmeranalysisresult_containment_a_in_b: (a: number) => number;
+  readonly __wbg_get_kmeranalysisresult_containment_b_in_a: (a: number) => number;
+  readonly __wbg_get_kmeranalysisresult_cosine_similarity: (a: number) => number;
+  readonly __wbg_get_kmeranalysisresult_k: (a: number) => number;
+  readonly __wbg_get_kmeranalysisresult_shared_kmers: (a: number) => number;
+  readonly __wbg_get_kmeranalysisresult_unique_kmers_a: (a: number) => number;
+  readonly __wbg_get_kmeranalysisresult_unique_kmers_b: (a: number) => number;
+  readonly __wbg_gridresult_free: (a: number, b: number) => void;
+  readonly __wbg_hoeffdingresult_free: (a: number, b: number) => void;
+  readonly __wbg_klscanresult_free: (a: number, b: number) => void;
+  readonly __wbg_kmeranalysisresult_free: (a: number, b: number) => void;
+  readonly __wbg_minhashsignature_free: (a: number, b: number) => void;
+  readonly __wbg_myersdiffresult_free: (a: number, b: number) => void;
+  readonly __wbg_pcaresult_free: (a: number, b: number) => void;
+  readonly __wbg_pcaresultf32_free: (a: number, b: number) => void;
+  readonly __wbg_repeatresult_free: (a: number, b: number) => void;
+  readonly __wbg_sequencehandle_free: (a: number, b: number) => void;
+  readonly __wbg_set_hoeffdingresult_d: (a: number, b: number) => void;
+  readonly __wbg_set_hoeffdingresult_n: (a: number, b: number) => void;
+  readonly __wbg_set_kmeranalysisresult_bray_curtis_dissimilarity: (a: number, b: number) => void;
+  readonly __wbg_set_kmeranalysisresult_containment_a_in_b: (a: number, b: number) => void;
+  readonly __wbg_set_kmeranalysisresult_containment_b_in_a: (a: number, b: number) => void;
+  readonly __wbg_set_kmeranalysisresult_cosine_similarity: (a: number, b: number) => void;
+  readonly __wbg_set_kmeranalysisresult_k: (a: number, b: number) => void;
+  readonly __wbg_set_kmeranalysisresult_shared_kmers: (a: number, b: number) => void;
+  readonly __wbg_set_kmeranalysisresult_unique_kmers_a: (a: number, b: number) => void;
+  readonly __wbg_set_kmeranalysisresult_unique_kmers_b: (a: number, b: number) => void;
+  readonly analyze_kmers: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly bonddetectionresult_bond_count: (a: number) => number;
+  readonly bonddetectionresult_bonds: (a: number) => [number, number];
+  readonly build_grid: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly calculate_gc_content: (a: number, b: number) => number;
+  readonly cgr_counts: (a: number, b: number, c: number) => number;
+  readonly cgrcountsresult_counts: (a: number) => any;
+  readonly cgrcountsresult_entropy: (a: number) => number;
+  readonly cgrcountsresult_k: (a: number) => number;
+  readonly cgrcountsresult_max_count: (a: number) => number;
+  readonly cgrcountsresult_resolution: (a: number) => number;
+  readonly cgrcountsresult_total_points: (a: number) => number;
+  readonly codonusageresult_json: (a: number) => [number, number];
+  readonly compute_cumulative_gc_skew: (a: number, b: number) => [number, number];
+  readonly compute_diff_mask: (a: number, b: number, c: number, d: number) => [number, number];
+  readonly compute_diff_mask_encoded: (a: number, b: number, c: number, d: number) => [number, number];
+  readonly compute_gc_skew: (a: number, b: number, c: number, d: number) => [number, number];
+  readonly compute_linguistic_complexity: (a: number, b: number, c: number) => number;
+  readonly compute_micro_runs: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number];
+  readonly compute_windowed_complexity: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+  readonly compute_windowed_entropy_acgt: (a: number, b: number, c: number, d: number) => [number, number];
+  readonly count_codon_usage: (a: number, b: number, c: number) => number;
+  readonly count_kmers_dense: (a: number, b: number, c: number) => number;
+  readonly count_kmers_dense_canonical: (a: number, b: number, c: number) => number;
+  readonly densekmerresult_counts: (a: number) => any;
+  readonly densekmerresult_total_valid: (a: number) => bigint;
+  readonly densekmerresult_unique_count: (a: number) => number;
+  readonly detect_bonds_spatial: (a: number, b: number, c: number, d: number) => number;
+  readonly detect_functional_groups: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly detect_palindromes: (a: number, b: number, c: number, d: number) => number;
+  readonly detect_tandem_repeats: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly dotplot_self_buffers: (a: number, b: number, c: number, d: number) => number;
+  readonly dotplotbuffers_direct: (a: number) => any;
+  readonly dotplotbuffers_inverted: (a: number) => any;
+  readonly dotplotbuffers_window: (a: number) => number;
+  readonly encode_sequence_fast: (a: number, b: number) => [number, number];
+  readonly equal_len_diff: (a: number, b: number, c: number, d: number) => number;
+  readonly functionalgroupresult_aromatic_count: (a: number) => number;
+  readonly functionalgroupresult_aromatic_indices: (a: number) => [number, number];
+  readonly functionalgroupresult_disulfide_count: (a: number) => number;
+  readonly functionalgroupresult_disulfide_pairs: (a: number) => [number, number];
+  readonly functionalgroupresult_phosphate_count: (a: number) => number;
+  readonly functionalgroupresult_phosphate_data: (a: number) => [number, number];
+  readonly functionalgroupresult_ring_sizes: (a: number) => [number, number];
+  readonly get_dense_kmer_max_k: () => number;
+  readonly gridresult_json: (a: number) => [number, number];
+  readonly hilbert_rgba: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+  readonly hoeffdings_d: (a: number, b: number, c: number, d: number) => number;
+  readonly is_valid_dense_kmer_k: (a: number) => number;
+  readonly jensen_shannon_divergence: (a: number, b: number, c: number, d: number) => number;
+  readonly jensen_shannon_divergence_from_counts: (a: number, b: number, c: number, d: number) => number;
+  readonly kl_divergence_dense: (a: number, b: number, c: number, d: number) => number;
+  readonly klscanresult_kl_values: (a: number) => [number, number];
+  readonly klscanresult_positions: (a: number) => [number, number];
+  readonly kmer_hoeffdings_d: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly levenshtein_distance: (a: number, b: number, c: number, d: number) => number;
+  readonly min_hash_jaccard: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly minhash_jaccard_from_signatures: (a: number, b: number, c: number, d: number) => number;
+  readonly minhash_signature: (a: number, b: number, c: number, d: number) => number;
+  readonly minhash_signature_canonical: (a: number, b: number, c: number, d: number) => number;
+  readonly minhashsignature_num_hashes: (a: number) => number;
+  readonly minhashsignature_signature: (a: number) => any;
+  readonly myers_diff: (a: number, b: number, c: number, d: number) => number;
+  readonly myers_diff_with_limit: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly myersdiffresult_edit_distance: (a: number) => number;
+  readonly myersdiffresult_error: (a: number) => [number, number];
+  readonly myersdiffresult_identity: (a: number) => number;
+  readonly myersdiffresult_len_a: (a: number) => number;
+  readonly myersdiffresult_len_b: (a: number) => number;
+  readonly myersdiffresult_mask_a: (a: number) => any;
+  readonly myersdiffresult_mask_b: (a: number) => any;
+  readonly myersdiffresult_matches: (a: number) => number;
+  readonly myersdiffresult_mismatches: (a: number) => number;
+  readonly myersdiffresult_truncated: (a: number) => number;
+  readonly pca_power_iteration: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
+  readonly pca_power_iteration_f32: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
+  readonly pcaresult_eigenvalues: (a: number) => [number, number];
+  readonly pcaresult_eigenvectors: (a: number) => [number, number];
+  readonly pcaresultf32_eigenvalues: (a: number) => any;
+  readonly pcaresultf32_eigenvectors: (a: number) => any;
+  readonly pcaresultf32_mean: (a: number) => any;
+  readonly pcaresultf32_total_variance: (a: number) => number;
+  readonly repeatresult_json: (a: number) => [number, number];
+  readonly reverse_complement: (a: number, b: number) => [number, number];
+  readonly scan_kl_windows: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly sequencehandle_count_kmers: (a: number, b: number) => number;
+  readonly sequencehandle_cumulative_gc_skew: (a: number) => [number, number];
+  readonly sequencehandle_dotplot_self: (a: number, b: number, c: number) => number;
+  readonly sequencehandle_encoded_bytes: (a: number) => any;
+  readonly sequencehandle_gc_skew: (a: number, b: number, c: number) => [number, number];
+  readonly sequencehandle_minhash: (a: number, b: number, c: number) => number;
+  readonly sequencehandle_new: (a: number, b: number) => number;
+  readonly sequencehandle_valid_count: (a: number) => number;
+  readonly shannon_entropy: (a: number, b: number) => number;
+  readonly shannon_entropy_from_counts: (a: number, b: number) => number;
+  readonly translate_sequence: (a: number, b: number, c: number) => [number, number];
+  readonly init_panic_hook: () => void;
+  readonly __wbg_set_kmeranalysisresult_jaccard_index: (a: number, b: number) => void;
+  readonly __wbg_get_kmeranalysisresult_jaccard_index: (a: number) => number;
+  readonly densekmerresult_k: (a: number) => number;
+  readonly dotplotbuffers_bins: (a: number) => number;
+  readonly klscanresult_k: (a: number) => number;
+  readonly klscanresult_window_count: (a: number) => number;
+  readonly minhashsignature_k: (a: number) => number;
+  readonly minhashsignature_total_kmers: (a: number) => bigint;
+  readonly myersdiffresult_deletions: (a: number) => number;
+  readonly myersdiffresult_insertions: (a: number) => number;
+  readonly pcaresult_n_components: (a: number) => number;
+  readonly pcaresult_n_features: (a: number) => number;
+  readonly pcaresultf32_n_components: (a: number) => number;
+  readonly pcaresultf32_n_features: (a: number) => number;
+  readonly sequencehandle_length: (a: number) => number;
+  readonly __wbg_get_vector3_x: (a: number) => number;
+  readonly __wbg_get_vector3_y: (a: number) => number;
+  readonly __wbg_get_vector3_z: (a: number) => number;
+  readonly __wbg_model3d_free: (a: number, b: number) => void;
+  readonly __wbg_set_vector3_x: (a: number, b: number) => void;
+  readonly __wbg_set_vector3_y: (a: number, b: number) => void;
+  readonly __wbg_set_vector3_z: (a: number, b: number) => void;
+  readonly __wbg_vector3_free: (a: number, b: number) => void;
+  readonly model3d_new: (a: number, b: number, c: number, d: number) => number;
+  readonly render_ascii_model: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
+  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbindgen_externrefs: WebAssembly.Table;
+  readonly __wbindgen_start: () => void;
+}
+
+export type SyncInitInput = BufferSource | WebAssembly.Module;
+
+/**
+* Instantiates the given `module`, which can either be bytes or
+* a precompiled `WebAssembly.Module`.
+*
+* @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+*
+* @returns {InitOutput}
+*/
+export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
+
+/**
+* If `module_or_path` is {RequestInfo} or {URL}, makes a request and
+* for everything else, calls `WebAssembly.instantiate` directly.
+*
+* @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+*
+* @returns {Promise<InitOutput>}
+*/
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;

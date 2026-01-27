@@ -3102,6 +3102,370 @@ pub fn detect_bonds_spatial(positions: &[f32], elements: &str) -> BondDetectionR
 }
 
 // ============================================================================
+// Functional Group Detection - WASM-accelerated for large structures
+// ============================================================================
+
+/// Result of functional group detection.
+/// Contains flat arrays of atom indices for each functional group type.
+#[wasm_bindgen]
+pub struct FunctionalGroupResult {
+    /// Flat array of aromatic ring atom indices.
+    /// Rings are separated by the ring_sizes array.
+    aromatic_indices: Vec<u32>,
+    /// Number of atoms in each aromatic ring (all should be 6 for 6-membered rings).
+    ring_sizes: Vec<u32>,
+    /// Disulfide bond pairs: [s1, s2, s1, s2, ...].
+    disulfide_pairs: Vec<u32>,
+    /// Phosphate group data: for each group [p_idx, num_oxygens, o1, o2, o3, ...].
+    phosphate_data: Vec<u32>,
+    /// Number of aromatic rings found.
+    aromatic_count: usize,
+    /// Number of disulfide bonds found.
+    disulfide_count: usize,
+    /// Number of phosphate groups found.
+    phosphate_count: usize,
+}
+
+#[wasm_bindgen]
+impl FunctionalGroupResult {
+    /// Get aromatic ring atom indices as flat array.
+    #[wasm_bindgen(getter)]
+    pub fn aromatic_indices(&self) -> Vec<u32> {
+        self.aromatic_indices.clone()
+    }
+
+    /// Get sizes of each aromatic ring.
+    #[wasm_bindgen(getter)]
+    pub fn ring_sizes(&self) -> Vec<u32> {
+        self.ring_sizes.clone()
+    }
+
+    /// Get disulfide bond pairs as flat array [s1, s2, s1, s2, ...].
+    #[wasm_bindgen(getter)]
+    pub fn disulfide_pairs(&self) -> Vec<u32> {
+        self.disulfide_pairs.clone()
+    }
+
+    /// Get phosphate group data.
+    #[wasm_bindgen(getter)]
+    pub fn phosphate_data(&self) -> Vec<u32> {
+        self.phosphate_data.clone()
+    }
+
+    /// Number of aromatic rings.
+    #[wasm_bindgen(getter)]
+    pub fn aromatic_count(&self) -> usize {
+        self.aromatic_count
+    }
+
+    /// Number of disulfide bonds.
+    #[wasm_bindgen(getter)]
+    pub fn disulfide_count(&self) -> usize {
+        self.disulfide_count
+    }
+
+    /// Number of phosphate groups.
+    #[wasm_bindgen(getter)]
+    pub fn phosphate_count(&self) -> usize {
+        self.phosphate_count
+    }
+}
+
+/// Build adjacency list from bond pairs.
+fn build_adjacency(num_atoms: usize, bonds: &[u32]) -> Vec<Vec<usize>> {
+    let mut adj: Vec<Vec<usize>> = vec![Vec::new(); num_atoms];
+    for chunk in bonds.chunks(2) {
+        if chunk.len() == 2 {
+            let a = chunk[0] as usize;
+            let b = chunk[1] as usize;
+            if a < num_atoms && b < num_atoms {
+                adj[a].push(b);
+                adj[b].push(a);
+            }
+        }
+    }
+    adj
+}
+
+/// Check if a ring is planar within a tolerance.
+fn is_planar_ring(indices: &[usize], positions: &[f32], tolerance: f32) -> bool {
+    if indices.len() < 3 {
+        return false;
+    }
+
+    // Get first three points to define a plane
+    let (i0, i1, i2) = (indices[0], indices[1], indices[2]);
+    let ax = positions[i0 * 3];
+    let ay = positions[i0 * 3 + 1];
+    let az = positions[i0 * 3 + 2];
+    let bx = positions[i1 * 3];
+    let by = positions[i1 * 3 + 1];
+    let bz = positions[i1 * 3 + 2];
+    let cx = positions[i2 * 3];
+    let cy = positions[i2 * 3 + 1];
+    let cz = positions[i2 * 3 + 2];
+
+    // Vectors from A to B and A to C
+    let v1x = bx - ax;
+    let v1y = by - ay;
+    let v1z = bz - az;
+    let v2x = cx - ax;
+    let v2y = cy - ay;
+    let v2z = cz - az;
+
+    // Cross product for normal
+    let mut nx = v1y * v2z - v1z * v2y;
+    let mut ny = v1z * v2x - v1x * v2z;
+    let mut nz = v1x * v2y - v1y * v2x;
+
+    // Normalize
+    let len = (nx * nx + ny * ny + nz * nz).sqrt();
+    if len == 0.0 {
+        return false;
+    }
+    nx /= len;
+    ny /= len;
+    nz /= len;
+
+    // Check distance to plane for all atoms
+    for &idx in indices {
+        let px = positions[idx * 3];
+        let py = positions[idx * 3 + 1];
+        let pz = positions[idx * 3 + 2];
+        let dist = (nx * (px - ax) + ny * (py - ay) + nz * (pz - az)).abs();
+        if dist > tolerance {
+            return false;
+        }
+    }
+    true
+}
+
+/// Detect 6-membered aromatic rings (benzene-like).
+/// Uses DFS to find cycles of exactly 6 carbon atoms.
+fn detect_aromatic_rings(
+    positions: &[f32],
+    element_bytes: &[u8],
+    adj: &[Vec<usize>],
+    num_atoms: usize,
+) -> (Vec<u32>, Vec<u32>) {
+    let mut aromatic_indices = Vec::new();
+    let mut ring_sizes = Vec::new();
+    let max_planar_offset = 0.25_f32;
+
+    let is_carbon = |idx: usize| -> bool {
+        idx < element_bytes.len() && (element_bytes[idx] == b'C' || element_bytes[idx] == b'c')
+    };
+
+    // For each carbon atom, try to find 6-membered rings
+    for start in 0..num_atoms {
+        if !is_carbon(start) {
+            continue;
+        }
+
+        // DFS to find 6-cycles starting from this atom
+        let mut stack: Vec<(usize, usize, Vec<usize>)> = vec![(start, 0, vec![start])];
+
+        while let Some((current, depth, path)) = stack.pop() {
+            if depth == 5 {
+                // Check if we can close back to start
+                for &next in &adj[current] {
+                    if next == start {
+                        // Found a 6-cycle
+                        // Skip if any atom has index < start (to avoid duplicates)
+                        if path.iter().any(|&idx| idx < start) {
+                            continue;
+                        }
+                        // Check all atoms are carbon
+                        if !path.iter().all(|&idx| is_carbon(idx)) {
+                            continue;
+                        }
+                        // Check planarity
+                        if is_planar_ring(&path, positions, max_planar_offset) {
+                            for &idx in &path {
+                                aromatic_indices.push(idx as u32);
+                            }
+                            ring_sizes.push(6);
+                        }
+                    }
+                }
+                continue;
+            }
+
+            // Explore neighbors
+            for &next in &adj[current] {
+                if next == start && depth < 4 {
+                    continue; // Too early to close
+                }
+                if next <= start {
+                    continue; // Only explore forward to avoid duplicates
+                }
+                if path.contains(&next) {
+                    continue; // Already in path
+                }
+
+                let mut new_path = path.clone();
+                new_path.push(next);
+                stack.push((next, depth + 1, new_path));
+            }
+        }
+    }
+
+    (aromatic_indices, ring_sizes)
+}
+
+/// Detect disulfide bonds (S-S bonds).
+/// Either directly bonded or within 2.2 Å distance.
+fn detect_disulfides(
+    positions: &[f32],
+    element_bytes: &[u8],
+    adj: &[Vec<usize>],
+    num_atoms: usize,
+) -> Vec<u32> {
+    let mut disulfide_pairs = Vec::new();
+    let max_ss_dist_sq = 2.2_f32 * 2.2_f32;
+
+    // Find all sulfur atoms
+    let sulfur_indices: Vec<usize> = (0..num_atoms)
+        .filter(|&i| i < element_bytes.len() && (element_bytes[i] == b'S' || element_bytes[i] == b's'))
+        .collect();
+
+    // Check pairs of sulfurs
+    for i in 0..sulfur_indices.len() {
+        for j in (i + 1)..sulfur_indices.len() {
+            let a = sulfur_indices[i];
+            let b = sulfur_indices[j];
+
+            // Check if directly bonded
+            let bonded = adj[a].contains(&b);
+
+            // Check distance
+            let dx = positions[a * 3] - positions[b * 3];
+            let dy = positions[a * 3 + 1] - positions[b * 3 + 1];
+            let dz = positions[a * 3 + 2] - positions[b * 3 + 2];
+            let dist_sq = dx * dx + dy * dy + dz * dz;
+
+            if bonded || dist_sq <= max_ss_dist_sq {
+                disulfide_pairs.push(a as u32);
+                disulfide_pairs.push(b as u32);
+            }
+        }
+    }
+
+    disulfide_pairs
+}
+
+/// Detect phosphate groups (P with 3+ oxygen neighbors).
+fn detect_phosphates(
+    element_bytes: &[u8],
+    adj: &[Vec<usize>],
+    num_atoms: usize,
+) -> Vec<u32> {
+    let mut phosphate_data = Vec::new();
+
+    for idx in 0..num_atoms {
+        // Check if phosphorus
+        if idx >= element_bytes.len() {
+            continue;
+        }
+        if element_bytes[idx] != b'P' && element_bytes[idx] != b'p' {
+            continue;
+        }
+
+        // Find oxygen neighbors
+        let oxygen_neighbors: Vec<usize> = adj[idx]
+            .iter()
+            .filter(|&&n| {
+                n < element_bytes.len() && (element_bytes[n] == b'O' || element_bytes[n] == b'o')
+            })
+            .copied()
+            .collect();
+
+        if oxygen_neighbors.len() >= 3 {
+            // Store: [p_idx, num_oxygens, o1, o2, o3, ...]
+            phosphate_data.push(idx as u32);
+            phosphate_data.push(oxygen_neighbors.len() as u32);
+            for &o_idx in &oxygen_neighbors {
+                phosphate_data.push(o_idx as u32);
+            }
+        }
+    }
+
+    phosphate_data
+}
+
+/// Detect functional groups (aromatic rings, disulfides, phosphates) using WASM.
+///
+/// This replaces the O(N²) JavaScript implementation with an optimized Rust version.
+/// The adjacency list is built once and reused for all detection algorithms.
+///
+/// # Arguments
+/// * `positions` - Flat array of atom positions [x0, y0, z0, x1, y1, z1, ...]
+/// * `elements` - String of element symbols (one char per atom: "CCCCNNO...")
+/// * `bonds` - Flat array of bond pairs [a0, b0, a1, b1, ...] from detect_bonds_spatial
+///
+/// # Returns
+/// FunctionalGroupResult with typed arrays for each group type.
+#[wasm_bindgen]
+pub fn detect_functional_groups(
+    positions: &[f32],
+    elements: &str,
+    bonds: &[u32],
+) -> FunctionalGroupResult {
+    let num_atoms = elements.len();
+
+    // Validate input
+    if positions.len() != num_atoms * 3 || num_atoms == 0 {
+        return FunctionalGroupResult {
+            aromatic_indices: Vec::new(),
+            ring_sizes: Vec::new(),
+            disulfide_pairs: Vec::new(),
+            phosphate_data: Vec::new(),
+            aromatic_count: 0,
+            disulfide_count: 0,
+            phosphate_count: 0,
+        };
+    }
+
+    let element_bytes = elements.as_bytes();
+
+    // Build adjacency list once
+    let adj = build_adjacency(num_atoms, bonds);
+
+    // Detect all functional groups
+    let (aromatic_indices, ring_sizes) =
+        detect_aromatic_rings(positions, element_bytes, &adj, num_atoms);
+    let disulfide_pairs = detect_disulfides(positions, element_bytes, &adj, num_atoms);
+    let phosphate_data = detect_phosphates(element_bytes, &adj, num_atoms);
+
+    // Count groups
+    let aromatic_count = ring_sizes.len();
+    let disulfide_count = disulfide_pairs.len() / 2;
+
+    // Count phosphate groups by parsing phosphate_data
+    let mut phosphate_count = 0;
+    let mut i = 0;
+    while i < phosphate_data.len() {
+        phosphate_count += 1;
+        if i + 1 < phosphate_data.len() {
+            let num_oxygens = phosphate_data[i + 1] as usize;
+            i += 2 + num_oxygens;
+        } else {
+            break;
+        }
+    }
+
+    FunctionalGroupResult {
+        aromatic_indices,
+        ring_sizes,
+        disulfide_pairs,
+        phosphate_data,
+        aromatic_count,
+        disulfide_count,
+        phosphate_count,
+    }
+}
+
+// ============================================================================
 // Grid Building - HOT PATH for viewport rendering
 // ============================================================================
 

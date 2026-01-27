@@ -585,6 +585,53 @@ declare module '@phage/wasm-compute' {
   export function detect_bonds_spatial(positions: Float32Array, elements: string): BondDetectionResult;
 
   // ============================================================================
+  // Functional Group Detection
+  // ============================================================================
+
+  /**
+   * Result of functional group detection.
+   * Contains typed arrays for aromatic rings, disulfide bonds, and phosphate groups.
+   *
+   * IMPORTANT: Must call `.free()` when done to release WASM memory.
+   */
+  export class FunctionalGroupResult {
+    free(): void;
+    /** Flat array of aromatic ring atom indices (6 per ring). */
+    readonly aromatic_indices: Uint32Array;
+    /** Number of atoms in each aromatic ring (all 6 for 6-membered rings). */
+    readonly ring_sizes: Uint32Array;
+    /** Disulfide bond pairs: [s1, s2, s1, s2, ...]. */
+    readonly disulfide_pairs: Uint32Array;
+    /** Phosphate group data: [p_idx, num_oxygens, o1, o2, o3, ...] per group. */
+    readonly phosphate_data: Uint32Array;
+    /** Number of aromatic rings found. */
+    readonly aromatic_count: number;
+    /** Number of disulfide bonds found. */
+    readonly disulfide_count: number;
+    /** Number of phosphate groups found. */
+    readonly phosphate_count: number;
+  }
+
+  /**
+   * Detect functional groups using spatial-hash optimized algorithm.
+   *
+   * Detects:
+   * - Aromatic rings: 6-membered planar carbon rings
+   * - Disulfide bonds: S-S bonds within 2.2 Å
+   * - Phosphate groups: P with 3+ oxygen neighbors
+   *
+   * @param positions - Flat array of atom positions [x0, y0, z0, x1, y1, z1, ...]
+   * @param elements - String of element symbols (one char per atom: "CCCCNNO...")
+   * @param bonds - Flat array of bond pairs [a0, b0, a1, b1, ...] from detect_bonds_spatial
+   * @returns FunctionalGroupResult with typed arrays for each group type
+   */
+  export function detect_functional_groups(
+    positions: Float32Array,
+    elements: string,
+    bonds: Uint32Array
+  ): FunctionalGroupResult;
+
+  // ============================================================================
   // Dot Plot (Self-Similarity Matrix)
   // ============================================================================
 
