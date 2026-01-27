@@ -13,6 +13,7 @@ import {
   getSimilarityColor,
   createSimilarityBar,
 } from './comparison-engine';
+import { DEFAULT_COMPARISON_CONFIG } from './types';
 import type { GeneInfo } from '@phage-explorer/core';
 
 // Test sequences - real-ish phage-like DNA
@@ -123,7 +124,7 @@ describe('compareGenomes', () => {
       [],
       null,
       null,
-      { includeStructuralVariants: true, kmerSizes: [7] }
+      { ...DEFAULT_COMPARISON_CONFIG, includeStructuralVariants: true, kmerSizes: [7] }
     );
 
     const resultWithout = await compareGenomes(
@@ -135,7 +136,7 @@ describe('compareGenomes', () => {
       [],
       null,
       null,
-      { includeStructuralVariants: false, kmerSizes: [7] }
+      { ...DEFAULT_COMPARISON_CONFIG, includeStructuralVariants: false, kmerSizes: [7] }
     );
 
     expect(resultWith.structuralVariants).not.toBeNull();
