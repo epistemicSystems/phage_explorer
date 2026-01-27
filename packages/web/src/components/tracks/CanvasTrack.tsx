@@ -367,6 +367,8 @@ function CanvasTrackBase({
             onClick={onClick ? handleClick : undefined}
             onMouseMove={formatTooltip ? handleMouseMove : undefined}
             onMouseLeave={formatTooltip ? handleMouseLeave : undefined}
+            role="img"
+            aria-label={`${label} track visualization showing genomic data`}
             style={{
               width: '100%',
               height,

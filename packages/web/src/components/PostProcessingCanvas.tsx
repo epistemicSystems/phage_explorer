@@ -100,6 +100,7 @@ export const PostProcessingCanvas: React.FC<PostProcessingCanvasProps> = ({
       style={style}
       width={width}
       height={height}
+      aria-hidden="true"
     />
   );
 };
