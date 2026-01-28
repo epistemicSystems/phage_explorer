@@ -119,6 +119,20 @@ html {
     min-width: 44px !important;
   }
 
+  /* Exception: view-mode segments are grouped controls - combined width provides touch target */
+  .view-mode-segment {
+    min-height: 36px !important;
+    min-width: unset !important;
+  }
+
+  /* Exception: sequence view controls are horizontally scrollable, keep them compact */
+  .sequence-view__zoom-btn,
+  .sequence-view__snap-btn,
+  .sequence-view__frame-btn {
+    min-height: 32px !important;
+    min-width: 32px !important;
+  }
+
   /* Larger checkbox/radio touch targets */
   input[type="checkbox"],
   input[type="radio"] {
@@ -147,6 +161,20 @@ html {
   [role="menuitem"] {
     min-height: 44px !important;
     min-width: 44px !important;
+  }
+
+  /* Exception: view-mode segments are grouped controls */
+  .view-mode-segment {
+    min-height: 36px !important;
+    min-width: unset !important;
+  }
+
+  /* Exception: sequence view controls are horizontally scrollable, keep them compact */
+  .sequence-view__zoom-btn,
+  .sequence-view__snap-btn,
+  .sequence-view__frame-btn {
+    min-height: 32px !important;
+    min-width: 32px !important;
   }
 }
 

@@ -56,10 +56,11 @@ function ViewModeToggle({ value, onChange }: ViewModeToggleProps): React.ReactEl
 
     const containerRect = container.getBoundingClientRect();
     const buttonRect = activeButton.getBoundingClientRect();
-    const padding = 6; // Match the container padding
+    // Read actual padding from computed styles (handles mobile vs desktop)
+    const computedPadding = parseFloat(getComputedStyle(container).paddingLeft) || 6;
 
     setIndicatorStyle({
-      x: buttonRect.left - containerRect.left - padding,
+      x: buttonRect.left - containerRect.left - computedPadding,
       width: buttonRect.width,
     });
   }, [value]);
@@ -423,14 +424,20 @@ function SequenceViewBase({
   // We track what we set in lastScrollWeSetRef. If the store value matches what
   // we just set, it's our own update and we skip. Otherwise, it's external and
   // we scroll to that position (without centering, since we want top-alignment).
+  //
+  // FIX: Don't sync scroll on initial load before renderer is ready. Wait until
+  // we have a valid visibleRange (renderer has processed the sequence) before
+  // attempting external scroll syncs. This prevents the "stuck scroll" bug.
   useEffect(() => {
     if (typeof storeScrollPosition !== 'number' || !Number.isFinite(storeScrollPosition)) return;
     // Skip if this is our own update from normal scrolling
     if (lastScrollWeSetRef.current === storeScrollPosition) return;
+    // Skip if renderer hasn't processed sequence yet (prevents stuck scroll on first load)
+    if (!visibleRange) return;
     // This is an external update - scroll to it WITHOUT centering for consistency.
     // Gene map clicks that WANT centering should call scrollToPosition directly via ref.
     scrollToPosition(storeScrollPosition, false);
-  }, [storeScrollPosition, scrollToPosition]);
+  }, [storeScrollPosition, scrollToPosition, visibleRange]);
 
   // Sync zoom from external sources (collaboration, presets) to renderer.
   // Skip our own updates by checking lastZoomWeSetRef.

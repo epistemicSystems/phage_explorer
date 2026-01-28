@@ -218,19 +218,35 @@
     min-height: 200px;
   }
 
-  /* View mode toggle - Smaller on mobile */
+  /* View mode toggle - Compact but usable on mobile */
   .view-mode-toggle {
     padding: 3px;
+    gap: 2px;
+    /* Ensure it doesn't overflow on narrow screens */
+    width: fit-content;
+    max-width: 100%;
   }
 
   .view-mode-segment {
-    padding: 8px 12px;
-    min-height: 40px;
-    font-size: var(--text-sm);
+    padding: 6px 10px;
+    min-height: 36px;
+    /* Override the 44px min-width from touch targets - these are tightly grouped */
+    min-width: unset !important;
+    font-size: 13px;
+    font-weight: 600;
+    /* Prevent text wrapping */
+    white-space: nowrap;
   }
 
   .view-mode-icon {
     display: none;
+  }
+
+  /* Sliding indicator adjustment for mobile padding */
+  .view-mode-indicator {
+    top: 3px;
+    left: 3px;
+    height: calc(100% - 6px);
   }
 
   /* Quick stats - styles moved to desktop-ui.css for consistency */
@@ -381,10 +397,7 @@
     padding: var(--space-2) 0;
   }
 
-  /* View mode segments */
-  .view-mode-segment {
-    min-height: 44px;
-  }
+  /* View mode segments - styled in 640px media query above */
 
   /* Remove hover effects - they don't make sense on touch */
   .btn:hover,

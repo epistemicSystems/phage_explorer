@@ -1840,15 +1840,7 @@ textarea:focus-visible,
 }
 
 @media (max-width: 640px) {
-  .view-mode-toggle {
-    gap: var(--space-1);
-    padding: 4px;
-  }
-
-  .view-mode-segment {
-    padding: 8px 10px;
-    min-width: 0;
-  }
+  /* View mode toggle styles are in mobile-overrides.css for consistency */
 
   .view-mode-subtle {
     display: none;
