@@ -71,6 +71,20 @@ import type {
 } from '@phage/wasm-compute';
 
 /**
+ * Result from WASM functional group detection.
+ */
+export interface FunctionalGroupsResult {
+  aromatic_indices: Uint32Array;
+  ring_sizes: Uint32Array;
+  aromatic_count: number;
+  disulfide_pairs: Uint32Array;
+  disulfide_count: number;
+  phosphate_data: Uint32Array;
+  phosphate_count: number;
+  free?: () => void;
+}
+
+/**
  * The wasm-compute module type.
  * We keep this as a minimal structural interface so we can avoid `typeof import(...)`
  * type annotations (enforced by our ESLint config) while still providing strong typing
@@ -113,6 +127,7 @@ export interface WasmComputeModule {
 
   // --- 3D structure ---
   detect_bonds_spatial?: (positions: Float32Array, elements: string) => BondDetectionResult;
+  detect_functional_groups?: (positions: Float32Array, elements: string, bonds: Uint32Array) => FunctionalGroupsResult;
 
   // --- MinHash / similarity ---
   minhash_signature?: (seq: Uint8Array, k: number, num_hashes: number) => MinHashSignature;
