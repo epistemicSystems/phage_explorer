@@ -809,6 +809,8 @@ export function analyzePhylodynamics(
   // Selection analysis
   let selection: SelectionResult | null = null;
   if (runSelection) {
+    // Reconstruct ancestral sequences for internal nodes
+    reconstructAncestralSequences(tree.root);
     selection = computeSelection(tree);
   }
 
@@ -818,6 +820,69 @@ export function analyzePhylodynamics(
     skyline,
     selection,
   };
+}
+
+// =============================================================================
+// Ancestral Sequence Reconstruction
+// =============================================================================
+
+/**
+ * Compute consensus sequence from a list of sequences (Majority Vote)
+ */
+function computeConsensus(sequences: string[]): string {
+  if (sequences.length === 0) return '';
+  const len = sequences[0].length;
+  let consensus = '';
+
+  for (let i = 0; i < len; i++) {
+    const counts: Record<string, number> = {};
+    let maxCount = 0;
+    let bestBase = sequences[0][i]; // Default to first
+
+    for (const seq of sequences) {
+      if (i >= seq.length) continue;
+      const base = seq[i];
+      // Skip gaps/N for consensus if possible
+      if (base === '-' || base === 'N') continue;
+      
+      counts[base] = (counts[base] || 0) + 1;
+      if (counts[base] > maxCount) {
+        maxCount = counts[base];
+        bestBase = base;
+      }
+    }
+    consensus += bestBase;
+  }
+  return consensus;
+}
+
+/**
+ * Recursively reconstruct ancestral sequences for internal nodes
+ * using majority vote parsimony.
+ */
+function reconstructAncestralSequences(node: TreeNode): string {
+  if (node.isLeaf) {
+    return node.sequence?.sequence ?? '';
+  }
+
+  const childSequences = node.children.map(reconstructAncestralSequences);
+  
+  // Verify children have sequences
+  const validChildren = childSequences.filter(s => s.length > 0);
+  
+  if (validChildren.length === 0) return '';
+
+  const ancestralSeq = computeConsensus(validChildren);
+
+  // Store reconstructed sequence in the node
+  // Note: Date is unknown/estimated, but not needed for dN/dS
+  node.sequence = {
+    id: node.id,
+    sequence: ancestralSeq,
+    date: 0, // Placeholder
+  };
+
+  return ancestralSeq;
 }
 
 // =============================================================================
