@@ -557,32 +557,33 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
 
   // Comparison
   openComparison: () => {
-    const { currentPhageIndex, phages } = get();
-    if (phages.length === 0) return; // Guard against empty state
+    set(state => {
+      if (state.phages.length === 0) return {}; // Guard against empty state
 
-    // Default: compare current phage with Lambda or first phage
-    const lambdaIndex = phages.findIndex(p =>
-      p.slug === 'lambda' || p.name.toLowerCase().includes('lambda')
-    );
-    const defaultB = lambdaIndex >= 0 && lambdaIndex !== currentPhageIndex
-      ? lambdaIndex
-      : currentPhageIndex === 0 ? 1 : 0;
+      // Default: compare current phage with Lambda or first phage
+      const lambdaIndex = state.phages.findIndex(p =>
+        p.slug === 'lambda' || p.name.toLowerCase().includes('lambda')
+      );
+      const defaultB = lambdaIndex >= 0 && lambdaIndex !== state.currentPhageIndex
+        ? lambdaIndex
+        : state.currentPhageIndex === 0 ? 1 : 0;
 
-    set({
-      overlays: [...get().overlays.filter(o => o !== 'comparison'), 'comparison'],
-      comparisonPhageAIndex: currentPhageIndex,
-      comparisonPhageBIndex: Math.min(defaultB, phages.length - 1),
-      comparisonResult: null,
-      comparisonTab: 'summary',
-      comparisonSelectingPhage: null,
+      return {
+        overlays: [...state.overlays.filter(o => o !== 'comparison'), 'comparison'],
+        comparisonPhageAIndex: state.currentPhageIndex,
+        comparisonPhageBIndex: Math.min(defaultB, state.phages.length - 1),
+        comparisonResult: null,
+        comparisonTab: 'summary',
+        comparisonSelectingPhage: null,
+      };
     });
   },
 
-  closeComparison: () => set({
-    overlays: get().overlays.filter(o => o !== 'comparison'),
+  closeComparison: () => set(state => ({
+    overlays: state.overlays.filter(o => o !== 'comparison'),
     comparisonResult: null,
     comparisonSelectingPhage: null,
-  }),
+  })),
 
   setComparisonPhageA: (index) => set({
     comparisonPhageAIndex: index,
@@ -708,23 +709,29 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
 
   // Simulation controls
   launchSimulation: (simId, initialState) => {
-    set({
-      activeSimulationId: simId,
-      simulationState: initialState,
-      simulationPaused: false,
-      simulationSpeed: 1,
+    // Merge overlay change with simulation state to avoid race condition
+    set(state => {
+      const filtered = state.overlays.filter(o => o !== 'simulationView');
+      const next = [...filtered, 'simulationView'];
+      return {
+        activeSimulationId: simId,
+        simulationState: initialState,
+        simulationPaused: false,
+        simulationSpeed: 1,
+        overlays: next.slice(-3),
+      };
     });
-    get().openOverlay('simulationView');
   },
 
   closeSimulation: () => {
-    set({
+    // Merge overlay change with simulation state to avoid race condition
+    set(state => ({
       activeSimulationId: null,
       simulationState: null,
       simulationPaused: true,
       simulationSpeed: 1,
-    });
-    get().closeOverlay('simulationView');
+      overlays: state.overlays.filter(o => o !== 'simulationView'),
+    }));
   },
 
   updateSimulationState: (state) => set({ simulationState: state }),
@@ -823,61 +830,67 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
   restoreBeginnerProgress: () => {
     if (typeof localStorage === 'undefined') return;
 
-    let beginnerModeEnabled = get().beginnerModeEnabled;
-    let completedTours = get().completedTours;
-    let completedModules = get().completedModules;
-    let hasChanges = false;
-
-    // Restore beginner mode preference
+    // Read localStorage values once (outside state callback since localStorage is synchronous)
     const storedBeginnerMode = localStorage.getItem('phage-explorer-beginner-mode');
-    if (storedBeginnerMode !== null) {
-      try {
-        const val = JSON.parse(storedBeginnerMode);
-        if (val !== beginnerModeEnabled) {
-          beginnerModeEnabled = val;
-          hasChanges = true;
-        }
-      } catch { /* ignore */ }
-    }
-
-    // Restore completed tours
     const storedTours = localStorage.getItem('phage-explorer-completed-tours');
-    if (storedTours !== null) {
-      try {
-        const val = JSON.parse(storedTours);
-        if (Array.isArray(val)) {
-          // Merge unique
-          const next = Array.from(new Set([...completedTours, ...val]));
-          if (next.length !== completedTours.length) {
-            completedTours = next;
-            hasChanges = true;
-          }
-        }
-      } catch { /* ignore */ }
-    }
-
-    // Restore completed modules
     const storedModules = localStorage.getItem('phage-explorer-completed-modules');
-    if (storedModules !== null) {
-      try {
-        const val = JSON.parse(storedModules);
-        if (Array.isArray(val)) {
-          const next = Array.from(new Set([...completedModules, ...val]));
-          if (next.length !== completedModules.length) {
-            completedModules = next;
+
+    // Use state callback to atomically read and update state
+    set(state => {
+      let beginnerModeEnabled = state.beginnerModeEnabled;
+      let completedTours = state.completedTours;
+      let completedModules = state.completedModules;
+      let hasChanges = false;
+
+      // Restore beginner mode preference
+      if (storedBeginnerMode !== null) {
+        try {
+          const val = JSON.parse(storedBeginnerMode);
+          if (val !== beginnerModeEnabled) {
+            beginnerModeEnabled = val;
             hasChanges = true;
           }
-        }
-      } catch { /* ignore */ }
-    }
+        } catch { /* ignore */ }
+      }
 
-    if (hasChanges) {
-      set({
-        beginnerModeEnabled,
-        completedTours,
-        completedModules,
-      });
-    }
+      // Restore completed tours
+      if (storedTours !== null) {
+        try {
+          const val = JSON.parse(storedTours);
+          if (Array.isArray(val)) {
+            // Merge unique
+            const next = Array.from(new Set([...completedTours, ...val]));
+            if (next.length !== completedTours.length) {
+              completedTours = next;
+              hasChanges = true;
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      // Restore completed modules
+      if (storedModules !== null) {
+        try {
+          const val = JSON.parse(storedModules);
+          if (Array.isArray(val)) {
+            const next = Array.from(new Set([...completedModules, ...val]));
+            if (next.length !== completedModules.length) {
+              completedModules = next;
+              hasChanges = true;
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (hasChanges) {
+        return {
+          beginnerModeEnabled,
+          completedTours,
+          completedModules,
+        };
+      }
+      return {};
+    });
   },
 }));
 

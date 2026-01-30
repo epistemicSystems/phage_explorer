@@ -72,8 +72,9 @@ export class SqlJsRepository implements PhageRepository {
   // LRU cache with bounded size to prevent unbounded memory growth
   private cache = new LRUCache<string, CacheEntry<unknown>>(100);
   private phageList: PhageSummary[] | null = null;
-  private biasCache: Map<number, number[]> = new Map();
-  private codonCache: Map<number, number[]> = new Map();
+  // Use LRU caches with bounded size to prevent unbounded memory growth
+  private biasCache = new LRUCache<number, number[]>(50);
+  private codonCache = new LRUCache<number, number[]>(50);
 
   constructor(db: Database) {
     this.db = db;
