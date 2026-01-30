@@ -595,19 +595,33 @@ export class CanvasSequenceGridRenderer {
    * Compute a simple hash for a row's content (for cache invalidation)
    */
   private computeRowHash(row: number, cols: number): number {
-    if (!this.encodedSequence) return 0;
+    const state = this.currentState;
+    if (!state) return 0;
+
+    const { sequence, diffEnabled, diffMask } = state;
     const start = row * cols;
-    const end = Math.min(start + cols, this.encodedSequence.length);
+    const end = Math.min(start + cols, sequence.length);
     // FNV-1a hash for fast content fingerprinting
     let hash = 2166136261;
-    for (let i = start; i < end; i++) {
-      hash ^= this.encodedSequence[i];
-      hash = Math.imul(hash, 16777619);
-    }
-    // Include diff state in hash
-    if (this.currentState?.diffEnabled && this.currentState.diffMask) {
+
+    if (this.encodedSequence) {
       for (let i = start; i < end; i++) {
-        hash ^= this.currentState.diffMask[i] ?? 0;
+        hash ^= this.encodedSequence[i] ?? 0;
+        hash = Math.imul(hash, 16777619);
+      }
+    } else {
+      // AA view does not use nucleotide encoding; hash raw characters instead.
+      for (let i = start; i < end; i++) {
+        hash ^= sequence.charCodeAt(i) ?? 0;
+        hash = Math.imul(hash, 16777619);
+      }
+    }
+
+    // Include diff state in hash
+    const validDiffMask = diffEnabled && diffMask && diffMask.length === sequence.length ? diffMask : null;
+    if (validDiffMask) {
+      for (let i = start; i < end; i++) {
+        hash ^= validDiffMask[i] ?? 0;
         hash = Math.imul(hash, 16777619);
       }
     }
@@ -732,7 +746,7 @@ export class CanvasSequenceGridRenderer {
     rowStart: number,
     rowEnd: number,
     sequence: string,
-    aminoSequence: string,
+    _aminoSequence: string,
     viewMode: ViewMode,
     diffSequence: string | null,
     diffEnabled: boolean,
@@ -741,81 +755,29 @@ export class CanvasSequenceGridRenderer {
     const { cellWidth, cellHeight } = this;
     const drawAmino = viewMode === 'aa';
     const validDiffMask = diffMask && diffMask.length === sequence.length ? diffMask : null;
-
-    if (drawAmino) {
-      const rawFrame = this.currentState?.readingFrame ?? 0;
-      const isReverse = rawFrame < 0;
-      const forwardFrame: 0 | 1 | 2 = isReverse
-        ? ((Math.abs(rawFrame) - 1) as 0 | 1 | 2)
-        : (rawFrame as 0 | 1 | 2);
-      const seqLength = sequence.length;
-
-      let aaRowStart = rowStart;
-      if (!isReverse) {
-        const offset = ((aaRowStart - forwardFrame) % 3 + 3) % 3;
-        aaRowStart -= offset;
-      } else {
-        const target = seqLength - 3 - forwardFrame;
-        const offset = ((target - aaRowStart) % 3 + 3) % 3;
-        const shift = (3 - offset) % 3;
-        aaRowStart -= shift;
-      }
-
-      for (let i = aaRowStart; i < rowEnd; i += 3) {
-        let aaIndex: number;
-        if (!isReverse) {
-          const codonOffset = i - forwardFrame;
-          if (codonOffset < 0) continue;
-          aaIndex = Math.floor(codonOffset / 3);
-        } else {
-          const rcStart = seqLength - 3 - i;
-          const codonOffset = rcStart - forwardFrame;
-          if (codonOffset < 0) continue;
-          aaIndex = Math.floor(codonOffset / 3);
-        }
-        
-        const aaChar = aminoSequence[aaIndex] ?? 'X';
-        const col = i - rowStart;
-        const x = col * cellWidth;
-        const destWidth = Math.min(cellWidth * 3, (rowEnd - i) * cellWidth);
-        
-        let drawX = x;
-        let drawWidth = destWidth;
-        if (i < rowStart) {
-          const clip = (rowStart - i) * cellWidth;
-          drawX += clip;
-          drawWidth -= clip;
-        }
-        
-        if (drawWidth > 0) {
-          this.glyphAtlas.drawAminoAcid(ctx, aaChar, drawX, 0, drawWidth, cellHeight);
-        }
-      }
-      return;
-    }
+    const validDiffSequence = diffSequence && diffSequence.length === sequence.length ? diffSequence : null;
 
     for (let i = rowStart; i < rowEnd; i++) {
       const col = i - rowStart;
       const x = col * cellWidth;
-      const char = this.encodedSequence ? CODE_TO_CHAR[this.encodedSequence[i]] : sequence[i];
+      const char = drawAmino
+        ? sequence[i]
+        : (this.encodedSequence ? CODE_TO_CHAR[this.encodedSequence[i] ?? 4] : sequence[i]);
 
       let diffCode = 0;
       if (diffEnabled) {
         if (validDiffMask) {
           diffCode = validDiffMask[i] ?? 0;
-        } else if (diffSequence) {
-          diffCode = diffSequence[i] && diffSequence[i] !== char ? 1 : 0;
+        } else if (validDiffSequence) {
+          diffCode = validDiffSequence[i] && validDiffSequence[i] !== char ? 1 : 0;
         }
       }
 
       if (diffCode > 0) {
         this.drawDiffRect(ctx, x, 0, cellWidth, cellHeight, diffCode);
       } else {
-        if (drawAmino) {
-          this.glyphAtlas.drawAminoAcid(ctx, char, x, 0, cellWidth, cellHeight);
-        } else {
-          this.glyphAtlas.drawNucleotide(ctx, char, x, 0, cellWidth, cellHeight);
-        }
+        if (drawAmino) this.glyphAtlas.drawAminoAcid(ctx, char, x, 0, cellWidth, cellHeight);
+        else this.glyphAtlas.drawNucleotide(ctx, char, x, 0, cellWidth, cellHeight);
       }
     }
   }
@@ -837,6 +799,7 @@ export class CanvasSequenceGridRenderer {
   ): void {
     const { cellWidth, cellHeight } = this;
     const validDiffMask = diffMask && diffMask.length === sequence.length ? diffMask : null;
+    const validDiffSequence = diffSequence && diffSequence.length === sequence.length ? diffSequence : null;
     const rawFrame = this.currentState?.readingFrame ?? 0;
     const isReverse = rawFrame < 0;
     const forwardFrame: 0 | 1 | 2 = isReverse
@@ -854,8 +817,8 @@ export class CanvasSequenceGridRenderer {
       if (diffEnabled) {
         if (validDiffMask) {
           diffCode = validDiffMask[i] ?? 0;
-        } else if (diffSequence) {
-          diffCode = diffSequence[i] && diffSequence[i] !== char ? 1 : 0;
+        } else if (validDiffSequence) {
+          diffCode = validDiffSequence[i] && validDiffSequence[i] !== char ? 1 : 0;
         }
       }
 
@@ -1448,6 +1411,7 @@ export class CanvasSequenceGridRenderer {
     const rowWidth = layout.cols * this.cellWidth;
     const drawAmino = viewMode === 'aa';
     const validDiffMask = diffMask && diffMask.length === sequence.length ? diffMask : null;
+    const validDiffSequence = diffSequence && diffSequence.length === sequence.length ? diffSequence : null;
 
     // OPTIMIZATION: Batch uncached row backgrounds - find contiguous uncached row ranges
     // and fill them with a single fillRect call instead of one per row
@@ -1514,8 +1478,8 @@ export class CanvasSequenceGridRenderer {
           if (diffEnabled) {
             if (validDiffMask) {
               diffCode = validDiffMask[i] ?? 0;
-            } else if (diffSequence) {
-              diffCode = diffSequence[i] && diffSequence[i] !== char ? 1 : 0;
+            } else if (validDiffSequence) {
+              diffCode = validDiffSequence[i] && validDiffSequence[i] !== char ? 1 : 0;
             }
           }
 
@@ -1572,6 +1536,7 @@ export class CanvasSequenceGridRenderer {
 
     // Pre-validate diffMask length to avoid checking in inner loop
     const validDiffMask = diffMask && diffMask.length === sequence.length ? diffMask : null;
+    const validDiffSequence = diffSequence && diffSequence.length === sequence.length ? diffSequence : null;
 
     // Track alpha state to avoid excessive context calls
     let currentAlpha = 1.0;
@@ -1595,8 +1560,8 @@ export class CanvasSequenceGridRenderer {
         if (diffEnabled) {
           if (validDiffMask) {
             diffCode = validDiffMask[i] ?? 0;
-          } else if (diffSequence) {
-            diffCode = diffSequence[i] && diffSequence[i] !== char ? 1 : 0;
+          } else if (validDiffSequence) {
+            diffCode = validDiffSequence[i] && validDiffSequence[i] !== char ? 1 : 0;
           }
         }
 
@@ -1797,6 +1762,7 @@ export class CanvasSequenceGridRenderer {
       : (rawFrame as 0 | 1 | 2);
     const seqLength = sequence.length;
     const validDiffMask = diffMask && diffMask.length === sequence.length ? diffMask : null;
+    const validDiffSequence = diffSequence && diffSequence.length === sequence.length ? diffSequence : null;
 
     let currentAlpha = 1.0;
 
@@ -1818,8 +1784,8 @@ export class CanvasSequenceGridRenderer {
         if (diffEnabled) {
           if (validDiffMask) {
             diffCode = validDiffMask[i] ?? 0;
-          } else if (diffSequence) {
-            diffCode = diffSequence[i] && diffSequence[i] !== char ? 1 : 0;
+          } else if (validDiffSequence) {
+            diffCode = validDiffSequence[i] && validDiffSequence[i] !== char ? 1 : 0;
           }
         }
 
@@ -1957,6 +1923,11 @@ export class CanvasSequenceGridRenderer {
    */
   private updateCodonSnap(): void {
     if (!this.snapToCodon) {
+      this.scroller.setSnapToMultiple(null);
+      return;
+    }
+    // AA view is already codon-indexed; snapping to "3bp" doesn't apply.
+    if (this.currentState?.viewMode === 'aa') {
       this.scroller.setSnapToMultiple(null);
       return;
     }

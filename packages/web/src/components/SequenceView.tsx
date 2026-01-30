@@ -385,8 +385,16 @@ function SequenceViewBase({
   const latestVisibleRangeRef = useRef(visibleRange);
   latestVisibleRangeRef.current = visibleRange;
 
-  const sequenceLengthRef = useRef(sequence.length);
-  sequenceLengthRef.current = sequence.length;
+  const displaySequenceLength = useMemo(() => {
+    const len = sequence?.length ?? 0;
+    if (!len) return 0;
+    if (viewMode !== 'aa') return len;
+    const frameOffset = (readingFrame < 0 ? Math.abs(readingFrame) - 1 : readingFrame) as 0 | 1 | 2;
+    return Math.max(0, Math.floor((len - frameOffset) / 3));
+  }, [sequence, viewMode, readingFrame]);
+
+  const sequenceLengthRef = useRef(displaySequenceLength);
+  sequenceLengthRef.current = displaySequenceLength;
 
   // Desktop wheel/trackpad scroll: attach ONLY to the canvas wrapper so page scroll
   // works when pointer is over header controls. This fixes mousewheel page scroll.
@@ -532,8 +540,14 @@ function SequenceViewBase({
       if (!sequence || viewMode !== 'aa') return null;
 
       const frameOffset = (readingFrame < 0 ? Math.abs(readingFrame) - 1 : readingFrame) as 0 | 1 | 2;
-      const codonStart = frameOffset + aaIndex * 3;
-      if (aaIndex < 0) return null;
+      const aaLength = Math.max(0, Math.floor((sequence.length - frameOffset) / 3));
+      if (aaIndex < 0 || aaIndex >= aaLength) return null;
+
+      // In AA mode we reverse the display for negative frames, so the *display index*
+      // runs left-to-right along the forward genome. Map back to the reverse-complement
+      // translation index before computing codons.
+      const translationIndex = readingFrame < 0 ? aaLength - 1 - aaIndex : aaIndex;
+      const codonStart = frameOffset + translationIndex * 3;
 
       if (readingFrame >= 0) {
         if (codonStart + 3 > sequence.length) return null;
@@ -724,7 +738,7 @@ function SequenceViewBase({
 
   const frameLabel = readingFrame === 0 ? '+1' : readingFrame > 0 ? `+${readingFrame + 1}` : `${readingFrame}`;
   const zoomLabel = zoomPreset?.label ?? `${Math.round(zoomScale * 100)}%`;
-  const seqLength = sequence?.length ?? 0;
+  const seqLength = displaySequenceLength;
   const visibleStart = visibleRange?.startIndex ?? 0;
   const visibleEnd = visibleRange?.endIndex ?? Math.min(seqLength, visibleStart + 1);
   const visiblePercent = seqLength ? Math.round((visibleStart / seqLength) * 100) : 0;

@@ -7,7 +7,7 @@ test.describe('SearchOverlay Keyboard UX', () => {
 
     await test.step('Load app', async () => {
       await page.goto('/');
-      await expect(page.locator('header')).toBeVisible();
+      await expect(page.locator('header.app-header')).toBeVisible();
       await page.waitForTimeout(500); // Wait for hydration
     });
 
@@ -53,7 +53,7 @@ test.describe('SearchOverlay Keyboard UX', () => {
     const { finalize } = setupTestHarness(page, testInfo);
 
     await page.goto('/');
-    await expect(page.locator('header')).toBeVisible();
+    await expect(page.locator('header.app-header')).toBeVisible();
 
     await test.step('Open Search overlay', async () => {
       await page.keyboard.press('/');

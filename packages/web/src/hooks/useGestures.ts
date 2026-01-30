@@ -403,6 +403,9 @@ export interface UseGesturesOptions {
  *
  * Note: For simple use cases, prefer the individual hooks (useSwipe, useDragGesture, etc.)
  * as they are more optimized.
+ *
+ * IMPORTANT: All gesture hooks are called unconditionally to comply with React's
+ * Rules of Hooks. Unused handlers are given no-op callbacks.
  */
 export function useGestures(options: UseGesturesOptions) {
   const {
@@ -420,50 +423,44 @@ export function useGestures(options: UseGesturesOptions) {
     hapticFeedback = true,
   } = options;
 
-  // Individual bindings
-  const swipeBind = onSwipe
-    ? useSwipe({
-        onSwipe,
-        threshold: swipeThreshold,
-        velocityThreshold: swipeVelocityThreshold,
-        axis,
-        hapticFeedback,
-      })
-    : null;
+  // Always call all hooks unconditionally (React Rules of Hooks).
+  // Use no-op callbacks when the gesture type isn't needed.
+  const swipeBind = useSwipe({
+    onSwipe: onSwipe || (() => {}),
+    threshold: swipeThreshold,
+    velocityThreshold: swipeVelocityThreshold,
+    axis,
+    hapticFeedback: onSwipe ? hapticFeedback : false, // Disable haptics for no-op
+  });
 
-  const dragBind =
-    onDrag || onDragEnd
-      ? useDragGesture({
-          onDrag: onDrag || (() => {}),
-          onDragEnd,
-          axis,
-          bounds,
-          hapticFeedback,
-        })
-      : null;
+  const dragBind = useDragGesture({
+    onDrag: onDrag || (() => {}),
+    onDragEnd,
+    axis,
+    bounds,
+    hapticFeedback: onDrag || onDragEnd ? hapticFeedback : false,
+  });
 
-  const pinchBind =
-    onPinch || onPinchEnd
-      ? usePinchGesture({
-          onPinch: onPinch || (() => {}),
-          onPinchEnd,
-          scaleBounds,
-          hapticFeedback,
-        })
-      : null;
+  const pinchBind = usePinchGesture({
+    onPinch: onPinch || (() => {}),
+    onPinchEnd,
+    scaleBounds,
+    hapticFeedback: onPinch || onPinchEnd ? hapticFeedback : false,
+  });
 
-  const longPressBind = onLongPress
-    ? useLongPress({ onLongPress, hapticFeedback })
-    : null;
+  const longPressBind = useLongPress({
+    onLongPress: onLongPress || (() => {}),
+    hapticFeedback: onLongPress ? hapticFeedback : false,
+  });
 
-  // Merge bindings - prefer the primary gesture type
+  // Merge bindings - only include enabled gesture types
   return useCallback(
     () => ({
-      ...(swipeBind?.() ?? {}),
-      ...(dragBind?.() ?? {}),
-      ...(pinchBind?.() ?? {}),
-      ...(longPressBind?.() ?? {}),
+      ...(onSwipe ? swipeBind() : {}),
+      ...(onDrag || onDragEnd ? dragBind() : {}),
+      ...(onPinch || onPinchEnd ? pinchBind() : {}),
+      ...(onLongPress ? longPressBind() : {}),
     }),
-    [swipeBind, dragBind, pinchBind, longPressBind]
+    [swipeBind, dragBind, pinchBind, longPressBind, onSwipe, onDrag, onDragEnd, onPinch, onPinchEnd, onLongPress]
   );
 }

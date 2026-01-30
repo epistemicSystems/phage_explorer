@@ -75,7 +75,7 @@ test.describe('Overlay Lazy Loading', () => {
 
     await test.step('Cold load', async () => {
       await page.goto('/');
-      await expect(page.locator('header')).toBeVisible();
+      await expect(page.locator('header.app-header')).toBeVisible();
       // Wait for app to stabilize
       await page.waitForTimeout(1000);
       coldLoadEndMs = Date.now() - state.startTs;
@@ -218,7 +218,7 @@ test.describe('Overlay Lazy Loading', () => {
 
     await test.step('Cold load', async () => {
       await page.goto('/');
-      await expect(page.locator('header')).toBeVisible();
+      await expect(page.locator('header.app-header')).toBeVisible();
       await page.waitForTimeout(500);
     });
 

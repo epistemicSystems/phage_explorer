@@ -88,8 +88,15 @@ export class PostProcessingPipeline {
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       console.error(gl.getProgramInfoLog(program));
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
       throw new Error('Failed to link program');
     }
+
+    // Delete shaders after linking - they're now part of the program and
+    // keeping them around wastes GPU memory
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
 
     this.program = program;
 
@@ -143,7 +150,6 @@ export class PostProcessingPipeline {
     this.height = height;
     this.canvas.width = width;
     this.canvas.height = height;
-    this.gl.viewport(0, 0, width, height);
     // Maintain pixel ratio for crispness
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;

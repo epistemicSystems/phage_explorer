@@ -54,7 +54,7 @@ test.describe('Phage Selection Determinism', () => {
 
     await test.step('Cold load and wait for hydration', async () => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
-      await expect(page.locator('header')).toBeVisible();
+      await expect(page.locator('header.app-header')).toBeVisible();
       await dismissWelcomeIfPresent(page);
       // Wait for phage list to populate
       await expect(page.locator('[data-testid="phage-list"]')).toBeVisible({ timeout: 10000 });
@@ -154,7 +154,7 @@ test.describe('Phage Selection Determinism', () => {
 
     await test.step('Cold load', async () => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
-      await expect(page.locator('header')).toBeVisible();
+      await expect(page.locator('header.app-header')).toBeVisible();
       await dismissWelcomeIfPresent(page);
       await expect(page.locator('[data-testid="phage-list"]')).toBeVisible({ timeout: 10000 });
       await page.waitForTimeout(1000);
@@ -196,7 +196,7 @@ test.describe('Phage Selection Determinism', () => {
 
     await test.step('Cold load', async () => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
-      await expect(page.locator('header')).toBeVisible();
+      await expect(page.locator('header.app-header')).toBeVisible();
       await dismissWelcomeIfPresent(page);
       await expect(page.locator('[data-testid="phage-list"]')).toBeVisible({ timeout: 10000 });
       await page.waitForTimeout(1000);

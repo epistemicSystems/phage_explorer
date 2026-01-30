@@ -11,7 +11,7 @@ import { Overlay } from './Overlay';
 import { useOverlay } from './OverlayProvider';
 import { OverlayEmptyState, OverlayStack } from './primitives';
 
-function parseGotoTarget(raw: string, genomeLength: number): number | null {
+function parseGotoTarget(raw: string, sequenceLength: number): number | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
@@ -22,7 +22,7 @@ function parseGotoTarget(raw: string, genomeLength: number): number | null {
     const pct = Number.parseFloat(pctRaw);
     if (!Number.isFinite(pct)) return null;
     const clampedPct = Math.max(0, Math.min(100, pct));
-    return Math.floor((clampedPct / 100) * genomeLength);
+    return Math.floor((clampedPct / 100) * sequenceLength);
   }
 
   const idx = Number.parseInt(value, 10);
@@ -36,18 +36,25 @@ export function GotoOverlay(): React.ReactElement | null {
 
   const currentPhage = usePhageStore((s) => s.currentPhage);
   const viewMode = usePhageStore((s) => s.viewMode);
+  const readingFrame = usePhageStore((s) => s.readingFrame);
   const setScrollPosition = usePhageStore((s) => s.setScrollPosition);
 
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const genomeLength = currentPhage?.genomeLength ?? 0;
+  const displayLength = useMemo(() => {
+    if (!genomeLength) return 0;
+    if (viewMode !== 'aa') return genomeLength;
+    const frameOffset = (readingFrame < 0 ? Math.abs(readingFrame) - 1 : readingFrame) as 0 | 1 | 2;
+    return Math.max(0, Math.floor((genomeLength - frameOffset) / 3));
+  }, [genomeLength, readingFrame, viewMode]);
 
   const helpText = useMemo(() => {
-    const length = genomeLength > 0 ? genomeLength.toLocaleString() : '—';
+    const length = displayLength > 0 ? displayLength.toLocaleString() : '—';
     const unit = viewMode === 'aa' ? 'codon index' : 'nucleotide index';
     return `Enter an ${unit} or a percentage of the genome (length: ${length}).`;
-  }, [genomeLength, viewMode]);
+  }, [displayLength, viewMode]);
 
   const handleClose = useCallback(() => {
     setError(null);
@@ -56,18 +63,17 @@ export function GotoOverlay(): React.ReactElement | null {
   }, [close]);
 
   const handleGo = useCallback(() => {
-    if (!genomeLength) return;
-    const target = parseGotoTarget(input, genomeLength);
+    if (!displayLength) return;
+    const target = parseGotoTarget(input, displayLength);
     if (target === null) {
       setError('Enter a number like 12000, a percent like 25%, or a range like 1000-2000.');
       return;
     }
 
-    const clamped = Math.max(0, Math.min(genomeLength - 1, target));
-    const storeTarget = viewMode === 'aa' ? Math.floor(clamped / 3) : clamped;
-    setScrollPosition(storeTarget);
+    const clamped = Math.max(0, Math.min(displayLength - 1, target));
+    setScrollPosition(clamped);
     handleClose();
-  }, [genomeLength, handleClose, input, setScrollPosition, viewMode]);
+  }, [displayLength, handleClose, input, setScrollPosition]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) return;
@@ -160,4 +166,3 @@ export function GotoOverlay(): React.ReactElement | null {
 }
 
 export default GotoOverlay;
-

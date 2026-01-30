@@ -15,7 +15,6 @@ import { useOverlay, type OverlayId } from './OverlayProvider';
 import { ActionRegistryList } from '../../keyboard/actionRegistry';
 import { Overlay } from './Overlay';
 import ErrorBoundary from '../layout/ErrorBoundary';
-import { OverlayErrorState } from './primitives';
 
 const OVERLAY_TITLE_BY_ID = new Map<string, string>();
 for (const action of ActionRegistryList) {

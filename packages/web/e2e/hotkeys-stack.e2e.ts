@@ -7,7 +7,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
 
     await test.step('Cold load', async () => {
       await page.goto('/');
-      await expect(page.locator('header')).toBeVisible();
+      await expect(page.locator('header.app-header')).toBeVisible();
       await page.waitForTimeout(500); // Wait for hydration
     });
 
@@ -25,7 +25,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
       await expect(page.locator('[data-testid="overlay-aaKey"]')).toBeVisible();
 
       // Assert stack size is 3 (all visible)
-      const overlays = page.locator('[role="dialog"][data-testid^="overlay-"]');
+      const overlays = page.locator('.overlay[data-testid^="overlay-"]');
       expect(await overlays.count()).toBe(3);
     });
 
@@ -37,7 +37,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
       await expect(page.locator('[data-testid="overlay-commandPalette"]')).toBeVisible();
 
       // Expect stack size to remain 3 (Help should be evicted)
-      const overlays = page.locator('[role="dialog"][data-testid^="overlay-"]');
+      const overlays = page.locator('.overlay[data-testid^="overlay-"]');
       expect(await overlays.count()).toBe(3);
 
       // Help should be gone
@@ -71,7 +71,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
     const { finalize } = setupTestHarness(page, testInfo);
 
     await page.goto('/');
-    await expect(page.locator('header')).toBeVisible();
+    await expect(page.locator('header.app-header')).toBeVisible();
 
     // Open Help -> Settings
     await page.keyboard.press('?');
@@ -96,7 +96,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
     const { finalize } = setupTestHarness(page, testInfo);
 
     await page.goto('/');
-    await expect(page.locator('header')).toBeVisible();
+    await expect(page.locator('header.app-header')).toBeVisible();
 
     await test.step('Open Help overlay and verify detail toggle works', async () => {
       await page.keyboard.press('?');
@@ -151,7 +151,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
     const { finalize } = setupTestHarness(page, testInfo);
 
     await page.goto('/');
-    await expect(page.locator('header')).toBeVisible();
+    await expect(page.locator('header.app-header')).toBeVisible();
 
     await page.keyboard.press(':');
     const palette = page.locator('[data-testid="overlay-commandPalette"]');
@@ -179,7 +179,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
     const { finalize } = setupTestHarness(page, testInfo);
 
     await page.goto('/');
-    await expect(page.locator('header')).toBeVisible();
+    await expect(page.locator('header.app-header')).toBeVisible();
     await page.waitForTimeout(500);
 
     // Use data-testid for stable selector
@@ -223,7 +223,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
     const { finalize } = setupTestHarness(page, testInfo);
 
     await page.goto('/');
-    await expect(page.locator('header')).toBeVisible();
+    await expect(page.locator('header.app-header')).toBeVisible();
     await page.waitForTimeout(500);
 
     const settings = page.locator('[data-testid="overlay-settings"]');
@@ -251,7 +251,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
     const { finalize } = setupTestHarness(page, testInfo);
 
     await page.goto('/');
-    await expect(page.locator('header')).toBeVisible();
+    await expect(page.locator('header.app-header')).toBeVisible();
     await page.waitForTimeout(500);
 
     // Note: Analysis overlays require a phage to be loaded
@@ -289,7 +289,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
     const { finalize } = setupTestHarness(page, testInfo);
 
     await page.goto('/');
-    await expect(page.locator('header')).toBeVisible();
+    await expect(page.locator('header.app-header')).toBeVisible();
     await page.waitForTimeout(500);
 
     // Open command palette

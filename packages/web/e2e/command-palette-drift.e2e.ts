@@ -30,7 +30,7 @@ test.describe('Command Palette Drift', () => {
 
     try {
       await page.goto('/');
-      await expect(page.locator('header')).toBeVisible();
+      await expect(page.locator('header.app-header')).toBeVisible();
 
       // Open Command Palette
       await page.keyboard.press(':');

@@ -127,13 +127,17 @@ export async function cacheStructure(
 
 /**
  * Evict oldest entries if cache exceeds size limit.
+ *
+ * Note: IndexedDB transactions auto-commit when the event loop is idle,
+ * so we must avoid awaiting between operations within a single transaction.
+ * We solve this by first reading entries in one transaction, then deleting
+ * in a separate transaction without any awaits between delete requests.
  */
 async function evictIfNeeded(db: IDBDatabase): Promise<void> {
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  const store = tx.objectStore(STORE_NAME);
-
-  // Get all entries to calculate total size
+  // Phase 1: Read all entries to determine what to evict
   const entries: CachedStructure[] = await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
     const request = store.getAll();
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
@@ -146,17 +150,30 @@ async function evictIfNeeded(db: IDBDatabase): Promise<void> {
   // Sort by accessedAt ascending (oldest first)
   entries.sort((a, b) => a.accessedAt - b.accessedAt);
 
-  // Delete oldest until under limit
+  // Determine which entries to delete
+  const keysToDelete: string[] = [];
   for (const entry of entries) {
     if (totalSize <= MAX_CACHE_SIZE_BYTES) break;
     totalSize -= entry.sizeBytes;
-
-    await new Promise<void>((resolve, reject) => {
-      const request = store.delete(entry.pdbId);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
+    keysToDelete.push(entry.pdbId);
   }
+
+  if (keysToDelete.length === 0) return;
+
+  // Phase 2: Delete all entries in a single transaction without awaiting
+  // between operations (to prevent transaction auto-commit)
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+
+    // Issue all delete requests synchronously (no await between them)
+    for (const key of keysToDelete) {
+      store.delete(key);
+    }
+  });
 }
 
 /**
