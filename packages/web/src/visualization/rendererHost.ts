@@ -81,7 +81,10 @@ export class RendererHost {
     }
     this.source = null;
     this.externalSource = null;
+    // Dispose renderer and atlas to release canvas resources
+    this.renderer?.dispose();
     this.renderer = null;
+    this.atlas?.dispose();
     this.atlas = null;
   }
 

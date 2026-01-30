@@ -126,5 +126,32 @@ export class GlyphAtlas {
     if (upper === 'N') return colors.unknown ?? '#94a3b8';
     return colors.text ?? '#e2e8f0';
   }
+
+  /**
+   * Dispose resources to prevent memory leaks.
+   */
+  dispose(): void {
+    if (!this.build) return;
+
+    // Clear the canvas to release pixel memory
+    this.build.context.clearRect(
+      0,
+      0,
+      this.build.canvas.width,
+      this.build.canvas.height
+    );
+
+    // Shrink canvas to release memory
+    if (this.build.canvas instanceof HTMLCanvasElement) {
+      this.build.canvas.width = 1;
+      this.build.canvas.height = 1;
+    } else if (typeof OffscreenCanvas !== 'undefined' && this.build.canvas instanceof OffscreenCanvas) {
+      this.build.canvas.width = 1;
+      this.build.canvas.height = 1;
+    }
+
+    this.build.entries.clear();
+    this.build = null;
+  }
 }
 
