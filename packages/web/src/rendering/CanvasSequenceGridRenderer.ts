@@ -2352,6 +2352,10 @@ export class CanvasSequenceGridRenderer {
     // Release back buffer resources
     this.backCtx = null;
     this.backBuffer = null;
+
+    // Release scanline pattern resources
+    this.scanlinePattern = null;
+    this.scanlinePatternCtx = null;
   }
 
   private requestRaf(callback: FrameRequestCallback): number | ReturnType<typeof setTimeout> {
