@@ -87,8 +87,8 @@
 .fab--open {
   background: var(--color-background-elevated);
   color: var(--color-text);
-  /* Backdrop is z-modal-backdrop (400), so FAB needs to be above it */
-  z-index: calc(var(--z-modal-backdrop) + 10);
+  /* Ensure the close button stays above the bottom sheet (z-modal) it controls. */
+  z-index: calc(var(--z-modal) + 10);
   animation: none;
   box-shadow:
     0 8px 20px rgba(0, 0, 0, 0.35),
