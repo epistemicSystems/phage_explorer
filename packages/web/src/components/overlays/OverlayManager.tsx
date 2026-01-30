@@ -143,8 +143,103 @@ function OverlayFallback({ id }: { id: OverlayId }): React.ReactElement {
 }
 
 /**
+ * Simple error fallback that doesn't depend on the Overlay/BottomSheet components.
+ * This ensures the fallback renders even if mobile sheet rendering is broken.
+ */
+function SimpleOverlayErrorFallback({
+  id,
+  error,
+  errorInfo,
+  reset,
+  close,
+}: {
+  id: OverlayId;
+  error: Error | null;
+  errorInfo: React.ErrorInfo | null;
+  reset: () => void;
+  close: () => void;
+}): React.ReactElement {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 600,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        padding: '1rem',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) close();
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: 'var(--color-background-elevated, #1a1a2e)',
+          borderRadius: '8px',
+          padding: '1.5rem',
+          maxWidth: '400px',
+          width: '100%',
+          color: 'var(--color-text, #e0e0e0)',
+        }}
+      >
+        <h3 style={{ margin: '0 0 1rem', color: 'var(--color-error, #ef4444)' }}>
+          {formatOverlayTitle(id)} Error
+        </h3>
+        <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', opacity: 0.8 }}>
+          This overlay encountered an error and couldn&apos;t load.
+        </p>
+        {import.meta.env.DEV && (error || errorInfo) && (
+          <details style={{ marginBottom: '1rem', fontSize: '0.8rem' }}>
+            <summary style={{ cursor: 'pointer', opacity: 0.7 }}>Error details</summary>
+            <pre style={{ overflow: 'auto', maxHeight: '150px', marginTop: '0.5rem', fontSize: '0.75rem' }}>
+              {formatOverlayErrorDetails(error, errorInfo)}
+            </pre>
+          </details>
+        )}
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={close}
+            style={{
+              padding: '0.5rem 1rem',
+              border: '1px solid var(--color-border, #333)',
+              borderRadius: '4px',
+              background: 'transparent',
+              color: 'inherit',
+              cursor: 'pointer',
+            }}
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={reset}
+            style={{
+              padding: '0.5rem 1rem',
+              border: 'none',
+              borderRadius: '4px',
+              background: 'var(--color-primary, #3b82f6)',
+              color: 'white',
+              cursor: 'pointer',
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Wrapper for eager overlays - provides isolated error handling so a single
  * overlay crash doesn't take down the whole app.
+ *
+ * Uses SimpleOverlayErrorFallback instead of Overlay to avoid cascading failures
+ * if the Overlay/BottomSheet component itself is the source of the error.
  */
 function EagerOverlayBoundary({
   id,
@@ -153,18 +248,45 @@ function EagerOverlayBoundary({
   id: OverlayId;
   children: React.ReactNode;
 }): React.ReactElement {
-  const { isMobile } = useOverlay();
-  const size = isMobile ? 'sm' : 'lg';
+  const { close } = useOverlay();
   return (
     <ErrorBoundary
       fallback={({ error, errorInfo, reset }) => (
-        <Overlay id={id} title={formatOverlayTitle(id)} size={size}>
-          <OverlayErrorState
-            message="This overlay hit an unexpected error."
-            details={import.meta.env.DEV ? formatOverlayErrorDetails(error, errorInfo) : undefined}
-            onRetry={reset}
-          />
-        </Overlay>
+        <SimpleOverlayErrorFallback
+          id={id}
+          error={error}
+          errorInfo={errorInfo}
+          reset={reset}
+          close={() => close(id)}
+        />
+      )}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+}
+
+/**
+ * Wrapper for lazy overlays - same error isolation as EagerOverlayBoundary.
+ */
+function LazyOverlayBoundary({
+  id,
+  children,
+}: {
+  id: OverlayId;
+  children: React.ReactNode;
+}): React.ReactElement {
+  const { close } = useOverlay();
+  return (
+    <ErrorBoundary
+      fallback={({ error, errorInfo, reset }) => (
+        <SimpleOverlayErrorFallback
+          id={id}
+          error={error}
+          errorInfo={errorInfo}
+          reset={reset}
+          close={() => close(id)}
+        />
       )}
     >
       {children}
@@ -173,8 +295,7 @@ function EagerOverlayBoundary({
 }
 
 export function OverlayManager({ repository, currentPhage }: OverlayManagerProps): React.ReactElement | null {
-  const { stack, isMobile } = useOverlay();
-  const size = isMobile ? 'sm' : 'lg';
+  const { stack } = useOverlay();
 
   const lazyOverlays = stack
     .map((item) => item.id)
@@ -203,20 +324,9 @@ export function OverlayManager({ repository, currentPhage }: OverlayManagerProps
 
       {/* LAZY: Analysis overlays loaded only when open */}
       {lazyOverlays.map(({ id, element }) => (
-        <ErrorBoundary
-          key={id}
-          fallback={({ error, errorInfo, reset }) => (
-            <Overlay id={id} title={formatOverlayTitle(id)} size={size}>
-              <OverlayErrorState
-                message="This overlay hit an unexpected error."
-                details={import.meta.env.DEV ? formatOverlayErrorDetails(error, errorInfo) : undefined}
-                onRetry={reset}
-              />
-            </Overlay>
-          )}
-        >
+        <LazyOverlayBoundary key={id} id={id}>
           <Suspense fallback={<OverlayFallback id={id} />}>{element}</Suspense>
-        </ErrorBoundary>
+        </LazyOverlayBoundary>
       ))}
     </>
   );
