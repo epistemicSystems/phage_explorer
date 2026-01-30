@@ -3,44 +3,72 @@ import { setupTestHarness } from './e2e-harness';
 import { ActionRegistry, ActionIds } from '../src/keyboard/actionRegistry';
 import { formatPrimaryActionShortcut, type ShortcutPlatform } from '../src/keyboard/actionSurfaces';
 
+async function captureErrorBoundaryDetails(page: import('@playwright/test').Page, testInfo: import('@playwright/test').TestInfo) {
+  const boundary = page.locator('.error-boundary');
+  const visible = await boundary.isVisible().catch(() => false);
+  if (!visible) return;
+
+  const details = boundary.locator('details');
+  if (await details.count()) {
+    const summary = details.locator('summary');
+    await summary.click().catch(() => null);
+  }
+
+  const pre = boundary.locator('pre');
+  const detailsText = await pre.innerText().catch(() => null);
+  if (detailsText) {
+    await testInfo.attach('error-boundary.txt', {
+      body: detailsText,
+      contentType: 'text/plain',
+    });
+  }
+}
+
 test.describe('Command Palette Drift', () => {
   test('should display shortcuts matching ActionRegistry', async ({ page }, testInfo) => {
     const { finalize } = setupTestHarness(page, testInfo);
 
-    await page.goto('/');
-    await expect(page.locator('header')).toBeVisible();
+    try {
+      await page.goto('/');
+      await expect(page.locator('header')).toBeVisible();
 
-    // Open Command Palette
-    await page.keyboard.press(':');
-    const palette = page.locator('.overlay-commandPalette');
-    await expect(palette).toBeVisible();
+      // Open Command Palette
+      await page.keyboard.press(':');
+      const palette = page.locator('.overlay-commandPalette');
 
-    // Check a few key actions
-    const shortcutPlatform = await page.evaluate((): ShortcutPlatform => {
-      const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-      const platform = (nav.userAgentData?.platform ?? navigator.platform ?? '').toLowerCase();
-      return platform.includes('mac') ? 'mac' : 'default';
-    });
+      // If the app crashed, attach details for debugging.
+      await captureErrorBoundaryDetails(page, testInfo);
+      await expect(page.locator('.error-boundary')).toBeHidden();
 
-    const checkAction = async (actionId: string) => {
-      const action = ActionRegistry[actionId as keyof typeof ActionRegistry];
-      if (!action) return;
-      
-      // Find the item in the palette
-      const item = palette.locator('[role="option"]', { hasText: action.title }).first();
-      await expect(item).toBeVisible();
+      await expect(palette).toBeVisible();
 
-      const expected = formatPrimaryActionShortcut(action, shortcutPlatform);
-      expect(expected).toBeTruthy();
+      // Check a few key actions
+      const shortcutPlatform = await page.evaluate((): ShortcutPlatform => {
+        const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+        const platform = (nav.userAgentData?.platform ?? navigator.platform ?? '').toLowerCase();
+        return platform.includes('mac') ? 'mac' : 'default';
+      });
 
-      const shortcutHint = item.locator('.key-hint').first();
-      await expect(shortcutHint).toHaveText(expected!);
-    };
+      const checkAction = async (actionId: string) => {
+        const action = ActionRegistry[actionId as keyof typeof ActionRegistry];
+        if (!action) return;
 
-    await checkAction(ActionIds.OverlaySettings);
-    await checkAction(ActionIds.OverlayHelp);
-    await checkAction(ActionIds.ViewToggle3DModel);
+        // Find the item in the palette
+        const item = palette.locator('[role="option"]', { hasText: action.title }).first();
+        await expect(item).toBeVisible();
 
-    await finalize();
+        const expected = formatPrimaryActionShortcut(action, shortcutPlatform);
+        expect(expected).toBeTruthy();
+
+        const shortcutHint = item.locator('.key-hint').first();
+        await expect(shortcutHint).toHaveText(expected!);
+      };
+
+      await checkAction(ActionIds.OverlaySettings);
+      await checkAction(ActionIds.OverlayHelp);
+      await checkAction(ActionIds.ViewToggle3DModel);
+    } finally {
+      await finalize();
+    }
   });
 });
