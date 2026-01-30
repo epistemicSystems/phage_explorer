@@ -1721,6 +1721,13 @@ textarea:focus-visible,
     transform var(--duration-micro) var(--ease-out);
 }
 
+@media (max-width: 768px) {
+  /* Mobile/tablet: avoid subpixel rounding that can dip below WCAG 44px touch target. */
+  .view-mode-segment {
+    min-height: 45px;
+  }
+}
+
 /* Active state - let sliding indicator provide background */
 .view-mode-segment.active {
   color: var(--view-toggle-active-text, var(--color-background));
