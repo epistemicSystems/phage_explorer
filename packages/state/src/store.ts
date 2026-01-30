@@ -846,7 +846,8 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
       if (storedBeginnerMode !== null) {
         try {
           const val = JSON.parse(storedBeginnerMode);
-          if (val !== beginnerModeEnabled) {
+          // Only accept boolean values to prevent type corruption
+          if (typeof val === 'boolean' && val !== beginnerModeEnabled) {
             beginnerModeEnabled = val;
             hasChanges = true;
           }
@@ -858,8 +859,10 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
         try {
           const val = JSON.parse(storedTours);
           if (Array.isArray(val)) {
+            // Filter to strings only to prevent type corruption
+            const validTours = val.filter((t): t is string => typeof t === 'string');
             // Merge unique
-            const next = Array.from(new Set([...completedTours, ...val]));
+            const next = Array.from(new Set([...completedTours, ...validTours]));
             if (next.length !== completedTours.length) {
               completedTours = next;
               hasChanges = true;
@@ -873,7 +876,9 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
         try {
           const val = JSON.parse(storedModules);
           if (Array.isArray(val)) {
-            const next = Array.from(new Set([...completedModules, ...val]));
+            // Filter to strings only to prevent type corruption
+            const validModules = val.filter((m): m is string => typeof m === 'string');
+            const next = Array.from(new Set([...completedModules, ...validModules]));
             if (next.length !== completedModules.length) {
               completedModules = next;
               hasChanges = true;

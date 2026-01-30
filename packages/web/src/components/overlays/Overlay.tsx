@@ -216,12 +216,16 @@ export function Overlay({
   }, []);
 
   // Clean up focus tracking on unmount to prevent memory leaks
-  // This runs once on unmount regardless of overlay state
+  // Only delete if the overlay is not open (to preserve Suspense swap behavior)
   useEffect(() => {
     const overlayId = id;
     return () => {
-      // Always clean up on unmount to prevent DOM element leaks
-      PREVIOUS_FOCUS_BY_OVERLAY_ID.delete(overlayId);
+      // Only clean up if the overlay is actually closed.
+      // If still "open" during unmount (e.g., Suspense swap), preserve the entry
+      // so the replacement component can restore focus correctly.
+      if (!overlayIsOpenLatestRef.current) {
+        PREVIOUS_FOCUS_BY_OVERLAY_ID.delete(overlayId);
+      }
     };
   }, [id]);
 
