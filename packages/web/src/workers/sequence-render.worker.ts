@@ -130,15 +130,16 @@ const initRenderer = (msg: Extract<WorkerMessage, { type: 'init' }>) => {
 };
 
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
-  const msg = event.data;
-  if (msg.type === 'init') {
-    initRenderer(msg);
-    return;
-  }
+  try {
+    const msg = event.data;
+    if (msg.type === 'init') {
+      initRenderer(msg);
+      return;
+    }
 
-  if (!renderer) return;
+    if (!renderer) return;
 
-  switch (msg.type) {
+    switch (msg.type) {
     case 'resize':
       renderer.resize(msg.width, msg.height);
       post({
@@ -231,5 +232,8 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       break;
     default:
       break;
+  }
+  } catch (error) {
+    post({ type: 'error', message: error instanceof Error ? error.message : String(error) });
   }
 };

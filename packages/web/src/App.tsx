@@ -278,11 +278,14 @@ export default function App(): React.ReactElement {
       lastScrollActivityAtRef.current = performance.now();
     };
 
-    document.addEventListener('wheel', markWheel, { passive: true, capture: true });
-    document.addEventListener('touchmove', markTouch, { passive: true, capture: true });
+    // IMPORTANT: options must match exactly for removeEventListener to work
+    const wheelOptions = { passive: true, capture: true } as const;
+    const touchOptions = { passive: true, capture: true } as const;
+    document.addEventListener('wheel', markWheel, wheelOptions);
+    document.addEventListener('touchmove', markTouch, touchOptions);
     return () => {
-      document.removeEventListener('wheel', markWheel, { capture: true } as AddEventListenerOptions);
-      document.removeEventListener('touchmove', markTouch, { capture: true } as AddEventListenerOptions);
+      document.removeEventListener('wheel', markWheel, wheelOptions);
+      document.removeEventListener('touchmove', markTouch, touchOptions);
     };
   }, []);
 

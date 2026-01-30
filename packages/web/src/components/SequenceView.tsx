@@ -656,7 +656,8 @@ function SequenceViewBase({
         if (!touch || !start) return;
         const dx = touch.clientX - start.x;
         const dy = touch.clientY - start.y;
-        if (dx * dx + dy * dy > 12 * 12) {
+        // 22px threshold accounts for finger jitter and prevents accidental cancellation
+        if (dx * dx + dy * dy > 22 * 22) {
           clearTimeout(longPressTimerRef.current);
           longPressTimerRef.current = null;
           touchStartRef.current = null;

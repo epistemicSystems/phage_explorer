@@ -462,6 +462,29 @@ export class GlyphAtlas {
   }
 
   /**
+   * Dispose resources to prevent memory leaks.
+   * Call this when the atlas is no longer needed (e.g., on component unmount).
+   */
+  dispose(): void {
+    // Clear canvas to release pixel data memory
+    this.ctx.clearRect(0, 0, this.atlasWidth, this.atlasHeight);
+
+    // Reset dimensions to minimum to reduce memory footprint
+    if (this.canvas instanceof HTMLCanvasElement) {
+      this.canvas.width = 1;
+      this.canvas.height = 1;
+    } else if (this.canvas instanceof OffscreenCanvas) {
+      // OffscreenCanvas dimensions can also be reduced
+      this.canvas.width = 1;
+      this.canvas.height = 1;
+    }
+
+    // Clear glyph references
+    this.nucleotideGlyphs.length = 0;
+    this.aminoAcidGlyphs.length = 0;
+  }
+
+  /**
    * Create a new atlas with different options
    */
   static create(

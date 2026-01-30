@@ -10,6 +10,22 @@ import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 /** Session-only scroll position cache keyed by route/identifier */
 const scrollPositionCache = new Map<string, number>();
 
+/** Maximum entries to prevent unbounded memory growth */
+const MAX_CACHE_ENTRIES = 50;
+
+/** Evict oldest entries if cache exceeds max size (simple FIFO) */
+function evictIfNeeded(): void {
+  if (scrollPositionCache.size <= MAX_CACHE_ENTRIES) return;
+  // Map iteration order is insertion order - delete oldest entries
+  const keysToDelete = scrollPositionCache.size - MAX_CACHE_ENTRIES;
+  let deleted = 0;
+  for (const key of scrollPositionCache.keys()) {
+    if (deleted >= keysToDelete) break;
+    scrollPositionCache.delete(key);
+    deleted++;
+  }
+}
+
 export interface UseScrollRestorationOptions {
   /** Unique key for this scroll context (e.g. route path, list id) */
   key: string;
@@ -54,6 +70,7 @@ export function useScrollRestoration(
         rafIdRef.current = null;
         if (el) {
           scrollPositionCache.set(key, el.scrollTop);
+          evictIfNeeded();
         }
       });
     };
