@@ -7,6 +7,7 @@
  * - Subtle mode for learned users
  * - Hides at navigation boundaries (first/last phage)
  * - Respects reduced motion preferences
+ * - Clickable for fallback navigation
  */
 
 import React from 'react';
@@ -22,6 +23,10 @@ interface SwipeIndicatorsProps {
   showPulse?: boolean;
   /** Subtle mode for users who have learned the gesture */
   isSubtle?: boolean;
+  /** Handler for previous phage navigation */
+  onPrev?: () => void;
+  /** Handler for next phage navigation */
+  onNext?: () => void;
 }
 
 /**
@@ -68,6 +73,8 @@ export function SwipeIndicators({
   isVisible,
   showPulse = false,
   isSubtle = false,
+  onPrev,
+  onNext,
 }: SwipeIndicatorsProps): React.ReactElement | null {
   // Don't render if not visible (desktop or no phages)
   if (!isVisible) {
@@ -99,19 +106,31 @@ export function SwipeIndicators({
 
   return (
     <>
-      {/* Left arrow - swipe right to go to previous phage */}
-      <div className={leftClasses} aria-hidden="true">
+      {/* Left arrow - swipe right (or tap) to go to previous phage */}
+      <button
+        type="button"
+        className={leftClasses}
+        onClick={onPrev}
+        disabled={isFirst}
+        aria-label="Previous phage"
+      >
         <div className="swipe-indicator__arrow">
           <ChevronLeft />
         </div>
-      </div>
+      </button>
 
-      {/* Right arrow - swipe left to go to next phage */}
-      <div className={rightClasses} aria-hidden="true">
+      {/* Right arrow - swipe left (or tap) to go to next phage */}
+      <button
+        type="button"
+        className={rightClasses}
+        onClick={onNext}
+        disabled={isLast}
+        aria-label="Next phage"
+      >
         <div className="swipe-indicator__arrow">
           <ChevronRight />
         </div>
-      </div>
+      </button>
     </>
   );
 }

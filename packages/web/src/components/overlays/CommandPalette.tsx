@@ -790,6 +790,11 @@ export function CommandPalette({ commands: customCommands, context: propContext 
     selectedElement?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 
+  const paletteHotkey = useMemo(() => {
+    const action = ActionRegistryList.find((a) => a.id === ActionIds.OverlayCommandPalette);
+    return action ? formatRegistryShortcut(action.defaultShortcut) : '';
+  }, []);
+
   if (!paletteOpen) {
     return null;
   }
@@ -802,11 +807,6 @@ export function CommandPalette({ commands: customCommands, context: propContext 
     acc[cmd.category].push(cmd);
     return acc;
   }, {} as Record<string, Command[]>);
-
-  const paletteHotkey = useMemo(() => {
-    const action = ActionRegistryList.find((a) => a.id === ActionIds.OverlayCommandPalette);
-    return action ? formatRegistryShortcut(action.defaultShortcut) : '';
-  }, []);
 
   let flatIndex = 0;
 
@@ -863,6 +863,7 @@ export function CommandPalette({ commands: customCommands, context: propContext 
         {/* Search input */}
         <input
           ref={inputRef}
+          data-overlay-autofocus="true"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

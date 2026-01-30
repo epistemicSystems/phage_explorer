@@ -9,7 +9,7 @@
  * - Animation support
  */
 
-import React, { useRef, useEffect, useCallback, useMemo, useState, type ReactNode, type CSSProperties } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useCallback, useMemo, useState, type ReactNode, type CSSProperties } from 'react';
 import { useOverlay, useOverlayZIndex, type OverlayId } from './OverlayProvider';
 import { BottomSheet } from '../mobile/BottomSheet';
 import { useReducedMotion } from '../../hooks';
@@ -162,7 +162,6 @@ export function Overlay({
   const overlayIsOpenLatestRef = useRef(overlayIsOpen);
   overlayIsOpenLatestRef.current = overlayIsOpen;
   const overlayStackItem = stack.find((item) => item.id === id);
-  const closeOnEscape = overlayStackItem?.config.closeOnEscape ?? true;
   const closeOnBackdrop = overlayStackItem?.config.closeOnBackdrop ?? true;
   // Use context-provided mobile detection for consistency
   const effectivePosition: OverlayPosition = isMobile && position === 'center' ? 'bottom' : position;
@@ -217,7 +216,7 @@ export function Overlay({
   }, []);
 
   // Focus trap - must be called unconditionally before any early return
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!overlayIsOpen) return;
 
     const overlay = overlayRef.current;
@@ -231,7 +230,19 @@ export function Overlay({
       PREVIOUS_FOCUS_BY_OVERLAY_ID.set(id, activeElement);
     }
     previousFocus.current = PREVIOUS_FOCUS_BY_OVERLAY_ID.get(id) ?? activeElement;
-    overlay.focus();
+
+    // Prefer focusing an explicitly marked element (e.g. command palette input),
+    // otherwise focus the first focusable element, else the overlay container.
+    const preferredFocus =
+      overlay.querySelector<HTMLElement>('[data-overlay-autofocus]') ??
+      overlay.querySelector<HTMLElement>('[autofocus]') ??
+      overlay.querySelector<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+
+    if (preferredFocus && typeof preferredFocus.focus === 'function') {
+      preferredFocus.focus();
+    } else {
+      overlay.focus();
+    }
 
     // Get all focusable elements
     const focusableElements = overlay.querySelectorAll<HTMLElement>(
@@ -258,23 +269,11 @@ export function Overlay({
         }
       }
     };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (e.isComposing) return;
-      if (e.defaultPrevented) return;
-      if (!closeOnEscape) return;
-      e.stopPropagation();
-      handleClose();
-    };
-
-    overlay.addEventListener('keydown', handleEscape);
     if (focusableElements.length > 0) {
       overlay.addEventListener('keydown', handleTab);
     }
 
     return () => {
-      overlay.removeEventListener('keydown', handleEscape);
       if (focusableElements.length > 0) {
         overlay.removeEventListener('keydown', handleTab);
       }
@@ -301,7 +300,7 @@ export function Overlay({
         stored.focus();
       }
     };
-  }, [overlayIsOpen, handleClose, closeOnEscape]);
+  }, [overlayIsOpen, id]);
 
   // Don't render if not open AND not exiting - AFTER all hooks
   if (!overlayIsOpen && !isExiting) {
