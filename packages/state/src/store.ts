@@ -668,18 +668,25 @@ export const usePhageStore = create<PhageExplorerStore>((set, get) => ({
   },
 
   toggleOverlay: (id) => {
-    const { overlays } = get();
-    if (overlays.includes(id)) {
-      set({ overlays: overlays.filter(o => o !== id) });
-    } else {
-      get().openOverlay(id);
-    }
+    // Use atomic state update to prevent race conditions
+    set(state => {
+      if (state.overlays.includes(id)) {
+        return { overlays: state.overlays.filter(o => o !== id) };
+      }
+      // Inline openOverlay logic to avoid nested get() calls
+      const filtered = state.overlays.filter(o => o !== id);
+      const next = [...filtered, id];
+      return {
+        overlays: next.slice(-3),
+        ...(id === 'help' ? { helpDetail: 'essential' as HelpDetailLevel } : {}),
+      };
+    });
   },
 
   closeAllOverlays: () => set({ overlays: [] }),
 
   setHelpDetail: (level) => set({ helpDetail: level }),
-  setOverlayData: (data) => set({ overlayData: data }),
+  setOverlayData: (data) => set(state => ({ overlayData: { ...state.overlayData, ...data } })),
   setExperienceLevel: (level) => set({ experienceLevel: level }),
   promoteExperienceLevel: (level) => {
     set(state => {

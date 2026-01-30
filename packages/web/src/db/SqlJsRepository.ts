@@ -250,16 +250,23 @@ export class SqlJsRepository implements PhageRepository {
   }
 
   /**
-   * Execute a prepared statement and return results
+   * Execute a prepared statement and return results.
+   * Uses try-finally to ensure statement is always reset even on exceptions.
    */
   private execStatement<T>(stmt: Statement, params: unknown[] = []): T[] {
-    stmt.bind(params);
-    const results: T[] = [];
-    while (stmt.step()) {
-      results.push(stmt.getAsObject() as T);
+    try {
+      stmt.bind(params);
+      const results: T[] = [];
+      while (stmt.step()) {
+        const row = stmt.getAsObject();
+        if (row) {
+          results.push(row as T);
+        }
+      }
+      return results;
+    } finally {
+      stmt.reset();
     }
-    stmt.reset();
-    return results;
   }
 
   async listPhages(): Promise<PhageSummary[]> {

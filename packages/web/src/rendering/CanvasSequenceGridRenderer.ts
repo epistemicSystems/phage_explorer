@@ -2311,6 +2311,7 @@ export class CanvasSequenceGridRenderer {
     }
     if (this.scrollEndTimer !== null) {
       clearTimeout(this.scrollEndTimer);
+      this.scrollEndTimer = null;
     }
     this.postProcess?.dispose?.();
     this.scroller.dispose();
