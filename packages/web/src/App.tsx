@@ -1412,6 +1412,8 @@ export default function App(): React.ReactElement {
             isVisible={phages.length > 1}
             showPulse={!hasLearnedMobileSwipe}
             isSubtle={hasLearnedMobileSwipe}
+            onPrev={handlePrevPhage}
+            onNext={handleNextPhage}
           />
           <FloatingActionButton
             isOpen={actionDrawerOpen}

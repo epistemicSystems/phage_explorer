@@ -1,123 +1,84 @@
 /* =============================================================================
-   SWIPE NAVIGATION INDICATORS
-   Subtle edge arrows that hint at swipe navigation on mobile
+   SWIPE INDICATORS
+   Visual hints for side-swipe navigation
    ============================================================================= */
 
 .swipe-indicator {
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
-  z-index: var(--z-sticky); /* 200 - below FAB/ControlDeck (300), above content */
-  opacity: 0.6;
-  pointer-events: none; /* Decorative only - don't interfere with touch */
-  transition: opacity var(--duration-normal) var(--ease-out);
-  display: none; /* Hidden by default, shown via media query */
-  /* GPU layer hint for fixed positioning */
-  will-change: opacity;
-}
-
-.swipe-indicator--left {
-  left: 8px;
-}
-
-.swipe-indicator--right {
-  right: 8px;
-}
-
-/* Arrow icon styling */
-.swipe-indicator__arrow {
-  width: 24px;
-  height: 24px;
+  z-index: var(--z-toast); /* Above most things, below overlay */
+  pointer-events: none; /* Default: allow clicks through (unless button) */
+  opacity: 0;
+  transition: opacity 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6); /* Solid bg instead of blur for mobile perf */
-  /* backdrop-filter removed - causes flickering on mobile scroll */
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-full);
-  color: var(--color-text-dim);
-  box-shadow: var(--shadow-sm);
-  will-change: transform, opacity; /* Hint for animation layers */
+  width: 48px;
+  height: 80px;
+  /* Enhance visibility */
+  color: var(--color-primary);
+  filter: drop-shadow(0 0 8px rgba(0,0,0,0.5));
 }
 
-.swipe-indicator__arrow svg {
-  width: 14px;
-  height: 14px;
-}
-
-/* Subtle state for learned users */
-.swipe-indicator--subtle {
-  opacity: 0.3;
-}
-
-.swipe-indicator--subtle .swipe-indicator__arrow {
+/* Make them interactive buttons */
+button.swipe-indicator {
+  pointer-events: auto;
+  cursor: pointer;
   background: transparent;
-  border-color: transparent;
-  box-shadow: none;
+  border: none;
+  outline: none;
 }
 
-/* Hidden state (at boundary or no navigation available) */
-.swipe-indicator--hidden {
-  opacity: 0;
-  visibility: hidden;
+button.swipe-indicator:active {
+  transform: translateY(-50%) scale(0.9);
+}
+
+.swipe-indicator--left {
+  left: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,0.3) 0%, transparent 100%);
+  border-top-right-radius: 40px;
+  border-bottom-right-radius: 40px;
+  justify-content: flex-start;
+  padding-left: 8px;
+}
+
+.swipe-indicator--right {
+  right: 0;
+  background: linear-gradient(-90deg, rgba(0,0,0,0.3) 0%, transparent 100%);
+  border-top-left-radius: 40px;
+  border-bottom-left-radius: 40px;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+/* Visibility states */
+.swipe-indicator:not(.swipe-indicator--hidden) {
+  opacity: 0.8;
+}
+
+.swipe-indicator--subtle:not(.swipe-indicator--hidden) {
+  opacity: 0.3; /* Learned state */
 }
 
 /* Pulse animation for new users */
-.swipe-indicator--pulse .swipe-indicator__arrow {
-  animation: swipe-hint-pulse 2s ease-in-out 3;
+.swipe-indicator--pulse {
+  animation: swipe-pulse 2s infinite;
 }
 
-@keyframes swipe-hint-pulse {
-  0%, 100% {
-    opacity: 0.6;
-    transform: scale(1);
-    box-shadow: var(--shadow-sm);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.15);
-    box-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
-  }
+@keyframes swipe-pulse {
+  0% { opacity: 0.4; transform: translateY(-50%) scale(1); }
+  50% { opacity: 1; transform: translateY(-50%) scale(1.1); }
+  100% { opacity: 0.4; transform: translateY(-50%) scale(1); }
 }
 
-/* Horizontal bounce to draw attention - single animation for better mobile perf */
-.swipe-indicator--pulse.swipe-indicator--left .swipe-indicator__arrow {
-  animation: swipe-hint-bounce-left 2s ease-in-out 3;
+.swipe-indicator__arrow {
+  width: 32px;
+  height: 32px;
 }
 
-.swipe-indicator--pulse.swipe-indicator--right .swipe-indicator__arrow {
-  animation: swipe-hint-bounce-right 2s ease-in-out 3;
-}
-
-@keyframes swipe-hint-bounce-left {
-  0%, 100% { transform: translateX(0) scale(1); }
-  50% { transform: translateX(-4px) scale(1.15); }
-}
-
-@keyframes swipe-hint-bounce-right {
-  0%, 100% { transform: translateX(0) scale(1); }
-  50% { transform: translateX(4px) scale(1.15); }
-}
-
-/* Show indicators only on mobile */
-@media (max-width: 640px) {
+@media (min-width: 641px) {
   .swipe-indicator {
-    display: flex;
-  }
-}
-
-/* Respect reduced motion preference */
-@media (prefers-reduced-motion: reduce) {
-  .swipe-indicator--pulse .swipe-indicator__arrow,
-  .swipe-indicator--pulse.swipe-indicator--left .swipe-indicator__arrow,
-  .swipe-indicator--pulse.swipe-indicator--right .swipe-indicator__arrow {
-    animation: none;
-  }
-}
-
-/* Landscape: adjust vertical position to avoid thumbs */
-@media (max-width: 640px) and (orientation: landscape) {
-  .swipe-indicator {
-    top: 45%; /* Slightly higher in landscape */
+    display: none;
   }
 }

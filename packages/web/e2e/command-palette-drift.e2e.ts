@@ -1,9 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type TestInfo } from '@playwright/test';
 import { setupTestHarness } from './e2e-harness';
 import { ActionRegistry, ActionIds } from '../src/keyboard/actionRegistry';
 import { formatPrimaryActionShortcut, type ShortcutPlatform } from '../src/keyboard/actionSurfaces';
 
-async function captureErrorBoundaryDetails(page: import('@playwright/test').Page, testInfo: import('@playwright/test').TestInfo) {
+async function captureErrorBoundaryDetails(page: Page, testInfo: TestInfo) {
   const boundary = page.locator('.error-boundary');
   const visible = await boundary.isVisible().catch(() => false);
   if (!visible) return;

@@ -11,7 +11,7 @@ test.describe('Hotkeys and Overlay Stack', () => {
       await page.waitForTimeout(500); // Wait for hydration
     });
 
-    await test.step('Open 3 overlays (Help, Settings, CommandPalette)', async () => {
+    await test.step('Open 3 overlays (Help, Settings, AA Key)', async () => {
       // 1. Open Help (?)
       await page.keyboard.press('?');
       await expect(page.locator('[data-testid="overlay-help"]')).toBeVisible();
@@ -20,21 +20,21 @@ test.describe('Hotkeys and Overlay Stack', () => {
       await page.keyboard.press('Control+,');
       await expect(page.locator('[data-testid="overlay-settings"]')).toBeVisible();
 
-      // 3. Open Command Palette (:)
-      await page.keyboard.press(':');
-      await expect(page.locator('[data-testid="overlay-commandPalette"]')).toBeVisible();
+      // 3. Open AA Key (Shift+K)
+      await page.keyboard.press('Shift+K');
+      await expect(page.locator('[data-testid="overlay-aaKey"]')).toBeVisible();
 
       // Assert stack size is 3 (all visible)
       const overlays = page.locator('[role="dialog"][data-testid^="overlay-"]');
       expect(await overlays.count()).toBe(3);
     });
 
-    await test.step('Open 4th overlay (Analysis Menu) - expect replacement', async () => {
-      // 4. Open Analysis Menu (a)
-      await page.keyboard.press('a');
+    await test.step('Open 4th overlay (Command Palette) - expect replacement', async () => {
+      // 4. Open Command Palette (:)
+      await page.keyboard.press(':');
 
-      // Expect Analysis Menu to appear
-      await expect(page.locator('[data-testid="overlay-analysisMenu"]')).toBeVisible();
+      // Expect Command Palette to appear
+      await expect(page.locator('[data-testid="overlay-commandPalette"]')).toBeVisible();
 
       // Expect stack size to remain 3 (Help should be evicted)
       const overlays = page.locator('[role="dialog"][data-testid^="overlay-"]');
@@ -53,15 +53,15 @@ test.describe('Hotkeys and Overlay Stack', () => {
       const undoBtn = page.locator('[data-testid="overlay-stack-limit-undo"]');
       await undoBtn.click();
 
-      // Expect Analysis Menu to disappear
-      await expect(page.locator('[data-testid="overlay-analysisMenu"]')).toBeHidden();
+      // Expect Command Palette to disappear
+      await expect(page.locator('[data-testid="overlay-commandPalette"]')).toBeHidden();
 
       // Expect Help to reappear
       await expect(page.locator('[data-testid="overlay-help"]')).toBeVisible();
 
-      // Stack should be back to Help, Settings, CommandPalette
+      // Stack should be back to Help, Settings, AA Key
       await expect(page.locator('[data-testid="overlay-settings"]')).toBeVisible();
-      await expect(page.locator('[data-testid="overlay-commandPalette"]')).toBeVisible();
+      await expect(page.locator('[data-testid="overlay-aaKey"]')).toBeVisible();
     });
 
     await finalize();
