@@ -11,6 +11,9 @@ export default [
       'packages/tui/**',
       '**/packages/tui/**',
       '.cache/**',
+      // Vercel build artifacts (generated; may contain minified bundles)
+      '.vercel/**',
+      'packages/**/.vercel/**',
       // Playwright artifacts (generated; can contain minified bundles)
       'playwright-report/**',
       'test-results/**',
