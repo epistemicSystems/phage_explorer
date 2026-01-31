@@ -1,7 +1,22 @@
 import path from 'node:path';
-import { defineConfig } from 'vite';
+import fs from 'node:fs';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// Remove raw phage.db from build output (only .gz needed for production)
+function removeRawDbPlugin(): Plugin {
+  return {
+    name: 'remove-raw-db',
+    closeBundle() {
+      const rawDbPath = path.resolve(__dirname, 'dist/phage.db');
+      if (fs.existsSync(rawDbPath)) {
+        fs.unlinkSync(rawDbPath);
+        console.log('✓ Removed raw phage.db from dist (keeping only .gz)');
+      }
+    },
+  };
+}
 
 const resolveFromRoot = (relativePath: string) =>
   path.resolve(__dirname, '..', relativePath);
@@ -9,6 +24,7 @@ const resolveFromRoot = (relativePath: string) =>
 export default defineConfig({
   plugins: [
     react(),
+    removeRawDbPlugin(),
     VitePWA({
       // Use custom service worker with Workbox strategies
       strategies: 'injectManifest',
