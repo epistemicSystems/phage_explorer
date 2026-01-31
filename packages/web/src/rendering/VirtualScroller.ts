@@ -145,10 +145,14 @@ export class VirtualScroller {
   }
 
   /**
-   * Get the currently visible range
+   * Compute a range for the current scroll position.
+   *
+   * `overscanRows` expands the returned row range beyond the viewport for rendering.
+   * UI and input logic should typically use `overscanRows = 0` (see `getVisibleRange()`).
    */
-  getVisibleRange(): VisibleRange {
-    const { itemHeight, itemWidth, viewportWidth, viewportHeight, overscan } = this.options;
+  private computeRange(overscanRows: number): VisibleRange {
+    const { itemHeight, itemWidth, viewportWidth, viewportHeight } = this.options;
+    const overscan = Math.max(0, Math.floor(overscanRows));
     const { scrollX, scrollY } = this.state;
     // The sequence grid layout currently guarantees totalWidth <= viewportWidth, so maxScrollX is 0.
     // If we allow rubber-band overscroll on X in that case, tiny trackpad diagonal deltas can shift
@@ -174,8 +178,12 @@ export class VirtualScroller {
     );
 
     // Calculate pixel offsets for sub-cell scrolling
-    const offsetY = -(scrollY % itemHeight);
-    const offsetX = effectiveScrollX === 0 ? 0 : -(effectiveScrollX % itemWidth);
+    // IMPORTANT: `offsetY/offsetX` must be relative to the returned `startRow/startCol`.
+    // When overscanning above/left, the first rendered row/col can be earlier than the first
+    // visible row/col, so we compute offsets from `startRow/startCol` rather than `%`.
+    const offsetY = -(scrollY - startRow * itemHeight);
+    const offsetX =
+      effectiveScrollX === 0 ? 0 : -(effectiveScrollX - startCol * itemWidth);
 
     return {
       startIndex,
@@ -186,6 +194,22 @@ export class VirtualScroller {
       offsetX,
       visibleCount: endIndex - startIndex,
     };
+  }
+
+  /**
+   * Get the currently visible viewport range (no overscan).
+   * This is the range UI should display and input/edge logic should use.
+   */
+  getVisibleRange(): VisibleRange {
+    return this.computeRange(0);
+  }
+
+  /**
+   * Get the range used for rendering (includes overscan rows).
+   * If `overscanRows` is not provided, uses the configured option.
+   */
+  getRenderRange(overscanRows?: number): VisibleRange {
+    return this.computeRange(overscanRows ?? this.options.overscan);
   }
 
   /**

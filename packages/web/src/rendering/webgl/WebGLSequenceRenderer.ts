@@ -75,9 +75,8 @@ export function detectWebGLSupport(): {
       result.webgl2 = true;
       result.maxTextureSize = gl2.getParameter(gl2.MAX_TEXTURE_SIZE);
 
-      // Check for instanced arrays (required for our approach)
-      const ext = gl2.getExtension('ANGLE_instanced_arrays');
-      result.maxInstances = ext ? 1000000 : 100000;
+      // WebGL 2 has native instanced rendering support (no extension needed)
+      result.maxInstances = 1000000;
 
       // Clean up
       const loseContext = gl2.getExtension('WEBGL_lose_context');
@@ -169,6 +168,10 @@ export class WebGLSequenceRenderer {
   // Instance buffer size (how many cells we can render in one call)
   private maxInstances = 100000;
   private instanceIndices: Float32Array | null = null;
+
+  private getRowHeight(viewMode: ViewMode): number {
+    return viewMode === 'dual' ? this.cellHeight * 2 : this.cellHeight;
+  }
 
   constructor(options: WebGLRendererOptions) {
     this.canvas = options.canvas;
@@ -410,11 +413,12 @@ export class WebGLSequenceRenderer {
     }
 
     // Update scroller
+    const viewMode = this.currentState?.viewMode ?? 'dna';
     this.scroller.updateOptions({
       viewportWidth: width,
       viewportHeight: height,
       itemWidth: this.cellWidth,
-      itemHeight: this.cellHeight,
+      itemHeight: this.getRowHeight(viewMode),
     });
 
     this.needsRedraw = true;
@@ -430,6 +434,13 @@ export class WebGLSequenceRenderer {
 
     const prevState = this.currentState;
     this.currentState = { ...this.currentState, ...state } as WebGLRenderState;
+
+    // Update scroller item height when view mode changes (dual rows are double height).
+    if (state.viewMode !== undefined && state.viewMode !== prevState?.viewMode) {
+      this.scroller.updateOptions({
+        itemHeight: this.getRowHeight(state.viewMode),
+      });
+    }
 
     // Check if sequence changed
     if (state.sequence !== undefined && state.sequence !== prevState?.sequence) {
@@ -505,9 +516,10 @@ export class WebGLSequenceRenderer {
       // Use shader program
       gl.useProgram(this.program);
 
-      // Get visible range
-      const range = this.scroller.getVisibleRange();
+      // Render range includes overscan for smoother scrolling.
+      const range = this.scroller.getRenderRange();
       const cols = this.scroller.getLayout().cols;
+      const { scrollX, scrollY } = this.scroller.getScrollState();
 
       // Calculate instance count
       const startCell = range.startRow * cols;
@@ -534,8 +546,8 @@ export class WebGLSequenceRenderer {
 
       gl.uniform2f(
         this.locations.u_scrollOffset as WebGLUniformLocation,
-        range.offsetX,
-        range.startRow * this.cellHeight + range.offsetY
+        scrollX,
+        scrollY
       );
 
       gl.uniform1f(this.locations.u_cols as WebGLUniformLocation, cols);
@@ -640,9 +652,10 @@ export class WebGLSequenceRenderer {
     this.cellWidth = Math.round(baseWidth * this.zoomScale);
     this.cellHeight = Math.round(baseHeight * this.zoomScale);
 
+    const viewMode = this.currentState?.viewMode ?? 'dna';
     this.scroller.updateOptions({
       itemWidth: this.cellWidth,
-      itemHeight: this.cellHeight,
+      itemHeight: this.getRowHeight(viewMode),
     });
 
     this.onZoomChange?.(this.zoomScale);
@@ -761,7 +774,12 @@ export class WebGLSequenceRenderer {
   }
 
   getScrollPosition(): number {
-    return this.scroller.getScrollState().scrollY;
+    const state = this.scroller.getScrollState();
+    const layout = this.scroller.getLayout();
+    const viewMode = this.currentState?.viewMode ?? 'dna';
+    const rowHeight = Math.max(1, this.getRowHeight(viewMode));
+    const row = Math.floor(state.scrollY / rowHeight);
+    return row * layout.cols;
   }
 
   getLayout(): { cols: number; rows: number; totalHeight: number; totalWidth: number } {

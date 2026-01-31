@@ -158,10 +158,10 @@ void main() {
 
   gl_Position = vec4(clipPos, 0.0, 1.0);
 
-  // Sample sequence data texture
+  // Sample sequence data texture (add 0.5 to sample from texel centers)
   vec2 seqTexCoord = vec2(
-    mod(cellIndex, u_sequenceSize.x) / u_sequenceSize.x,
-    floor(cellIndex / u_sequenceSize.x) / u_sequenceSize.y
+    (mod(cellIndex, u_sequenceSize.x) + 0.5) / u_sequenceSize.x,
+    (floor(cellIndex / u_sequenceSize.x) + 0.5) / u_sequenceSize.y
   );
   vec4 seqData = texture(u_sequenceData, seqTexCoord);
 
@@ -286,10 +286,10 @@ void main() {
 
   gl_Position = vec4(clipPos, 0.0, 1.0);
 
-  // Sample sequence
+  // Sample sequence (add 0.5 to sample from texel centers)
   vec2 seqTexCoord = vec2(
-    mod(cellIndex, u_sequenceSize.x) / u_sequenceSize.x,
-    floor(cellIndex / u_sequenceSize.x) / u_sequenceSize.y
+    (mod(cellIndex, u_sequenceSize.x) + 0.5) / u_sequenceSize.x,
+    (floor(cellIndex / u_sequenceSize.x) + 0.5) / u_sequenceSize.y
   );
   vec4 seqData = texture2D(u_sequenceData, seqTexCoord);
   v_baseCode = seqData.r * 255.0;

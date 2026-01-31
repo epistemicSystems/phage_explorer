@@ -1381,8 +1381,9 @@ export class CanvasSequenceGridRenderer {
     const ctx = this.backCtx ?? this.ctx;
     const { sequence, aminoSequence, viewMode, diffSequence, diffEnabled, diffMask } = this.currentState;
 
-    // Get visible range from scroller
-    const rawRange = this.scroller.getVisibleRange();
+    // Render range includes overscan rows for smoother scrolling, but UI/input logic
+    // (e.g. edge detection) should use `getVisibleRange()` which is viewport-only.
+    const rawRange = this.scroller.getRenderRange(this.currentOverscanRows);
     // Keep glyphs crisp during scroll by snapping offsets to device-pixel boundaries.
     // (Fractional offsets cause atlas draws to interpolate and look blurry.)
     const range: VisibleRange = {

@@ -551,9 +551,13 @@ export function useSequenceGrid(options: UseSequenceGridOptions): UseSequenceGri
           onVisibleRangeChange: handleVisibleRangeFromRenderer,
         });
         usingWebGL = true;
-        console.log('[SequenceGrid] Using WebGL renderer for GPU-accelerated scrolling');
+        if (import.meta.env.DEV) {
+          console.info('[SequenceGrid] Using WebGL renderer for GPU-accelerated scrolling');
+        }
       } catch (error) {
-        console.warn('[SequenceGrid] WebGL renderer failed, falling back to Canvas 2D:', error);
+        if (import.meta.env.DEV) {
+          console.warn('[SequenceGrid] WebGL renderer failed, falling back to Canvas 2D:', error);
+        }
         renderer = null;
         usingWebGL = false;
       }
