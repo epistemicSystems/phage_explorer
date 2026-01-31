@@ -141,6 +141,7 @@ uniform float u_startIndex;
 uniform sampler2D u_sequenceData;
 uniform vec2 u_sequenceSize;
 uniform vec2 u_atlasSize;
+uniform float u_viewMode;
 
 varying vec2 v_atlasTexCoord;
 varying float v_visible;
@@ -158,7 +159,8 @@ void main() {
   float col = mod(cellIndex, u_cols);
   float row = floor(cellIndex / u_cols);
 
-  vec2 cellPos = vec2(col * u_cellSize.x, row * u_cellSize.y);
+  float rowHeight = u_viewMode > 0.5 ? u_cellSize.y * 2.0 : u_cellSize.y;
+  vec2 cellPos = vec2(col * u_cellSize.x, row * rowHeight);
   vec2 scrolledPos = cellPos - u_scrollOffset;
   vec2 vertexPos = scrolledPos + a_position * u_cellSize;
 
@@ -312,6 +314,7 @@ export function createSequenceProgramWebGL1(
     u_startIndex: gl.getUniformLocation(program, 'u_startIndex'),
     u_sequenceData: gl.getUniformLocation(program, 'u_sequenceData'),
     u_sequenceSize: gl.getUniformLocation(program, 'u_sequenceSize'),
+    u_viewMode: gl.getUniformLocation(program, 'u_viewMode'),
     u_glyphAtlas: gl.getUniformLocation(program, 'u_glyphAtlas'),
     u_atlasSize: gl.getUniformLocation(program, 'u_atlasSize'),
   };
