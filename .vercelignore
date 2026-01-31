@@ -37,6 +37,13 @@ packages/web/test-results/
 packages/web/screenshots/
 test-results/
 
+# Screenshot directories (local capture, not needed for deploy)
+screenshots/
+/screenshots/
+
+# Documentation images (referenced by README but served from GitHub, not Vercel)
+docs/images/
+
 # Local repro scripts / scratch assets
 repro_*.ts
 test-*.ts
