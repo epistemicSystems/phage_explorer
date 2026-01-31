@@ -424,6 +424,225 @@ curl -fsSL .../install.sh | bash -s -- --easy-mode
 
 ---
 
+## Analysis Algorithms (25+)
+
+Phage Explorer implements a comprehensive suite of genomic analysis algorithms, from classic bioinformatics to cutting-edge machine learning approaches.
+
+### Sequence Homology & Structure
+
+| Algorithm | Description | Complexity |
+|-----------|-------------|------------|
+| **Dot Plot** | Downsampled self-homology comparison with direct & inverted (reverse-complement) scoring | O(bins² × window) |
+| **Chaos Game Representation** | Fractal IFS-based genomic fingerprinting; maps DNA to 2D coordinates using corner mappings (A→0,0 T→1,0 C→0,1 G→1,1) | O(N) |
+| **Recombination Radar** | k-mer Jaccard similarity against reference panel; detects mosaic segments & HGT breakpoints | O(N × refs) |
+| **Hilbert Curve Atlas** | Maps 1D sequence to 2D via space-filling curve; preserves locality for visual pattern recognition | O(N) |
+
+### Codon & Translation Analysis
+
+| Algorithm | Description |
+|-----------|-------------|
+| **Codon Bias (RSCU)** | Relative Synonymous Codon Usage; identifies preferred/rare codons per amino acid family |
+| **Ribosome Traffic** | Particle-based translation simulation with collision detection; bottleneck identification based on codon rarity |
+| **Periodicity Analysis** | Spectral analysis of GC% and purine runs; identifies repeating motifs (tandem repeats, period-3 codon patterns) |
+| **K-mer Frequency** | 256-element tetranucleotide vectors for phylogenetic profiling; base-4 encoding for O(1) lookup |
+
+### Non-B DNA Detection
+
+| Structure | Algorithm |
+|-----------|-----------|
+| **G-quadruplex** | G4Hunter scoring: +1 to +4 per G-run length, -1 to -4 per C-run; identifies potential G4-forming regions |
+| **Z-DNA** | Dinucleotide propensity scoring; CG/GC repeats favor left-handed helix formation |
+| **Cruciform** | Inverted repeat detection with stem-loop energy estimation |
+
+### Defense & Tropism Prediction
+
+| Feature | Method |
+|---------|--------|
+| **CRISPR Pressure** | Spacer matching against mock host CRISPR arrays; rates evolutionary pressure 0-10 scale |
+| **Anti-CRISPR (ACR)** | Heuristic scoring for defense-suppressing genes; flags known families (AcrIIA4, Ocr, etc.) |
+| **Tail Fiber Tropism** | ESM2 protein embeddings + HDBSCAN clustering; confidence scores for receptor binding predictions |
+| **Prophage Excision** | Detects integrase genes; searches for attL/attR direct repeats; models excision products |
+
+### Protein Structure & Function
+
+| Feature | Description |
+|---------|-------------|
+| **Protein Domains** | Pfam/InterPro/SMART domain annotations with E-values and boundaries |
+| **Fold Embeddings** | ESM2-derived vectors stored as Float32 blobs; enables novelty/neighbor queries via cosine distance |
+| **AMG Detection** | Auxiliary Metabolic Genes linked to KEGG pathways (photosynthesis, carbon, nucleotide metabolism) |
+
+---
+
+## Interactive Simulations (7)
+
+The Simulation Hub (`Shift+S`) provides interactive models of phage biology with adjustable parameters and real-time visualization.
+
+### 1. Lysogeny Decision Circuit
+**Model:** ODE system of Lambda lysis-lysogeny bistable switch
+**State variables:** CI and Cro repressor concentrations
+**Parameters:**
+- Hill cooperativity (n=1-4) — controls switch steepness
+- MOI (multiplicity of infection) — tips balance toward lysogeny
+- UV damage — triggers lytic induction
+
+**Output:** Phase classification (lysogenic/lytic/undecided) with time-series history
+
+### 2. Ribosome Traffic Simulator
+**Model:** Particle-based translation with stochastic elongation
+**Mechanics:**
+- 9-codon ribosome footprint
+- Elongation rates derived from phage codon usage bias
+- Rare codons create traffic jams → bottlenecks
+
+**Output:** Protein production rate, stall events, density heatmap
+
+### 3. Plaque Growth Automata
+**Model:** Cellular automaton with reaction-diffusion dynamics
+**Cell states:** Empty → Bacteria → Infected → Lysed → Phage → Lysogen
+**Parameters:** Burst size, latent period, diffusion probability, adsorption rate, lysogeny probability
+**Grid:** Toroidal wrap-around, ~100 steps/frame
+
+### 4. Burst Kinetics Simulator
+**Model:** SIR-like ODE system (dB/dt, dI/dt, dP/dt)
+**Features:**
+- Adsorption kinetics: k [mL/(phage·min)]
+- Exponential latent period decay
+- Logistic bacterial growth with carrying capacity
+
+### 5. Resistance Cocktail Evolution
+**Model:** Gillespie stochastic simulation with tau-leaping
+**States:** Sensitive → Partially resistant (per phage) → Fully resistant
+**Key insight:** Mono-phage resistance emerges faster than cocktail resistance (synergy effect)
+**Tracks:** Sensitive/resistant populations, emergence time, individual phage counts
+
+### 6. Packaging Motor Pressure Gauge
+**Model:** Physics-informed DNA packaging
+**Factors:**
+- Intrinsic pressure from DNA bending: L/(R²) energy model
+- Ionic strength effects (Debye screening ~0.304/√I nm)
+- Morphology-specific baselines (headful/cos/phi29)
+
+**Output:** Fill fraction, internal pressure (atm), motor force (pN)
+
+### 7. Evolution Replay
+**Model:** Molecular clock with mutations and genetic drift
+**Mechanics:**
+- Poisson-distributed mutations per generation
+- Selection coefficients from normal distribution
+- Fitness clamped 0.6-1.5, effective population (Ne) tracks drift
+
+---
+
+## WASM Acceleration
+
+Performance-critical algorithms are implemented in Rust and compiled to WebAssembly for near-native speed in the browser.
+
+### What's Accelerated
+
+| Algorithm | Threshold | Speedup | Fallback |
+|-----------|-----------|---------|----------|
+| **PCA (Power Iteration)** | 20K+ elements | ~10-50x | Pure JS eigendecomposition |
+| **Spatial Hash Bond Detection** | Always | 1000x vs O(N²) | — |
+| **K-mer Counting** | Large genomes | ~5x | TypedArray JS |
+
+### Spatial Hash: Why It Matters
+
+Traditional bond detection is O(N²)—checking every atom pair. For a 50,000-atom structure, that's 2.5 billion comparisons.
+
+The WASM spatial hash:
+1. Divides 3D space into grid cells (cell size = max bond length)
+2. Each atom only checks neighbors in adjacent cells
+3. Reduces to O(N) on average
+
+**Result:** 50K atoms in <1s vs 60s+ naive. This enables real-time structure exploration.
+
+### Automatic Fallback
+
+When WASM isn't available (older browsers, restricted environments), Phage Explorer gracefully falls back to pure JavaScript implementations. Users get the same features, just slower on large datasets.
+
+---
+
+## Precomputed Annotations
+
+The SQLite database includes extensive precomputed annotations, enabling instant analysis with zero latency.
+
+### Database Schema
+
+| Table | Contents |
+|-------|----------|
+| `phages` | 24 reference phages with metadata (accession, family, genus, host, morphology, lifecycle, genome stats) |
+| `sequences` | Chunked 10kb segments for virtualized streaming |
+| `genes` | Full annotations (position, strand, type, qualifiers as JSON) |
+| `codonUsage` | Per-phage amino acid and codon frequency counts |
+| `proteinDomains` | Pfam/SMART/CDD domains with E-values and boundaries |
+| `foldEmbeddings` | ESM2 protein embeddings as Float32 blobs |
+| `amgAnnotations` | Auxiliary metabolic genes linked to KEGG pathways |
+| `defenseSystems` | Anti-CRISPR/anti-RM/anti-Abi predictions with confidence |
+| `tropismPredictions` | Tail fiber receptor binding (ML-derived) |
+| `codonAdaptation` | CAI, tAI, CPB, Nc' per phage-host pair |
+
+### Annotation Pipeline
+
+Annotations are precomputed via GitHub Actions:
+1. **NCBI fetch** → Raw sequences and gene annotations
+2. **Pfam/InterPro scan** → Protein domain identification
+3. **KEGG mapping** → Metabolic pathway linkage
+4. **ESM2 inference** → Protein fold embeddings
+5. **SQLite build** → Indexed, compressed database (~6MB)
+
+Users get instant results because all heavy computation happens at build time.
+
+---
+
+## Alignment-Free Genomics
+
+Traditional sequence comparison requires alignment (BLAST, etc.), which is slow and fails for distant homologs. Phage Explorer includes alignment-free methods that work on raw k-mer statistics.
+
+### Chaos Game Representation (CGR)
+
+Maps a genome to a 2D fractal image:
+- Start at center (0.5, 0.5)
+- For each nucleotide, move halfway toward its corner
+- Plot the point
+
+**Result:** A unique "fingerprint" where similar genomes produce similar fractals. Visually identifies sequence biases, repeat structures, and phylogenetic relationships without alignment.
+
+### K-mer PCA
+
+1. Compute tetranucleotide (4-mer) frequency vectors (256 dimensions)
+2. Run PCA to reduce to 2-3D
+3. Cluster phages by genomic signature
+
+**Why it works:** Oligonucleotide frequencies are remarkably stable within a genome but differ between species. This captures "genomic dialect" independent of gene order or alignment.
+
+### Recombination Radar
+
+Detects horizontal gene transfer and mosaic genomes:
+1. Slide a window across the query genome
+2. Compute k-mer Jaccard similarity to each reference
+3. Plot "donor" assignment along the genome
+
+**Output:** Identifies breakpoints where the genome switches from one "parent" to another—direct evidence of recombination events.
+
+---
+
+## Why Phage Explorer Exists
+
+Most phage genomics tools are either:
+- **Too specialized** — Built for one analysis type, require pipeline assembly
+- **Too heavyweight** — Need cloud infrastructure, accounts, or complex installation
+- **Too dated** — Command-line tools from the 2000s with no visualization
+
+Phage Explorer combines:
+- **Breadth** — 25+ analyses in one interface
+- **Speed** — Precomputed annotations + WASM = instant results
+- **Accessibility** — Single binary or web app, zero configuration
+- **Education** — Interactive simulations teach the biology, not just display data
+
+It's designed for the researcher who wants to *explore* a phage genome, not run a production pipeline.
+
+---
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
