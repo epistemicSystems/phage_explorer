@@ -181,6 +181,22 @@ function isMobileDevice(): boolean {
   return hasTouch && isSmallScreen;
 }
 
+// Detect iOS/WebKit where canvas copy/blit paths can be unreliable or slow.
+// Note: all iOS browsers use WebKit, so treat them uniformly here.
+function isIOSWebKit(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent ?? '';
+  const platform = (navigator as Navigator).platform ?? '';
+  const maxTouch = navigator.maxTouchPoints ?? 0;
+  if (/iPad|iPhone|iPod/.test(platform)) return true;
+  // iPadOS 13+ can present as MacIntel while still being touch-first.
+  if (platform === 'MacIntel' && maxTouch > 1) return true;
+  // Fallback for UAs that omit platform details.
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  if (ua.includes('Macintosh') && ua.includes('Mobile')) return true;
+  return false;
+}
+
 // Get recommended initial zoom scale based on viewport
 // Mobile devices benefit from starting zoomed in slightly for readability
 function getDefaultZoomScale(viewportWidth: number): number {
@@ -256,6 +272,10 @@ export class CanvasSequenceGridRenderer {
   private lastContentHash = 0; // For detecting content changes
   private frameSkipCount = 0; // Track skipped frames for debugging
   private useTileCache = true; // Enable row tile caching
+  private overscanIdleRows = 30;
+  private overscanScrollRows = 8;
+  private currentOverscanRows = 30;
+  private disableScrollBlit = false;
   private lastRenderedState: {
     viewMode: ViewMode;
     zoomScale: number;
@@ -280,6 +300,18 @@ export class CanvasSequenceGridRenderer {
     // Get device pixel ratio for high-DPI
     const rawDpr = options.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1);
     this.dpr = isMobileDevice() ? Math.min(rawDpr, 2) : rawDpr;
+    this.disableScrollBlit = isIOSWebKit();
+    // Mobile Safari can be especially memory-sensitive; keep the tile cache bounded tighter on iOS.
+    if (this.disableScrollBlit) {
+      this.maxCachedRows = 40;
+    } else if (isMobileDevice()) {
+      this.maxCachedRows = 60;
+    }
+
+    // Cache initial viewport (used by responsive sizing + overscan heuristics).
+    const initialViewport = this.getViewportSize(options.viewportWidth, options.viewportHeight);
+    this.viewportWidth = initialViewport.width;
+    this.viewportHeight = initialViewport.height;
 
     // Initialize zoom scale - use mobile-aware default if not specified
     // This ensures mobile users start with readable cell sizes
@@ -307,11 +339,16 @@ export class CanvasSequenceGridRenderer {
     this.cellWidth = Math.max(1, Math.round(this.baseCellWidth * this.zoomScale));
     this.cellHeight = Math.max(1, Math.round(this.baseCellHeight * this.zoomScale));
     this.rowHeight = this.cellHeight;
+    this.updateOverscanTargets();
+    this.currentOverscanRows = this.overscanIdleRows;
 
     // Get context
     // Some browsers can return null if context attributes don't match a prior `getContext()` call.
     // Fall back to default 2D context rather than failing hard (alpha=false is a perf hint only).
-    const ctx = this.canvas.getContext('2d', { alpha: false }) ?? this.canvas.getContext('2d');
+    const ctx =
+      this.canvas.getContext('2d', { alpha: false, desynchronized: true }) ??
+      this.canvas.getContext('2d', { alpha: false }) ??
+      this.canvas.getContext('2d');
     if (!ctx) throw new Error('Failed to get 2D context');
     this.ctx = ctx;
 
@@ -323,27 +360,31 @@ export class CanvasSequenceGridRenderer {
     });
 
     // Create virtual scroller (will be configured when sequence is set)
-    // Use massive overscan to pre-render content far beyond viewport for buttery smooth scrolling.
-    // With row tile caching, extra rows are cheap - tiles are reused from cache on subsequent frames.
+    // Overscan is tuned dynamically: keep it small during active scrolling to avoid
+    // jank/black repaint on memory-constrained devices, then expand when idle to
+    // pre-render ahead for buttery smooth navigation.
     this.scroller = new VirtualScroller({
       totalItems: 0,
       itemWidth: this.cellWidth,
       itemHeight: this.rowHeight,
-      viewportWidth: options.viewportWidth ?? this.getViewportSize().width,
-      viewportHeight: options.viewportHeight ?? this.getViewportSize().height,
-      overscan: 200, // Pre-render 200 rows above/below viewport
+      viewportWidth: initialViewport.width,
+      viewportHeight: initialViewport.height,
+      overscan: this.currentOverscanRows,
     });
     this.updateCodonSnap();
 
     // Set up scroll callback with scroll state tracking for performance
-    this.scroller.onScroll((range) => {
+    this.scroller.onScroll(() => {
       // Mark as scrolling to disable expensive effects during active user interaction.
       // Programmatic adjustments (like snap-to-codon on scroll end) should not re-enter "scrolling" mode.
       const suppressScrollState = this.suppressScrollStateOnce;
       if (suppressScrollState) {
         this.suppressScrollStateOnce = false;
       } else {
-        this.isScrolling = true;
+        if (!this.isScrolling) {
+          this.isScrolling = true;
+          this.applyOverscan(this.overscanScrollRows);
+        }
         if (this.scrollEndTimer) {
           clearTimeout(this.scrollEndTimer);
         }
@@ -355,6 +396,7 @@ export class CanvasSequenceGridRenderer {
           this.scrollEndTimer = null;
           this.isScrolling = false;
           this.needsFullRedraw = true;
+          this.applyOverscan(this.overscanIdleRows);
 
           // When snapping is enabled, align to the nearest codon-consistent boundary after wheel scrolling ends.
           // Treat the snap as a final adjustment rather than a new scroll interaction.
@@ -367,14 +409,11 @@ export class CanvasSequenceGridRenderer {
         }, 400);
       }
 
-      this.onVisibleRangeChange?.(range);
+      this.onVisibleRangeChange?.(this.scroller.getVisibleRange());
       this.scheduleRender();
     });
 
     // Initialize canvas size
-    const initialViewport = this.getViewportSize(options.viewportWidth, options.viewportHeight);
-    this.viewportWidth = initialViewport.width;
-    this.viewportHeight = initialViewport.height;
     this.resize(initialViewport.width, initialViewport.height);
   }
 
@@ -439,6 +478,8 @@ export class CanvasSequenceGridRenderer {
       itemWidth: this.cellWidth,
       itemHeight: this.rowHeight,
     });
+    this.updateOverscanTargets();
+    this.applyOverscan(this.isScrolling ? this.overscanScrollRows : this.overscanIdleRows);
     this.updateCodonSnap();
     this.onVisibleRangeChange?.(this.scroller.getVisibleRange());
 
@@ -498,6 +539,32 @@ export class CanvasSequenceGridRenderer {
       this.invalidateRowCache();
     }
     this.updateCodonSnap();
+  }
+
+  private updateOverscanTargets(): void {
+    const rowHeight = Math.max(1, this.rowHeight);
+    const viewportHeight = Math.max(1, this.viewportHeight);
+    const rowsPerViewport = Math.max(1, Math.ceil(viewportHeight / rowHeight));
+    const mobile = isMobileDevice();
+
+    // Idle: pre-render roughly one viewport worth of rows above/below (bounded).
+    const idle = rowsPerViewport;
+    // Scrolling: keep overscan small so each frame stays cheap.
+    const scrolling = Math.ceil(rowsPerViewport * 0.25);
+
+    this.overscanIdleRows = mobile
+      ? Math.min(60, Math.max(12, idle))
+      : Math.min(100, Math.max(16, idle));
+    this.overscanScrollRows = mobile
+      ? Math.min(14, Math.max(4, scrolling))
+      : Math.min(20, Math.max(6, scrolling));
+  }
+
+  private applyOverscan(nextOverscan: number): void {
+    const clamped = Math.max(0, Math.floor(nextOverscan));
+    if (clamped === this.currentOverscanRows) return;
+    this.currentOverscanRows = clamped;
+    this.scroller.updateOptions({ overscan: clamped });
   }
 
   /**
@@ -1990,6 +2057,7 @@ export class CanvasSequenceGridRenderer {
     diffEnabled: boolean,
     diffMask: Uint8Array | null
   ): boolean {
+    if (this.disableScrollBlit) return false;
     if (this.needsFullRedraw || !this.isScrolling) return false;
     // Skip blit if last frame had post-processing; the canvas contains effects that would
     // create visual inconsistency when blitted alongside non-post-processed new rows.
