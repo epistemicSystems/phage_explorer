@@ -79,5 +79,15 @@ export default defineConfig({
         defaultBrowserType: 'chromium',
       },
     },
+    // Targeted WebKit project to approximate iPhone Safari for the sequence scroll repaint regression.
+    // Keep this scoped to a single test file to avoid multiplying runtime across the full suite.
+    {
+      name: 'webkit-sequence',
+      testMatch: /sequence-scroll-repaint\.e2e\.ts/,
+      use: {
+        ...devices['iPhone 14'],
+        defaultBrowserType: 'webkit',
+      },
+    },
   ],
 });
