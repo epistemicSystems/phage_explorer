@@ -504,6 +504,8 @@ export class CanvasSequenceGridRenderer {
       viewportWidth: width,
       viewportHeight: height,
     });
+    this.updateOverscanTargets();
+    this.applyOverscan(this.isScrolling ? this.overscanScrollRows : this.overscanIdleRows);
     this.onVisibleRangeChange?.(this.scroller.getVisibleRange());
     this.needsFullRedraw = true;
     this.scheduleRender();
@@ -641,6 +643,8 @@ export class CanvasSequenceGridRenderer {
       totalItems: sequence.length,
       itemHeight: this.rowHeight,
     });
+    this.updateOverscanTargets();
+    this.applyOverscan(this.isScrolling ? this.overscanScrollRows : this.overscanIdleRows);
     this.updateCodonSnap();
     this.onVisibleRangeChange?.(this.scroller.getVisibleRange());
 
@@ -1202,12 +1206,14 @@ export class CanvasSequenceGridRenderer {
 
     // Recalculate row height if in dual mode
     this.rowHeight = this.currentState?.viewMode === 'dual' ? this.cellHeight * 2 : this.cellHeight;
+    this.updateOverscanTargets();
 
     // Update scroller with new cell sizes
     this.scroller.updateOptions({
       itemWidth: this.cellWidth,
       itemHeight: this.rowHeight,
     });
+    this.applyOverscan(this.isScrolling ? this.overscanScrollRows : this.overscanIdleRows);
     this.updateCodonSnap();
     this.onVisibleRangeChange?.(this.scroller.getVisibleRange());
 
