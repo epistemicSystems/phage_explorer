@@ -35,8 +35,10 @@
     "@types/pako": "^2.0.4",
     "@types/react": "^19.2.8",
     "@types/three": "^0.182.0",
+    "@vercel/og": "^0.6.2",
     "eslint": "^9.39.2",
     "playwright": "^1.57.0",
+    "sharp": "^0.34.5",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.53.0"
   }
