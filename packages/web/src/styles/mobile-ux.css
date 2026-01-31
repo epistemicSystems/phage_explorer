@@ -139,14 +139,24 @@ html {
     min-width: 45px !important;
   }
 
-  /* Larger checkbox/radio touch targets */
+  /* WCAG 2.5.5: Checkbox/radio touch targets must be 44x44px minimum.
+     Native checkboxes don't expand clickable area via padding, so we rely on
+     wrapping labels to provide the touch target. The checkbox itself stays
+     at a comfortable visual size. */
   input[type="checkbox"],
   input[type="radio"] {
+    /* Comfortable visual size that's easy to see */
     width: 24px;
     height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    cursor: pointer;
+    /* Ensure the checkbox is visually distinct */
+    accent-color: var(--color-primary);
   }
 
-  /* Wrap checkboxes in touch-friendly labels */
+  /* Labels wrapping checkboxes provide the 44px+ touch target.
+     Clicking anywhere on the label activates the checkbox. */
   label:has(input[type="checkbox"]),
   label:has(input[type="radio"]) {
     min-height: 48px;
@@ -154,6 +164,18 @@ html {
     display: flex;
     align-items: center;
     gap: var(--space-3);
+    cursor: pointer;
+    /* Active state feedback */
+    border-radius: var(--radius-md);
+    transition: background var(--duration-fast) var(--ease-out);
+    /* Prevent accidental text selection */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  label:has(input[type="checkbox"]):active,
+  label:has(input[type="radio"]):active {
+    background: var(--color-background-hover);
   }
 }
 
@@ -316,20 +338,22 @@ html {
   will-change: transform; /* Hint for GPU layer during drag */
 }
 
-/* Handle for dragging - Premium animated handle */
+/* Handle for dragging - Premium animated handle with larger touch target */
 .bottom-sheet__handle {
   display: flex;
   justify-content: center;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-4);
   cursor: grab;
   touch-action: none;
+  /* Larger touch target for easier grabbing */
+  min-height: 44px;
 }
 
 .bottom-sheet__handle::before {
   content: '';
-  width: 36px;
-  height: 4px;
-  background: var(--color-border-light);
+  width: 40px;
+  height: 5px;
+  background: var(--color-border);
   border-radius: var(--radius-full);
   transition:
     background var(--duration-fast) var(--ease-out),
@@ -419,15 +443,18 @@ html {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overscroll-behavior-y: contain;
+  /* Allow natural elastic overscroll on iOS for better feel */
+  overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: var(--space-4);
 }
 
 @media (max-width: 640px) {
-  /* Keep bottom-sheet content near full-width on phones (needed for overlays like command palette). */
+  /* Keep bottom-sheet content near full-width on phones (needed for overlays like command palette).
+     Note: safe-area-inset-bottom is already handled by .bottom-sheet__container padding. */
   .bottom-sheet__content {
-    padding: var(--space-2);
+    padding: var(--space-3);
+    padding-bottom: var(--space-4);
   }
 }
 
@@ -1269,5 +1296,287 @@ html {
   .content-stagger > * {
     animation: none;
     opacity: 1;
+  }
+}
+
+/* =============================================================================
+   MOBILE EMPTY STATES
+   Improved empty state design for mobile following Material Design 3 guidelines
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  .empty-state {
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+  }
+
+  .empty-state__icon {
+    font-size: 3rem;
+    margin-bottom: var(--space-4);
+    opacity: 0.6;
+  }
+
+  .empty-state__title {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    margin-bottom: var(--space-2);
+  }
+
+  .empty-state__description {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    max-width: 280px;
+    margin: 0 auto var(--space-4);
+    line-height: 1.5;
+  }
+
+  .empty-state__action {
+    margin-top: var(--space-4);
+  }
+}
+
+/* =============================================================================
+   MOBILE TOAST IMPROVEMENTS
+   Position toasts above bottom navigation and ensure readability
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  .toast-container {
+    /* Position above control deck + FAB area */
+    bottom: calc(var(--mobile-tab-bar-height, 56px) + var(--mobile-safe-bottom, 0px) + 80px);
+    left: var(--space-3);
+    right: var(--space-3);
+    /* Center toasts on mobile */
+    max-width: none;
+  }
+
+  .toast {
+    /* Full width on mobile for better readability */
+    width: 100%;
+    max-width: none;
+    /* Larger touch target for dismiss */
+    min-height: 52px;
+    padding: var(--space-3) var(--space-4);
+    /* Ensure text is readable */
+    font-size: var(--text-sm);
+    /* Required for pseudo-element positioning */
+    position: relative;
+  }
+
+  /* Swipe to dismiss hint - small bar at bottom like iOS notifications */
+  .toast::after {
+    content: '';
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 3px;
+    background: currentColor;
+    opacity: 0.25;
+    border-radius: var(--radius-full);
+    pointer-events: none;
+  }
+}
+
+/* =============================================================================
+   SCROLL FADE INDICATORS
+   Show gradient fades to indicate more content above/below
+   ============================================================================= */
+
+.scroll-fade-container {
+  position: relative;
+}
+
+.scroll-fade-container::before,
+.scroll-fade-container::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 24px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+  z-index: 5;
+}
+
+.scroll-fade-container::before {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--color-background) 0%,
+    transparent 100%
+  );
+}
+
+.scroll-fade-container::after {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    var(--color-background) 0%,
+    transparent 100%
+  );
+}
+
+/* Show fades based on scroll position (set via JS with data attributes) */
+.scroll-fade-container[data-scroll-top="true"]::before {
+  opacity: 1;
+}
+
+.scroll-fade-container[data-scroll-bottom="true"]::after {
+  opacity: 1;
+}
+
+/* =============================================================================
+   HAPTIC-FRIENDLY BUTTON STATES
+   Visual feedback that corresponds to haptic feedback timing
+   ============================================================================= */
+
+@media (hover: none) and (pointer: coarse) {
+  /* Primary action buttons get stronger feedback */
+  .btn-primary:active,
+  .btn--primary:active {
+    transform: scale(0.95);
+    filter: brightness(0.9);
+  }
+
+  /* Destructive actions get a brief flash */
+  .btn-danger:active,
+  .btn--danger:active {
+    transform: scale(0.96);
+    background: var(--color-error);
+    filter: brightness(1.1);
+  }
+
+  /* Toggle buttons show state change immediately */
+  .btn-toggle:active,
+  [role="switch"]:active {
+    transform: scale(0.94);
+  }
+
+  /* Icon-only buttons */
+  .btn-icon:active,
+  .icon-btn:active {
+    transform: scale(0.9);
+    background: var(--color-background-active);
+  }
+}
+
+/* =============================================================================
+   NOTCH-SAFE CONTENT AREAS
+   Ensure critical content isn't hidden behind camera notches or dynamic island
+   ============================================================================= */
+
+@supports (padding: env(safe-area-inset-top)) {
+  /* Content that needs to clear the notch */
+  .notch-safe {
+    padding-left: max(var(--space-4), env(safe-area-inset-left));
+    padding-right: max(var(--space-4), env(safe-area-inset-right));
+  }
+
+  /* Full-bleed content that respects safe areas */
+  .safe-area-aware {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Landscape safe areas - wider notch/island area */
+  @media (orientation: landscape) {
+    .notch-safe {
+      padding-left: max(var(--space-6), env(safe-area-inset-left));
+      padding-right: max(var(--space-6), env(safe-area-inset-right));
+    }
+  }
+}
+
+/* =============================================================================
+   IMPROVED LIST ITEM INTERACTIONS
+   Better visual feedback for selectable list items
+   ============================================================================= */
+
+@media (hover: none) and (pointer: coarse) {
+  .list-item {
+    /* Prevent text selection on long press */
+    -webkit-user-select: none;
+    user-select: none;
+    /* Smooth active state */
+    transition: background var(--duration-fast) var(--ease-out);
+  }
+
+  /* Selected state is more prominent on mobile.
+     Use inset box-shadow instead of border-left to avoid layout shift. */
+  .list-item--selected,
+  .list-item.selected,
+  .list-item[aria-selected="true"] {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    box-shadow: inset 3px 0 0 var(--color-primary);
+  }
+
+  /* Active press state */
+  .list-item:active:not(.list-item--selected) {
+    background: var(--color-background-active);
+    transition: none;
+  }
+
+  /* Dividers between list items */
+  .list-item:not(:last-child) {
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+}
+
+/* =============================================================================
+   MOBILE-OPTIMIZED POPOVERS
+   Opt-in class for popovers that should be centered on mobile.
+   Use .popover--mobile-centered to enable this behavior.
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  /* Opt-in: Add .popover--mobile-centered class to center a popover on mobile */
+  .popover--mobile-centered {
+    position: fixed;
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: auto;
+    top: 50%;
+    transform: translateY(-50%);
+    max-width: none;
+    width: calc(100vw - var(--space-8));
+  }
+
+  /* Generic improvement: ensure popovers don't overflow screen */
+  .popover {
+    max-width: calc(100vw - var(--space-4));
+  }
+
+  /* Backdrop for modal-like popovers */
+  .popover-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: calc(var(--z-popover) - 1);
+  }
+}
+
+/* =============================================================================
+   KEYBOARD AVOIDANCE
+   Ensure forms remain visible when virtual keyboard is open
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  /* When an input is focused, scroll it into view */
+  input:focus,
+  textarea:focus,
+  select:focus {
+    scroll-margin-bottom: 120px; /* Space for keyboard */
+  }
+
+  /* In visual viewport resize scenarios (iOS Safari), ensure inputs stay visible */
+  @supports (height: 100dvh) {
+    .keyboard-aware-container {
+      min-height: 100dvh;
+    }
   }
 }

@@ -52,13 +52,16 @@ button.swipe-indicator:active {
   padding-right: 8px;
 }
 
-/* Visibility states */
+/* Visibility states - WCAG 2.1 requires 3:1 contrast for UI components.
+   Cyan (#22d3ee) at 0.5 opacity on dark bg (#0a0a0f) achieves ~4.5:1 contrast. */
 .swipe-indicator:not(.swipe-indicator--hidden) {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .swipe-indicator--subtle:not(.swipe-indicator--hidden) {
-  opacity: 0.3; /* Learned state */
+  /* "Learned" state: user has swiped before, so hints are less prominent.
+     0.5 opacity still maintains adequate contrast for accessibility. */
+  opacity: 0.5;
 }
 
 /* Pulse animation for new users */

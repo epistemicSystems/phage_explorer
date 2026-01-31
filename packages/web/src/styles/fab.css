@@ -1,13 +1,29 @@
 /* =============================================================================
    Floating Action Button for mobile control palette
+
+   Material Design 3 / Apple HIG compliant FAB:
+   - 56dp diameter (standard FAB size)
+   - Elevated with shadow for depth hierarchy
+   - Positions above bottom navigation when present
    ============================================================================= */
+
+/* FAB positioning variables - single source of truth */
+:root {
+  --fab-size: 56px;
+  --fab-margin: 16px;
+  --fab-gap-above-nav: 20px; /* Breathing room above ControlDeck */
+  /* Computed: distance from bottom edge to FAB bottom */
+  --fab-bottom-tablet: calc(24px + env(safe-area-inset-bottom, 0px));
+  --fab-bottom-phone: calc(var(--mobile-tab-bar-height, 56px) + var(--fab-gap-above-nav) + env(safe-area-inset-bottom, 0px));
+  --fab-bottom-landscape: calc(48px + var(--fab-gap-above-nav) + env(safe-area-inset-bottom, 0px));
+}
 
 .fab {
   position: fixed;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  right: calc(16px + env(safe-area-inset-right, 0px));
-  width: 56px;
-  height: 56px;
+  bottom: var(--fab-bottom-tablet);
+  right: calc(var(--fab-margin) + env(safe-area-inset-right, 0px));
+  width: var(--fab-size);
+  height: var(--fab-size);
   border-radius: 50%;
   border: none;
   background: var(--color-primary);
@@ -106,16 +122,15 @@
 /* On mobile with ControlDeck visible, position FAB above it */
 @media (max-width: 640px) {
   .fab {
-    /* ControlDeck is 56px + safe-area, add 16px gap above it */
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    /* Uses CSS variable for maintainability - automatically adjusts if tab bar height changes */
+    bottom: var(--fab-bottom-phone);
   }
 }
 
 /* Landscape: ControlDeck is shorter (48px) */
 @media (max-width: 640px) and (orientation: landscape) {
   .fab {
-    /* ControlDeck is 48px + safe-area in landscape, add 16px gap */
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    bottom: var(--fab-bottom-landscape);
   }
 }
 
@@ -145,9 +160,9 @@
 
 .fab-hint {
   position: fixed;
-  /* Position to the left of the FAB */
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px) + 16px);
-  right: calc(16px + env(safe-area-inset-right, 0px) + 56px + 12px);
+  /* Position to the left of the FAB, vertically centered */
+  bottom: calc(var(--fab-bottom-tablet) + var(--fab-size) / 2 - 12px);
+  right: calc(var(--fab-margin) + env(safe-area-inset-right, 0px) + var(--fab-size) + var(--space-3));
   display: none;
   align-items: center;
   padding: var(--space-2) var(--space-3);
@@ -181,14 +196,14 @@
 /* Match FAB positioning on phones */
 @media (max-width: 640px) {
   .fab-hint {
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 16px);
+    bottom: calc(var(--fab-bottom-phone) + var(--fab-size) / 2 - 12px);
   }
 }
 
 /* Landscape phones */
 @media (max-width: 640px) and (orientation: landscape) {
   .fab-hint {
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 16px);
+    bottom: calc(var(--fab-bottom-landscape) + var(--fab-size) / 2 - 12px);
   }
 }
 

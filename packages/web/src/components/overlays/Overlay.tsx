@@ -409,9 +409,9 @@ export function Overlay({
         showHandle={true}
         closeOnBackdropTap={closeOnBackdrop}
         swipeToDismiss={true}
-        initialSnapPoint={size === 'sm' ? 'half' : 'full'}
-        minHeight={size === 'sm' ? 30 : 50}
-        maxHeight={size === 'full' ? 95 : 90}
+        initialSnapPoint="full"
+        minHeight={size === 'sm' ? 40 : 60}
+        maxHeight={94}
       >
         <div className={`overlay overlay-${id} ${className}`} data-testid={`overlay-${id}`}>
           {children}

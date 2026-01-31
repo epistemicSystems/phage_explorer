@@ -23,9 +23,13 @@
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  /* Increased letter-spacing for better readability of uppercase text on mobile */
+  letter-spacing: 0.08em;
   color: var(--color-text-muted);
-  margin: 0 0 var(--space-2) var(--space-1);
+  margin: 0 0 var(--space-3) var(--space-1);
+  /* Ensure category labels are distinguishable */
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 /* =============================================================================
@@ -35,13 +39,23 @@
 .action-drawer__grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-2);
+  /* Increased gap for better touch separation (Apple HIG recommends 8pt minimum) */
+  gap: var(--space-3);
 }
 
 /* Responsive: fewer columns on very small screens */
 @media (max-width: 380px) {
   .action-drawer__grid {
     grid-template-columns: repeat(3, 1fr);
+    /* Slightly smaller gap on tiny screens to fit 3 columns */
+    gap: var(--space-2);
+  }
+}
+
+/* Tablet: can fit more items per row */
+@media (min-width: 641px) and (max-width: 900px) {
+  .action-drawer__grid {
+    grid-template-columns: repeat(5, 1fr);
   }
 }
 
@@ -88,9 +102,9 @@
   color: var(--color-primary);
 }
 
-/* Disabled state */
+/* Disabled state - follows iOS/Material guidelines for disabled interactive elements */
 .action-drawer__item--disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
   position: relative;
 }
@@ -100,30 +114,66 @@
   background: var(--color-background-elevated);
 }
 
-/* Disabled reason hint - appears on first tap */
+/* Disabled reason - inline hint text (accessible, no pseudo-element required).
+   The ActionDrawer component should render this as a child element when disabled. */
+.action-drawer__item-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+/* Show hint on tap/focus for disabled items */
+.action-drawer__item--disabled:focus .action-drawer__item-hint,
+.action-drawer__item--disabled:active .action-drawer__item-hint {
+  opacity: 1;
+}
+
+/* Fallback: pseudo-element tooltip for items without inline hint.
+   Note: :has() has good support (Chrome 105+, Safari 15.4+, Firefox 121+).
+   Items with .action-drawer__item-hint won't show this tooltip. */
 .action-drawer__item--disabled::after {
   content: 'Select a phage first';
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% + var(--space-2));
   left: 50%;
   transform: translateX(-50%);
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-3);
   background: var(--color-background-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  font-weight: var(--font-medium);
+  color: var(--color-text);
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--duration-fast) var(--ease-out);
-  z-index: 10;
-  box-shadow: var(--shadow-md);
+  /* Higher z-index to escape any parent overflow/stacking context */
+  z-index: 100;
+  box-shadow: var(--shadow-lg);
+  min-height: auto;
+  min-width: auto;
 }
 
 .action-drawer__item--disabled:focus::after,
 .action-drawer__item--disabled:active::after {
   opacity: 1;
+}
+
+/* When inline hint exists, hide the pseudo-element tooltip */
+.action-drawer__item--disabled:has(.action-drawer__item-hint)::after {
+  display: none;
 }
 
 /* =============================================================================

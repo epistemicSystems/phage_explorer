@@ -59,11 +59,11 @@ export function ActionDrawer({ isOpen, onClose }: ActionDrawerProps): React.Reac
   const { open: openOverlay, toggle: toggleOverlay } = useOverlay();
   const shortcutPlatform = detectShortcutPlatform();
   const initialSnapPoint = useMemo(() => {
-    if (typeof window === 'undefined') return 'half' as const;
+    if (typeof window === 'undefined') return 'full' as const;
 
-    // Very small phones benefit from opening the drawer fully so key actions (Analysis row 2+)
-    // are reachable without needing to scroll or expand the sheet first.
-    if (window.innerWidth <= 380) return 'full' as const;
+    // On mobile, always open fully so all actions are immediately accessible
+    // without needing to drag up. The half-height was too cramped.
+    if (window.innerWidth <= 900) return 'full' as const;
 
     return 'half' as const;
   }, []);
@@ -162,8 +162,8 @@ export function ActionDrawer({ isOpen, onClose }: ActionDrawerProps): React.Reac
       closeOnBackdropTap={true}
       swipeToDismiss={true}
       initialSnapPoint={initialSnapPoint}
-      minHeight={35}
-      maxHeight={85}
+      minHeight={40}
+      maxHeight={92}
     >
       <div className="action-drawer" id="action-drawer" data-testid="action-drawer">
         {ACTION_DRAWER_SECTIONS.map((category) => (

@@ -64,8 +64,8 @@ interface BottomSheetProps {
 /** Height percentages for each snap point */
 const SNAP_HEIGHTS: Record<SnapPoint, number> = {
   closed: 0,
-  half: 50,
-  full: 90,
+  half: 55,
+  full: 94,
 };
 
 /** Velocity threshold to trigger snap on release (px/ms) */
