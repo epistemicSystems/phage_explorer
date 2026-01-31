@@ -4,11 +4,6 @@
   "outputDirectory": "packages/web/dist",
   "installCommand": "bun install",
   "framework": null,
-  "functions": {
-    "api/og.tsx": {
-      "runtime": "edge"
-    }
-  },
   "headers": [
     {
       "source": "/phage.db.gz",
