@@ -1,15 +1,30 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { OverlayProvider } from './components/overlays/OverlayProvider';
 import { ToastProvider } from './components/ui/Toast';
 import ErrorBoundary from './components/layout/ErrorBoundary';
 import { ScrollProvider } from './providers';
-import App from './App';
-import './styles.css';
-import './styles/scroll.css';
 import { queryClient } from './queryClient';
 import { initializeStorePersistence } from './store';
+
+// Check for design mode preference
+// Use new Ciechanowski-inspired design by default
+// Add ?legacy=true to URL to use old design
+const urlParams = new URLSearchParams(window.location.search);
+const useLegacyDesign = urlParams.get('legacy') === 'true' || localStorage.getItem('phage-explorer-legacy') === 'true';
+
+// Lazy load both apps for code splitting
+const AppNew = lazy(() => import('./AppNew'));
+const AppLegacy = lazy(() => import('./App'));
+
+// Import appropriate styles
+if (!useLegacyDesign) {
+  import('./styles/ciechanowski.css');
+} else {
+  import('./styles.css');
+  import('./styles/scroll.css');
+}
 
 function installViewportVariables(): () => void {
   if (typeof window === 'undefined') return () => undefined;
@@ -114,23 +129,63 @@ if (typeof window !== 'undefined') {
 
 const container = document.getElementById('root');
 
+// Loading fallback for Suspense
+const LoadingFallback = () => (
+  <div style={{
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '100vh',
+    background: '#111113',
+    color: '#71717a',
+    gap: '1rem',
+  }}>
+    <div style={{
+      width: 40,
+      height: 40,
+      border: '3px solid #27272a',
+      borderTopColor: '#3b82f6',
+      borderRadius: '50%',
+      animation: 'spin 1s linear infinite',
+    }} />
+    <p>Loading Phage Explorer...</p>
+    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+  </div>
+);
+
 if (container) {
   const root = ReactDOM.createRoot(container);
-  root.render(
-    <React.StrictMode>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <ScrollProvider>
-            <ToastProvider>
-              <OverlayProvider>
-                <App />
-              </OverlayProvider>
-            </ToastProvider>
-          </ScrollProvider>
-        </QueryClientProvider>
-      </ErrorBoundary>
-    </React.StrictMode>,
-  );
+
+  if (useLegacyDesign) {
+    // Legacy design with full provider stack
+    root.render(
+      <React.StrictMode>
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <ScrollProvider>
+              <ToastProvider>
+                <OverlayProvider>
+                  <Suspense fallback={<LoadingFallback />}>
+                    <AppLegacy />
+                  </Suspense>
+                </OverlayProvider>
+              </ToastProvider>
+            </ScrollProvider>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </React.StrictMode>,
+    );
+  } else {
+    // New Ciechanowski-inspired design
+    root.render(
+      <React.StrictMode>
+        <Suspense fallback={<LoadingFallback />}>
+          <AppNew />
+        </Suspense>
+      </React.StrictMode>,
+    );
+  }
 }
 
 // Register service worker in production builds (disabled for automation via navigator.webdriver).
