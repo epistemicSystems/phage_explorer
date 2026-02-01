@@ -6,3 +6,4 @@
 
 export * from './animate';
 export * from './visualize';
+export * from './interactions';

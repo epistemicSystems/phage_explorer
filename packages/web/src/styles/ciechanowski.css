@@ -738,3 +738,238 @@ input::placeholder {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--c-border-strong);
 }
+
+/* === MICRO-INTERACTIONS === */
+
+/* Keyboard focus indicator */
+.keyboard-focus {
+  outline: 2px solid var(--c-accent) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px var(--c-accent-soft) !important;
+}
+
+/* Interactive element states */
+.interactive {
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.interactive:hover {
+  transform: translateY(-1px);
+}
+
+.interactive:active {
+  transform: translateY(0);
+}
+
+/* Fade-in on visible */
+.fade-in-view {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity var(--duration-slow) var(--ease-out),
+              transform var(--duration-slow) var(--ease-out);
+}
+
+.fade-in-view.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger animation for lists */
+.stagger-item {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: staggerFadeIn var(--duration-normal) var(--ease-out) forwards;
+}
+
+@keyframes staggerFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading shimmer effect */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--c-bg-elevated) 0%,
+    var(--c-bg-hover) 50%,
+    var(--c-bg-elevated) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Pulse animation for attention */
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Scale animation on hover */
+.scale-on-hover {
+  transition: transform var(--duration-fast) var(--ease-spring);
+}
+
+.scale-on-hover:hover {
+  transform: scale(1.02);
+}
+
+.scale-on-hover:active {
+  transform: scale(0.98);
+}
+
+/* Smooth expand/collapse */
+.expandable {
+  overflow: hidden;
+  transition: max-height var(--duration-normal) var(--ease-out),
+              opacity var(--duration-normal) var(--ease-out);
+}
+
+.expandable.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.expandable.expanded {
+  max-height: 1000px;
+  opacity: 1;
+}
+
+/* Badge animations */
+.badge-new {
+  position: relative;
+}
+
+.badge-new::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background: var(--c-accent);
+  border-radius: 50%;
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+}
+
+/* Skeleton loading */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--c-bg-elevated);
+  border-radius: var(--radius-md);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--c-bg-hover),
+    transparent
+  );
+  animation: skeletonWave 1.5s linear infinite;
+}
+
+@keyframes skeletonWave {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Smooth number transitions */
+.number-transition {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.number-transition.changing {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+/* Glassmorphism effect */
+.glass {
+  background: rgba(17, 17, 19, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--c-border-subtle);
+}
+
+/* Subtle glow on focus/hover */
+.glow-on-focus:focus-visible,
+.glow-on-hover:hover {
+  box-shadow: 0 0 0 4px var(--c-accent-soft),
+              0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+/* Skip link for accessibility */
+.skip-link {
+  position: fixed;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-3) var(--space-6);
+  background: var(--c-accent);
+  color: white;
+  border-radius: var(--radius-md);
+  z-index: 10000;
+  transition: top var(--duration-fast) var(--ease-out);
+}
+
+.skip-link:focus {
+  top: var(--space-4);
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+  }
+
+  .card, .viz-container {
+    border: 1px solid #ccc;
+    box-shadow: none;
+  }
+}
