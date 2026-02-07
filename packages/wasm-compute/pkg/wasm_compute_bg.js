@@ -1,262 +1,3 @@
-let wasm;
-export function __wbg_set_wasm(val) {
-    wasm = val;
-}
-
-function _assertClass(instance, klass) {
-    if (!(instance instanceof klass)) {
-        throw new Error(`expected instance of ${klass.name}`);
-    }
-}
-
-function getArrayF32FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getFloat32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
-}
-
-function getArrayF64FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
-}
-
-function getArrayI32FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getInt32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
-}
-
-function getArrayU32FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
-}
-
-function getArrayU8FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
-}
-
-let cachedDataViewMemory0 = null;
-function getDataViewMemory0() {
-    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
-        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
-    }
-    return cachedDataViewMemory0;
-}
-
-let cachedFloat32ArrayMemory0 = null;
-function getFloat32ArrayMemory0() {
-    if (cachedFloat32ArrayMemory0 === null || cachedFloat32ArrayMemory0.byteLength === 0) {
-        cachedFloat32ArrayMemory0 = new Float32Array(wasm.memory.buffer);
-    }
-    return cachedFloat32ArrayMemory0;
-}
-
-let cachedFloat64ArrayMemory0 = null;
-function getFloat64ArrayMemory0() {
-    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
-        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
-    }
-    return cachedFloat64ArrayMemory0;
-}
-
-let cachedInt32ArrayMemory0 = null;
-function getInt32ArrayMemory0() {
-    if (cachedInt32ArrayMemory0 === null || cachedInt32ArrayMemory0.byteLength === 0) {
-        cachedInt32ArrayMemory0 = new Int32Array(wasm.memory.buffer);
-    }
-    return cachedInt32ArrayMemory0;
-}
-
-function getStringFromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return decodeText(ptr, len);
-}
-
-let cachedUint32ArrayMemory0 = null;
-function getUint32ArrayMemory0() {
-    if (cachedUint32ArrayMemory0 === null || cachedUint32ArrayMemory0.byteLength === 0) {
-        cachedUint32ArrayMemory0 = new Uint32Array(wasm.memory.buffer);
-    }
-    return cachedUint32ArrayMemory0;
-}
-
-let cachedUint8ArrayMemory0 = null;
-function getUint8ArrayMemory0() {
-    if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
-        cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
-    }
-    return cachedUint8ArrayMemory0;
-}
-
-function passArray32ToWasm0(arg, malloc) {
-    const ptr = malloc(arg.length * 4, 4) >>> 0;
-    getUint32ArrayMemory0().set(arg, ptr / 4);
-    WASM_VECTOR_LEN = arg.length;
-    return ptr;
-}
-
-function passArray8ToWasm0(arg, malloc) {
-    const ptr = malloc(arg.length * 1, 1) >>> 0;
-    getUint8ArrayMemory0().set(arg, ptr / 1);
-    WASM_VECTOR_LEN = arg.length;
-    return ptr;
-}
-
-function passArrayF32ToWasm0(arg, malloc) {
-    const ptr = malloc(arg.length * 4, 4) >>> 0;
-    getFloat32ArrayMemory0().set(arg, ptr / 4);
-    WASM_VECTOR_LEN = arg.length;
-    return ptr;
-}
-
-function passArrayF64ToWasm0(arg, malloc) {
-    const ptr = malloc(arg.length * 8, 8) >>> 0;
-    getFloat64ArrayMemory0().set(arg, ptr / 8);
-    WASM_VECTOR_LEN = arg.length;
-    return ptr;
-}
-
-function passStringToWasm0(arg, malloc, realloc) {
-    if (realloc === undefined) {
-        const buf = cachedTextEncoder.encode(arg);
-        const ptr = malloc(buf.length, 1) >>> 0;
-        getUint8ArrayMemory0().subarray(ptr, ptr + buf.length).set(buf);
-        WASM_VECTOR_LEN = buf.length;
-        return ptr;
-    }
-
-    let len = arg.length;
-    let ptr = malloc(len, 1) >>> 0;
-
-    const mem = getUint8ArrayMemory0();
-
-    let offset = 0;
-
-    for (; offset < len; offset++) {
-        const code = arg.charCodeAt(offset);
-        if (code > 0x7F) break;
-        mem[ptr + offset] = code;
-    }
-    if (offset !== len) {
-        if (offset !== 0) {
-            arg = arg.slice(offset);
-        }
-        ptr = realloc(ptr, len, len = offset + arg.length * 3, 1) >>> 0;
-        const view = getUint8ArrayMemory0().subarray(ptr + offset, ptr + len);
-        const ret = cachedTextEncoder.encodeInto(arg, view);
-
-        offset += ret.written;
-        ptr = realloc(ptr, len, offset, 1) >>> 0;
-    }
-
-    WASM_VECTOR_LEN = offset;
-    return ptr;
-}
-
-let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
-cachedTextDecoder.decode();
-const MAX_SAFARI_DECODE_BYTES = 2146435072;
-let numBytesDecoded = 0;
-function decodeText(ptr, len) {
-    numBytesDecoded += len;
-    if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
-        cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
-        cachedTextDecoder.decode();
-        numBytesDecoded = len;
-    }
-    return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
-}
-
-const cachedTextEncoder = new TextEncoder();
-
-if (!('encodeInto' in cachedTextEncoder)) {
-    cachedTextEncoder.encodeInto = function (arg, view) {
-        const buf = cachedTextEncoder.encode(arg);
-        view.set(buf);
-        return {
-            read: arg.length,
-            written: buf.length
-        };
-    }
-}
-
-let WASM_VECTOR_LEN = 0;
-
-const BondDetectionResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_bonddetectionresult_free(ptr >>> 0, 1));
-
-const CgrCountsResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_cgrcountsresult_free(ptr >>> 0, 1));
-
-const CodonUsageResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_codonusageresult_free(ptr >>> 0, 1));
-
-const DenseKmerResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_densekmerresult_free(ptr >>> 0, 1));
-
-const DotPlotBuffersFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_dotplotbuffers_free(ptr >>> 0, 1));
-
-const FunctionalGroupResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_functionalgroupresult_free(ptr >>> 0, 1));
-
-const GridResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_gridresult_free(ptr >>> 0, 1));
-
-const HoeffdingResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_hoeffdingresult_free(ptr >>> 0, 1));
-
-const KLScanResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_klscanresult_free(ptr >>> 0, 1));
-
-const KmerAnalysisResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_kmeranalysisresult_free(ptr >>> 0, 1));
-
-const MinHashSignatureFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_minhashsignature_free(ptr >>> 0, 1));
-
-const Model3DFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_model3d_free(ptr >>> 0, 1));
-
-const MyersDiffResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_myersdiffresult_free(ptr >>> 0, 1));
-
-const PCAResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_pcaresult_free(ptr >>> 0, 1));
-
-const PCAResultF32Finalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_pcaresultf32_free(ptr >>> 0, 1));
-
-const PDBParseResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_pdbparseresult_free(ptr >>> 0, 1));
-
-const RepeatResultFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_repeatresult_free(ptr >>> 0, 1));
-
-const SequenceHandleFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_sequencehandle_free(ptr >>> 0, 1));
-
-const Vector3Finalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_vector3_free(ptr >>> 0, 1));
-
 /**
  * Result of bond detection
  */
@@ -318,27 +59,6 @@ export class CgrCountsResult {
         wasm.__wbg_cgrcountsresult_free(ptr, 0);
     }
     /**
-     * @returns {number}
-     */
-    get resolution() {
-        const ret = wasm.cgrcountsresult_resolution(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get total_points() {
-        const ret = wasm.cgrcountsresult_total_points(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get k() {
-        const ret = wasm.cgrcountsresult_k(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
      * @returns {Uint32Array}
      */
     get counts() {
@@ -355,8 +75,29 @@ export class CgrCountsResult {
     /**
      * @returns {number}
      */
+    get k() {
+        const ret = wasm.cgrcountsresult_k(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
     get max_count() {
         const ret = wasm.cgrcountsresult_max_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get resolution() {
+        const ret = wasm.cgrcountsresult_resolution(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get total_points() {
+        const ret = wasm.cgrcountsresult_total_points(this.__wbg_ptr);
         return ret >>> 0;
     }
 }
@@ -446,6 +187,27 @@ export class DenseKmerResult {
         wasm.__wbg_densekmerresult_free(ptr, 0);
     }
     /**
+     * Get the k-mer counts as a Uint32Array.
+     * Length is 4^k where each index represents a k-mer in base-4 encoding:
+     * - A=0, C=1, G=2, T=3
+     * - Index = sum(base[i] * 4^(k-1-i)) for i in 0..k
+     *
+     * Example for k=2: index 0=AA, 1=AC, 2=AG, 3=AT, 4=CA, ... 15=TT
+     * @returns {Uint32Array}
+     */
+    get counts() {
+        const ret = wasm.densekmerresult_counts(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * K value used for counting.
+     * @returns {number}
+     */
+    get k() {
+        const ret = wasm.densekmerresult_k(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
      * Total number of valid k-mers counted (windows without N/ambiguous bases).
      * @returns {bigint}
      */
@@ -460,27 +222,6 @@ export class DenseKmerResult {
     get unique_count() {
         const ret = wasm.densekmerresult_unique_count(this.__wbg_ptr);
         return ret >>> 0;
-    }
-    /**
-     * K value used for counting.
-     * @returns {number}
-     */
-    get k() {
-        const ret = wasm.densekmerresult_k(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * Get the k-mer counts as a Uint32Array.
-     * Length is 4^k where each index represents a k-mer in base-4 encoding:
-     * - A=0, C=1, G=2, T=3
-     * - Index = sum(base[i] * 4^(k-1-i)) for i in 0..k
-     *
-     * Example for k=2: index 0=AA, 1=AC, 2=AG, 3=AT, 4=CA, ... 15=TT
-     * @returns {Uint32Array}
-     */
-    get counts() {
-        const ret = wasm.densekmerresult_counts(this.__wbg_ptr);
-        return ret;
     }
 }
 if (Symbol.dispose) DenseKmerResult.prototype[Symbol.dispose] = DenseKmerResult.prototype.free;
@@ -525,19 +266,19 @@ export class DotPlotBuffers {
         return ret;
     }
     /**
-     * @returns {number}
-     */
-    get window() {
-        const ret = wasm.dotplotbuffers_window(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
      * Flattened inverted identity values (row-major, bins*bins).
      * @returns {Float32Array}
      */
     get inverted() {
         const ret = wasm.dotplotbuffers_inverted(this.__wbg_ptr);
         return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get window() {
+        const ret = wasm.dotplotbuffers_window(this.__wbg_ptr);
+        return ret >>> 0;
     }
 }
 if (Symbol.dispose) DotPlotBuffers.prototype[Symbol.dispose] = DotPlotBuffers.prototype.free;
@@ -565,16 +306,6 @@ export class FunctionalGroupResult {
         wasm.__wbg_functionalgroupresult_free(ptr, 0);
     }
     /**
-     * Get sizes of each aromatic ring.
-     * @returns {Uint32Array}
-     */
-    get ring_sizes() {
-        const ret = wasm.functionalgroupresult_ring_sizes(this.__wbg_ptr);
-        var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
-        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
-        return v1;
-    }
-    /**
      * Number of aromatic rings.
      * @returns {number}
      */
@@ -583,11 +314,11 @@ export class FunctionalGroupResult {
         return ret >>> 0;
     }
     /**
-     * Get phosphate group data.
+     * Get aromatic ring atom indices as flat array.
      * @returns {Uint32Array}
      */
-    get phosphate_data() {
-        const ret = wasm.functionalgroupresult_phosphate_data(this.__wbg_ptr);
+    get aromatic_indices() {
+        const ret = wasm.functionalgroupresult_aromatic_indices(this.__wbg_ptr);
         var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
@@ -619,11 +350,21 @@ export class FunctionalGroupResult {
         return ret >>> 0;
     }
     /**
-     * Get aromatic ring atom indices as flat array.
+     * Get phosphate group data.
      * @returns {Uint32Array}
      */
-    get aromatic_indices() {
-        const ret = wasm.functionalgroupresult_aromatic_indices(this.__wbg_ptr);
+    get phosphate_data() {
+        const ret = wasm.functionalgroupresult_phosphate_data(this.__wbg_ptr);
+        var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
+     * Get sizes of each aromatic ring.
+     * @returns {Uint32Array}
+     */
+    get ring_sizes() {
+        const ret = wasm.functionalgroupresult_ring_sizes(this.__wbg_ptr);
         var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
@@ -702,6 +443,14 @@ export class HoeffdingResult {
         return ret;
     }
     /**
+     * Number of observations used
+     * @returns {number}
+     */
+    get n() {
+        const ret = wasm.__wbg_get_hoeffdingresult_n(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
      * Hoeffding's D statistic. Range: approximately [-0.5, 1]
      * Values near 0 indicate independence, larger values indicate dependence.
      * Unlike correlation, captures non-linear relationships.
@@ -709,14 +458,6 @@ export class HoeffdingResult {
      */
     set d(arg0) {
         wasm.__wbg_set_hoeffdingresult_d(this.__wbg_ptr, arg0);
-    }
-    /**
-     * Number of observations used
-     * @returns {number}
-     */
-    get n() {
-        const ret = wasm.__wbg_get_hoeffdingresult_n(this.__wbg_ptr);
-        return ret >>> 0;
     }
     /**
      * Number of observations used
@@ -750,14 +491,6 @@ export class KLScanResult {
         wasm.__wbg_klscanresult_free(ptr, 0);
     }
     /**
-     * Get the number of windows
-     * @returns {number}
-     */
-    get window_count() {
-        const ret = wasm.klscanresult_window_count(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
      * Get the k-mer size used
      * @returns {number}
      */
@@ -785,6 +518,14 @@ export class KLScanResult {
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
     }
+    /**
+     * Get the number of windows
+     * @returns {number}
+     */
+    get window_count() {
+        const ret = wasm.klscanresult_window_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
 }
 if (Symbol.dispose) KLScanResult.prototype[Symbol.dispose] = KLScanResult.prototype.free;
 
@@ -809,15 +550,51 @@ export class KmerAnalysisResult {
     /**
      * @returns {number}
      */
+    get bray_curtis_dissimilarity() {
+        const ret = wasm.__wbg_get_kmeranalysisresult_bray_curtis_dissimilarity(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get containment_a_in_b() {
+        const ret = wasm.__wbg_get_kmeranalysisresult_containment_a_in_b(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get containment_b_in_a() {
+        const ret = wasm.__wbg_get_kmeranalysisresult_containment_b_in_a(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get cosine_similarity() {
+        const ret = wasm.__wbg_get_kmeranalysisresult_cosine_similarity(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get jaccard_index() {
+        const ret = wasm.__wbg_get_hoeffdingresult_d(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
     get k() {
         const ret = wasm.__wbg_get_kmeranalysisresult_k(this.__wbg_ptr);
         return ret >>> 0;
     }
     /**
-     * @param {number} arg0
+     * @returns {number}
      */
-    set k(arg0) {
-        wasm.__wbg_set_kmeranalysisresult_k(this.__wbg_ptr, arg0);
+    get shared_kmers() {
+        const ret = wasm.__wbg_get_kmeranalysisresult_shared_kmers(this.__wbg_ptr);
+        return ret >>> 0;
     }
     /**
      * @returns {number}
@@ -825,12 +602,6 @@ export class KmerAnalysisResult {
     get unique_kmers_a() {
         const ret = wasm.__wbg_get_kmeranalysisresult_unique_kmers_a(this.__wbg_ptr);
         return ret >>> 0;
-    }
-    /**
-     * @param {number} arg0
-     */
-    set unique_kmers_a(arg0) {
-        wasm.__wbg_set_kmeranalysisresult_unique_kmers_a(this.__wbg_ptr, arg0);
     }
     /**
      * @returns {number}
@@ -842,41 +613,8 @@ export class KmerAnalysisResult {
     /**
      * @param {number} arg0
      */
-    set unique_kmers_b(arg0) {
-        wasm.__wbg_set_kmeranalysisresult_unique_kmers_b(this.__wbg_ptr, arg0);
-    }
-    /**
-     * @returns {number}
-     */
-    get shared_kmers() {
-        const ret = wasm.__wbg_get_kmeranalysisresult_shared_kmers(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @param {number} arg0
-     */
-    set shared_kmers(arg0) {
-        wasm.__wbg_set_kmeranalysisresult_shared_kmers(this.__wbg_ptr, arg0);
-    }
-    /**
-     * @returns {number}
-     */
-    get jaccard_index() {
-        const ret = wasm.__wbg_get_hoeffdingresult_d(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @param {number} arg0
-     */
-    set jaccard_index(arg0) {
-        wasm.__wbg_set_hoeffdingresult_d(this.__wbg_ptr, arg0);
-    }
-    /**
-     * @returns {number}
-     */
-    get containment_a_in_b() {
-        const ret = wasm.__wbg_get_kmeranalysisresult_containment_a_in_b(this.__wbg_ptr);
-        return ret;
+    set bray_curtis_dissimilarity(arg0) {
+        wasm.__wbg_set_kmeranalysisresult_bray_curtis_dissimilarity(this.__wbg_ptr, arg0);
     }
     /**
      * @param {number} arg0
@@ -885,24 +623,10 @@ export class KmerAnalysisResult {
         wasm.__wbg_set_kmeranalysisresult_containment_a_in_b(this.__wbg_ptr, arg0);
     }
     /**
-     * @returns {number}
-     */
-    get containment_b_in_a() {
-        const ret = wasm.__wbg_get_kmeranalysisresult_containment_b_in_a(this.__wbg_ptr);
-        return ret;
-    }
-    /**
      * @param {number} arg0
      */
     set containment_b_in_a(arg0) {
         wasm.__wbg_set_kmeranalysisresult_containment_b_in_a(this.__wbg_ptr, arg0);
-    }
-    /**
-     * @returns {number}
-     */
-    get cosine_similarity() {
-        const ret = wasm.__wbg_get_kmeranalysisresult_cosine_similarity(this.__wbg_ptr);
-        return ret;
     }
     /**
      * @param {number} arg0
@@ -911,17 +635,34 @@ export class KmerAnalysisResult {
         wasm.__wbg_set_kmeranalysisresult_cosine_similarity(this.__wbg_ptr, arg0);
     }
     /**
-     * @returns {number}
+     * @param {number} arg0
      */
-    get bray_curtis_dissimilarity() {
-        const ret = wasm.__wbg_get_kmeranalysisresult_bray_curtis_dissimilarity(this.__wbg_ptr);
-        return ret;
+    set jaccard_index(arg0) {
+        wasm.__wbg_set_hoeffdingresult_d(this.__wbg_ptr, arg0);
     }
     /**
      * @param {number} arg0
      */
-    set bray_curtis_dissimilarity(arg0) {
-        wasm.__wbg_set_kmeranalysisresult_bray_curtis_dissimilarity(this.__wbg_ptr, arg0);
+    set k(arg0) {
+        wasm.__wbg_set_kmeranalysisresult_k(this.__wbg_ptr, arg0);
+    }
+    /**
+     * @param {number} arg0
+     */
+    set shared_kmers(arg0) {
+        wasm.__wbg_set_kmeranalysisresult_shared_kmers(this.__wbg_ptr, arg0);
+    }
+    /**
+     * @param {number} arg0
+     */
+    set unique_kmers_a(arg0) {
+        wasm.__wbg_set_kmeranalysisresult_unique_kmers_a(this.__wbg_ptr, arg0);
+    }
+    /**
+     * @param {number} arg0
+     */
+    set unique_kmers_b(arg0) {
+        wasm.__wbg_set_kmeranalysisresult_unique_kmers_b(this.__wbg_ptr, arg0);
     }
 }
 if (Symbol.dispose) KmerAnalysisResult.prototype[Symbol.dispose] = KmerAnalysisResult.prototype.free;
@@ -951,27 +692,19 @@ export class MinHashSignature {
         wasm.__wbg_minhashsignature_free(ptr, 0);
     }
     /**
-     * Number of hash functions (signature length).
-     * @returns {number}
-     */
-    get num_hashes() {
-        const ret = wasm.minhashsignature_num_hashes(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * Total number of valid k-mers hashed.
-     * @returns {bigint}
-     */
-    get total_kmers() {
-        const ret = wasm.minhashsignature_total_kmers(this.__wbg_ptr);
-        return BigInt.asUintN(64, ret);
-    }
-    /**
      * K value used for hashing.
      * @returns {number}
      */
     get k() {
         const ret = wasm.minhashsignature_k(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Number of hash functions (signature length).
+     * @returns {number}
+     */
+    get num_hashes() {
+        const ret = wasm.minhashsignature_num_hashes(this.__wbg_ptr);
         return ret >>> 0;
     }
     /**
@@ -983,6 +716,14 @@ export class MinHashSignature {
     get signature() {
         const ret = wasm.minhashsignature_signature(this.__wbg_ptr);
         return ret;
+    }
+    /**
+     * Total number of valid k-mers hashed.
+     * @returns {bigint}
+     */
+    get total_kmers() {
+        const ret = wasm.minhashsignature_total_kmers(this.__wbg_ptr);
+        return BigInt.asUintN(64, ret);
     }
 }
 if (Symbol.dispose) MinHashSignature.prototype[Symbol.dispose] = MinHashSignature.prototype.free;
@@ -1040,19 +781,11 @@ export class MyersDiffResult {
         wasm.__wbg_myersdiffresult_free(ptr, 0);
     }
     /**
-     * Number of insertions.
+     * Number of deletions.
      * @returns {number}
      */
-    get insertions() {
-        const ret = wasm.functionalgroupresult_aromatic_count(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * Number of mismatches (substitutions).
-     * @returns {number}
-     */
-    get mismatches() {
-        const ret = wasm.myersdiffresult_mismatches(this.__wbg_ptr);
+    get deletions() {
+        const ret = wasm.functionalgroupresult_disulfide_count(this.__wbg_ptr);
         return ret >>> 0;
     }
     /**
@@ -1075,6 +808,22 @@ export class MyersDiffResult {
             wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
         }
         return v1;
+    }
+    /**
+     * Sequence identity as fraction (0.0 - 1.0).
+     * @returns {number}
+     */
+    get identity() {
+        const ret = wasm.myersdiffresult_identity(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Number of insertions.
+     * @returns {number}
+     */
+    get insertions() {
+        const ret = wasm.functionalgroupresult_aromatic_count(this.__wbg_ptr);
+        return ret >>> 0;
     }
     /**
      * Length of sequence A.
@@ -1119,19 +868,11 @@ export class MyersDiffResult {
         return ret >>> 0;
     }
     /**
-     * Sequence identity as fraction (0.0 - 1.0).
+     * Number of mismatches (substitutions).
      * @returns {number}
      */
-    get identity() {
-        const ret = wasm.myersdiffresult_identity(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * Number of deletions.
-     * @returns {number}
-     */
-    get deletions() {
-        const ret = wasm.functionalgroupresult_disulfide_count(this.__wbg_ptr);
+    get mismatches() {
+        const ret = wasm.myersdiffresult_mismatches(this.__wbg_ptr);
         return ret >>> 0;
     }
     /**
@@ -1167,14 +908,6 @@ export class PCAResult {
         wasm.__wbg_pcaresult_free(ptr, 0);
     }
     /**
-     * Number of features
-     * @returns {number}
-     */
-    get n_features() {
-        const ret = wasm.pcaresult_n_features(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
      * Get eigenvalues
      * @returns {Float64Array}
      */
@@ -1200,6 +933,14 @@ export class PCAResult {
      */
     get n_components() {
         const ret = wasm.pcaresult_n_components(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Number of features
+     * @returns {number}
+     */
+    get n_features() {
+        const ret = wasm.pcaresult_n_features(this.__wbg_ptr);
         return ret >>> 0;
     }
 }
@@ -1230,13 +971,6 @@ export class PCAResultF32 {
         wasm.__wbg_pcaresultf32_free(ptr, 0);
     }
     /**
-     * @returns {number}
-     */
-    get n_features() {
-        const ret = wasm.pcaresultf32_n_features(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
      * Eigenvalues (sample-covariance scale, i.e. divided by (n_samples - 1) when n_samples > 1).
      * @returns {Float32Array}
      */
@@ -1253,10 +987,25 @@ export class PCAResultF32 {
         return ret;
     }
     /**
+     * Mean vector used for centering.
+     * @returns {Float32Array}
+     */
+    get mean() {
+        const ret = wasm.pcaresultf32_mean(this.__wbg_ptr);
+        return ret;
+    }
+    /**
      * @returns {number}
      */
     get n_components() {
         const ret = wasm.pcaresultf32_n_components(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get n_features() {
+        const ret = wasm.pcaresultf32_n_features(this.__wbg_ptr);
         return ret >>> 0;
     }
     /**
@@ -1265,14 +1014,6 @@ export class PCAResultF32 {
      */
     get total_variance() {
         const ret = wasm.pcaresultf32_total_variance(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * Mean vector used for centering.
-     * @returns {Float32Array}
-     */
-    get mean() {
-        const ret = wasm.pcaresultf32_mean(this.__wbg_ptr);
         return ret;
     }
 }
@@ -1327,11 +1068,11 @@ export class PDBParseResult {
     /**
      * @returns {string}
      */
-    get error() {
+    get chain_ids() {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.pdbparseresult_error(this.__wbg_ptr);
+            const ret = wasm.pdbparseresult_chain_ids(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -1355,20 +1096,13 @@ export class PDBParseResult {
         }
     }
     /**
-     * @returns {Int32Array}
-     */
-    get res_seqs() {
-        const ret = wasm.pdbparseresult_res_seqs(this.__wbg_ptr);
-        return ret;
-    }
-    /**
      * @returns {string}
      */
-    get chain_ids() {
+    get error() {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.pdbparseresult_chain_ids(this.__wbg_ptr);
+            const ret = wasm.pdbparseresult_error(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -1397,6 +1131,13 @@ export class PDBParseResult {
         } finally {
             wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
         }
+    }
+    /**
+     * @returns {Int32Array}
+     */
+    get res_seqs() {
+        const ret = wasm.pdbparseresult_res_seqs(this.__wbg_ptr);
+        return ret;
     }
 }
 if (Symbol.dispose) PDBParseResult.prototype[Symbol.dispose] = PDBParseResult.prototype.free;
@@ -1496,12 +1237,21 @@ export class SequenceHandle {
         return DenseKmerResult.__wrap(ret);
     }
     /**
-     * Get the count of valid (non-N) bases.
-     * @returns {number}
+     * Compute cumulative GC skew.
+     *
+     * Running sum of (G - C) / (G + C) contribution per base.
+     * The cumulative skew typically shows the origin (minimum) and terminus (maximum)
+     * of replication for circular genomes.
+     *
+     * # Returns
+     * Float64Array with cumulative skew at each position.
+     * @returns {Float64Array}
      */
-    get valid_count() {
-        const ret = wasm.sequencehandle_valid_count(this.__wbg_ptr);
-        return ret >>> 0;
+    cumulative_gc_skew() {
+        const ret = wasm.sequencehandle_cumulative_gc_skew(this.__wbg_ptr);
+        var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+        return v1;
     }
     /**
      * Compute self-similarity dot plot using pre-encoded sequence.
@@ -1539,21 +1289,55 @@ export class SequenceHandle {
         return ret;
     }
     /**
-     * Compute cumulative GC skew.
+     * Compute GC skew values for sliding windows.
      *
-     * Running sum of (G - C) / (G + C) contribution per base.
-     * The cumulative skew typically shows the origin (minimum) and terminus (maximum)
-     * of replication for circular genomes.
+     * GC skew = (G - C) / (G + C) for each window.
+     * Returns an empty array if window_size or step_size is 0, or if
+     * the sequence is shorter than window_size.
+     *
+     * # Arguments
+     * * `window_size` - Size of the sliding window
+     * * `step_size` - Step between windows
      *
      * # Returns
-     * Float64Array with cumulative skew at each position.
+     * Float64Array of GC skew values, one per window position.
+     * @param {number} window_size
+     * @param {number} step_size
      * @returns {Float64Array}
      */
-    cumulative_gc_skew() {
-        const ret = wasm.sequencehandle_cumulative_gc_skew(this.__wbg_ptr);
+    gc_skew(window_size, step_size) {
+        const ret = wasm.sequencehandle_gc_skew(this.__wbg_ptr, window_size, step_size);
         var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
         return v1;
+    }
+    /**
+     * Get the original sequence length.
+     * @returns {number}
+     */
+    get length() {
+        const ret = wasm.sequencehandle_length(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Compute MinHash signature for similarity estimation.
+     *
+     * Uses canonical k-mers (lexicographically smaller of forward/reverse complement)
+     * for strand-independent comparison.
+     *
+     * # Arguments
+     * * `num_hashes` - Number of hash functions (signature size)
+     * * `k` - K-mer size
+     *
+     * # Returns
+     * MinHashSignature containing the signature.
+     * @param {number} num_hashes
+     * @param {number} k
+     * @returns {MinHashSignature}
+     */
+    minhash(num_hashes, k) {
+        const ret = wasm.sequencehandle_minhash(this.__wbg_ptr, num_hashes, k);
+        return MinHashSignature.__wrap(ret);
     }
     /**
      * Create a new SequenceHandle from raw sequence bytes.
@@ -1578,55 +1362,12 @@ export class SequenceHandle {
         return this;
     }
     /**
-     * Get the original sequence length.
+     * Get the count of valid (non-N) bases.
      * @returns {number}
      */
-    get length() {
-        const ret = wasm.sequencehandle_length(this.__wbg_ptr);
+    get valid_count() {
+        const ret = wasm.sequencehandle_valid_count(this.__wbg_ptr);
         return ret >>> 0;
-    }
-    /**
-     * Compute GC skew values for sliding windows.
-     *
-     * GC skew = (G - C) / (G + C) for each window.
-     * Returns an empty array if window_size or step_size is 0, or if
-     * the sequence is shorter than window_size.
-     *
-     * # Arguments
-     * * `window_size` - Size of the sliding window
-     * * `step_size` - Step between windows
-     *
-     * # Returns
-     * Float64Array of GC skew values, one per window position.
-     * @param {number} window_size
-     * @param {number} step_size
-     * @returns {Float64Array}
-     */
-    gc_skew(window_size, step_size) {
-        const ret = wasm.sequencehandle_gc_skew(this.__wbg_ptr, window_size, step_size);
-        var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
-        wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
-        return v1;
-    }
-    /**
-     * Compute MinHash signature for similarity estimation.
-     *
-     * Uses canonical k-mers (lexicographically smaller of forward/reverse complement)
-     * for strand-independent comparison.
-     *
-     * # Arguments
-     * * `num_hashes` - Number of hash functions (signature size)
-     * * `k` - K-mer size
-     *
-     * # Returns
-     * MinHashSignature containing the signature.
-     * @param {number} num_hashes
-     * @param {number} k
-     * @returns {MinHashSignature}
-     */
-    minhash(num_hashes, k) {
-        const ret = wasm.sequencehandle_minhash(this.__wbg_ptr, num_hashes, k);
-        return MinHashSignature.__wrap(ret);
     }
 }
 if (Symbol.dispose) SequenceHandle.prototype[Symbol.dispose] = SequenceHandle.prototype.free;
@@ -1650,12 +1391,6 @@ export class Vector3 {
         return ret;
     }
     /**
-     * @param {number} arg0
-     */
-    set x(arg0) {
-        wasm.__wbg_set_vector3_x(this.__wbg_ptr, arg0);
-    }
-    /**
      * @returns {number}
      */
     get y() {
@@ -1663,17 +1398,23 @@ export class Vector3 {
         return ret;
     }
     /**
-     * @param {number} arg0
-     */
-    set y(arg0) {
-        wasm.__wbg_set_vector3_y(this.__wbg_ptr, arg0);
-    }
-    /**
      * @returns {number}
      */
     get z() {
         const ret = wasm.__wbg_get_vector3_z(this.__wbg_ptr);
         return ret;
+    }
+    /**
+     * @param {number} arg0
+     */
+    set x(arg0) {
+        wasm.__wbg_set_vector3_x(this.__wbg_ptr, arg0);
+    }
+    /**
+     * @param {number} arg0
+     */
+    set y(arg0) {
+        wasm.__wbg_set_vector3_y(this.__wbg_ptr, arg0);
     }
     /**
      * @param {number} arg0
@@ -2945,11 +2686,9 @@ export function translate_sequence(seq, frame) {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
     }
 }
-
-export function __wbg___wbindgen_throw_dd24417ed36fc46e(arg0, arg1) {
+export function __wbg___wbindgen_throw_be289d5034ed271b(arg0, arg1) {
     throw new Error(getStringFromWasm0(arg0, arg1));
-};
-
+}
 export function __wbg_error_7534b8e9a36f1ab4(arg0, arg1) {
     let deferred0_0;
     let deferred0_1;
@@ -2960,77 +2699,62 @@ export function __wbg_error_7534b8e9a36f1ab4(arg0, arg1) {
     } finally {
         wasm.__wbindgen_free(deferred0_0, deferred0_1, 1);
     }
-};
-
-export function __wbg_length_22ac23eaec9d8053(arg0) {
+}
+export function __wbg_length_1e8b0a6e52c08b9a(arg0) {
     const ret = arg0.length;
     return ret;
-};
-
-export function __wbg_length_86ce4877baf913bb(arg0) {
+}
+export function __wbg_length_32ed9a279acd054c(arg0) {
     const ret = arg0.length;
     return ret;
-};
-
-export function __wbg_length_89c3414ed7f0594d(arg0) {
+}
+export function __wbg_length_9a7876c9728a0979(arg0) {
     const ret = arg0.length;
     return ret;
-};
-
-export function __wbg_length_ab53989976907f11(arg0) {
+}
+export function __wbg_length_b1593d937f31cef9(arg0) {
     const ret = arg0.length;
     return ret;
-};
-
+}
 export function __wbg_new_8a6f238a6ece86ea() {
     const ret = new Error();
     return ret;
-};
-
-export function __wbg_new_with_length_1e8603a5c71d4e06(arg0) {
+}
+export function __wbg_new_with_length_127a8d1c9ca8b904(arg0) {
     const ret = new Int32Array(arg0 >>> 0);
     return ret;
-};
-
-export function __wbg_new_with_length_202b3db94ba5fc86(arg0) {
+}
+export function __wbg_new_with_length_5c8e05184c8a2d70(arg0) {
     const ret = new Uint32Array(arg0 >>> 0);
     return ret;
-};
-
-export function __wbg_new_with_length_95ba657dfb7d3dfb(arg0) {
+}
+export function __wbg_new_with_length_63f2683cc2521026(arg0) {
     const ret = new Float32Array(arg0 >>> 0);
     return ret;
-};
-
-export function __wbg_new_with_length_aa5eaf41d35235e5(arg0) {
+}
+export function __wbg_new_with_length_a2c39cbe88fd8ff1(arg0) {
     const ret = new Uint8Array(arg0 >>> 0);
     return ret;
-};
-
-export function __wbg_set_169e13b608078b7b(arg0, arg1, arg2) {
-    arg0.set(getArrayU8FromWasm0(arg1, arg2));
-};
-
-export function __wbg_set_cb0e657d1901c8d8(arg0, arg1, arg2) {
-    arg0.set(getArrayF32FromWasm0(arg1, arg2));
-};
-
-export function __wbg_set_e3b17dd3e024e6de(arg0, arg1, arg2) {
-    arg0.set(getArrayI32FromWasm0(arg1, arg2));
-};
-
-export function __wbg_set_e7cd108182596b7f(arg0, arg1, arg2) {
+}
+export function __wbg_set_b2171b8c53f17490(arg0, arg1, arg2) {
     arg0.set(getArrayU32FromWasm0(arg1, arg2));
-};
-
+}
+export function __wbg_set_bd8c1bee9c255f45(arg0, arg1, arg2) {
+    arg0.set(getArrayI32FromWasm0(arg1, arg2));
+}
+export function __wbg_set_cc56eefd2dd91957(arg0, arg1, arg2) {
+    arg0.set(getArrayU8FromWasm0(arg1, arg2));
+}
+export function __wbg_set_f8edeec46569cc70(arg0, arg1, arg2) {
+    arg0.set(getArrayF32FromWasm0(arg1, arg2));
+}
 export function __wbg_stack_0ed75d68575b0f3c(arg0, arg1) {
     const ret = arg1.stack;
     const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len1 = WASM_VECTOR_LEN;
     getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
     getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
-};
-
+}
 export function __wbindgen_init_externref_table() {
     const table = wasm.__wbindgen_externrefs;
     const offset = table.grow(4);
@@ -3039,4 +2763,245 @@ export function __wbindgen_init_externref_table() {
     table.set(offset + 1, null);
     table.set(offset + 2, true);
     table.set(offset + 3, false);
-};
+}
+const BondDetectionResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_bonddetectionresult_free(ptr >>> 0, 1));
+const CgrCountsResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_cgrcountsresult_free(ptr >>> 0, 1));
+const CodonUsageResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_codonusageresult_free(ptr >>> 0, 1));
+const DenseKmerResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_densekmerresult_free(ptr >>> 0, 1));
+const DotPlotBuffersFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_dotplotbuffers_free(ptr >>> 0, 1));
+const FunctionalGroupResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_functionalgroupresult_free(ptr >>> 0, 1));
+const GridResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_gridresult_free(ptr >>> 0, 1));
+const HoeffdingResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_hoeffdingresult_free(ptr >>> 0, 1));
+const KLScanResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_klscanresult_free(ptr >>> 0, 1));
+const KmerAnalysisResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_kmeranalysisresult_free(ptr >>> 0, 1));
+const MinHashSignatureFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_minhashsignature_free(ptr >>> 0, 1));
+const Model3DFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_model3d_free(ptr >>> 0, 1));
+const MyersDiffResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_myersdiffresult_free(ptr >>> 0, 1));
+const PCAResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_pcaresult_free(ptr >>> 0, 1));
+const PCAResultF32Finalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_pcaresultf32_free(ptr >>> 0, 1));
+const PDBParseResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_pdbparseresult_free(ptr >>> 0, 1));
+const RepeatResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_repeatresult_free(ptr >>> 0, 1));
+const SequenceHandleFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_sequencehandle_free(ptr >>> 0, 1));
+const Vector3Finalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_vector3_free(ptr >>> 0, 1));
+
+function _assertClass(instance, klass) {
+    if (!(instance instanceof klass)) {
+        throw new Error(`expected instance of ${klass.name}`);
+    }
+}
+
+function getArrayF32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
+
+function getArrayF64FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
+}
+
+function getArrayI32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getInt32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
+
+function getArrayU32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
+
+function getArrayU8FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
+
+let cachedDataViewMemory0 = null;
+function getDataViewMemory0() {
+    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
+        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
+    }
+    return cachedDataViewMemory0;
+}
+
+let cachedFloat32ArrayMemory0 = null;
+function getFloat32ArrayMemory0() {
+    if (cachedFloat32ArrayMemory0 === null || cachedFloat32ArrayMemory0.byteLength === 0) {
+        cachedFloat32ArrayMemory0 = new Float32Array(wasm.memory.buffer);
+    }
+    return cachedFloat32ArrayMemory0;
+}
+
+let cachedFloat64ArrayMemory0 = null;
+function getFloat64ArrayMemory0() {
+    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
+        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
+    }
+    return cachedFloat64ArrayMemory0;
+}
+
+let cachedInt32ArrayMemory0 = null;
+function getInt32ArrayMemory0() {
+    if (cachedInt32ArrayMemory0 === null || cachedInt32ArrayMemory0.byteLength === 0) {
+        cachedInt32ArrayMemory0 = new Int32Array(wasm.memory.buffer);
+    }
+    return cachedInt32ArrayMemory0;
+}
+
+function getStringFromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return decodeText(ptr, len);
+}
+
+let cachedUint32ArrayMemory0 = null;
+function getUint32ArrayMemory0() {
+    if (cachedUint32ArrayMemory0 === null || cachedUint32ArrayMemory0.byteLength === 0) {
+        cachedUint32ArrayMemory0 = new Uint32Array(wasm.memory.buffer);
+    }
+    return cachedUint32ArrayMemory0;
+}
+
+let cachedUint8ArrayMemory0 = null;
+function getUint8ArrayMemory0() {
+    if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
+        cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
+    }
+    return cachedUint8ArrayMemory0;
+}
+
+function passArray32ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 4, 4) >>> 0;
+    getUint32ArrayMemory0().set(arg, ptr / 4);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArray8ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 1, 1) >>> 0;
+    getUint8ArrayMemory0().set(arg, ptr / 1);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArrayF32ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 4, 4) >>> 0;
+    getFloat32ArrayMemory0().set(arg, ptr / 4);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArrayF64ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 8, 8) >>> 0;
+    getFloat64ArrayMemory0().set(arg, ptr / 8);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passStringToWasm0(arg, malloc, realloc) {
+    if (realloc === undefined) {
+        const buf = cachedTextEncoder.encode(arg);
+        const ptr = malloc(buf.length, 1) >>> 0;
+        getUint8ArrayMemory0().subarray(ptr, ptr + buf.length).set(buf);
+        WASM_VECTOR_LEN = buf.length;
+        return ptr;
+    }
+
+    let len = arg.length;
+    let ptr = malloc(len, 1) >>> 0;
+
+    const mem = getUint8ArrayMemory0();
+
+    let offset = 0;
+
+    for (; offset < len; offset++) {
+        const code = arg.charCodeAt(offset);
+        if (code > 0x7F) break;
+        mem[ptr + offset] = code;
+    }
+    if (offset !== len) {
+        if (offset !== 0) {
+            arg = arg.slice(offset);
+        }
+        ptr = realloc(ptr, len, len = offset + arg.length * 3, 1) >>> 0;
+        const view = getUint8ArrayMemory0().subarray(ptr + offset, ptr + len);
+        const ret = cachedTextEncoder.encodeInto(arg, view);
+
+        offset += ret.written;
+        ptr = realloc(ptr, len, offset, 1) >>> 0;
+    }
+
+    WASM_VECTOR_LEN = offset;
+    return ptr;
+}
+
+let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+cachedTextDecoder.decode();
+const MAX_SAFARI_DECODE_BYTES = 2146435072;
+let numBytesDecoded = 0;
+function decodeText(ptr, len) {
+    numBytesDecoded += len;
+    if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
+        cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+        cachedTextDecoder.decode();
+        numBytesDecoded = len;
+    }
+    return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
+}
+
+const cachedTextEncoder = new TextEncoder();
+
+if (!('encodeInto' in cachedTextEncoder)) {
+    cachedTextEncoder.encodeInto = function (arg, view) {
+        const buf = cachedTextEncoder.encode(arg);
+        view.set(buf);
+        return {
+            read: arg.length,
+            written: buf.length
+        };
+    };
+}
+
+let WASM_VECTOR_LEN = 0;
+
+
+let wasm;
+export function __wbg_set_wasm(val) {
+    wasm = val;
+}
